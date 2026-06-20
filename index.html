@@ -111,11 +111,47 @@
   .fab{position:fixed;right:18px;bottom:90px;width:56px;height:56px;border-radius:50%;background:var(--orange);color:#fff;border:none;font-size:28px;box-shadow:0 6px 18px rgba(255,122,0,.45);cursor:pointer;z-index:40;display:flex;align-items:center;justify-content:center;}
   .fab:active{transform:scale(.92);}
 
-  .nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:8px 4px 10px;z-index:50;box-shadow:0 -2px 14px rgba(11,45,107,.05);}
-  .nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;flex:1;padding:4px;color:var(--muted);}
+  .nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:6px 4px 10px;z-index:50;box-shadow:0 -2px 14px rgba(11,45,107,.05);}
+  .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;flex:1;padding:8px 2px;min-height:56px;border-radius:12px;color:var(--muted);-webkit-tap-highlight-color:rgba(255,122,0,.15);}
+  .nav-item:active{background:rgba(255,122,0,.1);transform:scale(.96);}
   .nav-item.active{color:var(--orange);}
-  .nav-ico{font-size:21px;}
-  .nav-lbl{font-size:9px;font-weight:700;}
+  .nav-ico{font-size:24px;line-height:1;}
+  .nav-lbl{font-size:10px;font-weight:700;}
+  .planilla-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid var(--border);background:#fff;margin-bottom:14px;}
+  table.planilla{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px;}
+  table.planilla th{background:var(--blue);color:#fff;font-weight:800;padding:9px 10px;text-align:left;white-space:nowrap;position:sticky;top:0;}
+  table.planilla td{padding:8px 10px;white-space:nowrap;border-bottom:1px solid var(--border);}
+  table.planilla tr:nth-child(even) td{background:#f7f9ff;}
+  table.planilla .col-monto{font-weight:800;color:var(--green);}
+  table.planilla .col-num{color:var(--muted);font-weight:700;text-align:center;}
+  .planilla-hint{font-size:11px;color:var(--muted);margin-bottom:6px;text-align:center;}
+  .chat-bg{position:fixed;inset:0;background:rgba(11,45,107,.4);z-index:200;display:none;align-items:flex-end;}
+  .chat-bg.show{display:flex;}
+  .chat-panel{background:var(--bg);width:100%;height:92vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden;}
+  .chat-head{background:var(--blue);color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between;}
+  .chat-head-t{font-weight:800;font-size:17px;}
+  .chat-head-s{font-size:11px;opacity:.7;}
+  .chat-close{font-size:22px;cursor:pointer;background:none;border:none;color:#fff;}
+  .chat-pins{background:#fff8f0;border-bottom:1px solid var(--border);padding:8px 14px;max-height:120px;overflow-y:auto;}
+  .chat-pin{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0;color:#7a4a00;}
+  .chat-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
+  .msg{max-width:78%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.35;position:relative;word-wrap:break-word;}
+  .msg-mine{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:4px;}
+  .msg-other{align-self:flex-start;background:#fff;color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;}
+  .msg-autor{font-size:11px;font-weight:800;margin-bottom:2px;opacity:.85;}
+  .msg-time{font-size:10px;opacity:.6;margin-top:3px;text-align:right;}
+  .chat-input-bar{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid var(--border);align-items:center;}
+  .chat-input-bar input{flex:1;border:1px solid var(--border);border-radius:20px;padding:10px 14px;font-size:15px;outline:none;}
+  .chat-send{background:var(--orange);color:#fff;border:none;width:42px;height:42px;border-radius:50%;font-size:18px;cursor:pointer;flex-shrink:0;}
+  .chat-emojis{display:flex;gap:4px;padding:6px 12px;background:#fff;overflow-x:auto;border-top:1px solid var(--border);}
+  .chat-emoji{font-size:22px;cursor:pointer;background:none;border:none;padding:2px 4px;}
+  .chat-avisos{display:flex;gap:6px;padding:6px 12px;background:#fff;overflow-x:auto;border-top:1px solid var(--border);}
+  .chat-aviso-btn{white-space:nowrap;font-size:12px;font-weight:700;border:1px solid var(--border);background:#fff;border-radius:16px;padding:6px 11px;cursor:pointer;flex-shrink:0;}
+  .chat-aviso-btn:active{transform:scale(.95);}
+  .msg-aviso{align-self:center;max-width:90%;background:#fff0f0;border:1.5px solid var(--red);border-radius:14px;padding:10px 14px;font-size:13px;color:#b3261e;font-weight:700;text-align:center;}
+  .msg-aviso.azul{background:#eef4ff;border-color:var(--blue);color:var(--blue);}
+  .msg-aviso.verde{background:#f0fbf4;border-color:var(--green);color:#0a7c3a;}
+  .msg-aviso.naranja{background:#fff7ec;border-color:var(--orange);color:#b35c00;}
 
   .modal-bg{position:fixed;inset:0;background:rgba(11,45,107,.45);z-index:100;display:none;align-items:flex-end;backdrop-filter:blur(2px);}
   .modal-bg.show{display:flex;}
@@ -182,10 +218,11 @@
     <div class="logo">A</div>
     <div>
       <div class="topbar-title">CRM AmarangoElectro</div>
-      <div class="topbar-sub">Equipo Maxi &amp; Angela</div>
+      <div class="topbar-sub">Espacio AmarangoElectro</div>
     </div>
   </div>
   <div class="topbar-actions">
+    <span onclick="abrirChat()" title="Mensajes" style="position:relative;">💬<span id="chatBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
     <span onclick="exportData()" title="Backup">⤓</span>
     <span onclick="logout()" title="Salir">⏻</span>
   </div>
@@ -209,6 +246,8 @@
     <div class="quick" onclick="go('ventas')"><div class="quick-ico">💰</div><div class="quick-val" id="qVentas">0</div><div class="quick-lbl">Ventas del mes</div></div>
     <div class="quick" onclick="go('clientes')"><div class="quick-ico">👥</div><div class="quick-val" id="qClientes">0</div><div class="quick-lbl">Clientes totales</div></div>
   </div>
+  <div class="sec-title">📋 Resumen del día</div>
+  <div class="card" id="resumenDia" style="margin-bottom:14px;"></div>
   <div class="sec-title">Cobranzas pendientes</div>
   <div id="inicioCobranzas"></div>
 </div>
@@ -217,7 +256,7 @@
 <div class="view" id="view-clientes">
   <div class="view-title">Clientes</div>
   <div class="view-desc">Libreta, estado de cuenta y calificación</div>
-  <div class="search-box"><span>🔍</span><input id="searchCli" placeholder="Buscar por nombre o teléfono..." oninput="renderClientes()"></div>
+  <div class="search-box"><span>🔍</span><input id="searchCli" placeholder="Buscar por nombre, DNI o teléfono..." oninput="renderClientes()"></div>
   <div id="listaClientes"></div>
 </div>
 
@@ -225,6 +264,10 @@
 <div class="view" id="view-ventas">
   <div class="view-title">Ventas</div>
   <div class="view-desc">Registro de ventas, costos y ganancias</div>
+  <div class="seg" style="margin-bottom:12px;">
+    <button class="seg-btn active" data-vv="lista" onclick="setVistaVentas('lista',this)">📋 Lista</button>
+    <button class="seg-btn" data-vv="planilla" onclick="setVistaVentas('planilla',this)">📊 Planilla</button>
+  </div>
   <div id="listaVentas"></div>
 </div>
 
@@ -280,6 +323,22 @@
 </div>
 
 <div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal"></div></div>
+<div class="chat-bg" id="chatBg" onclick="if(event.target===this)cerrarChat()">
+  <div class="chat-panel">
+    <div class="chat-head">
+      <div><div class="chat-head-t">💬 Espacio AmarangoElectro</div><div class="chat-head-s" id="chatYo"></div></div>
+      <button class="chat-close" onclick="cerrarChat()">✕</button>
+    </div>
+    <div class="chat-pins" id="chatPins" style="display:none;"></div>
+    <div class="chat-body" id="chatBody"></div>
+    <div class="chat-emojis" id="chatEmojis"></div>
+    <div class="chat-avisos" id="chatAvisos"></div>
+    <div class="chat-input-bar">
+      <input id="chatInput" placeholder="Escribí un mensaje..." onkeydown="if(event.key==='Enter')enviarChat()">
+      <button class="chat-send" onclick="enviarChat()">➤</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -301,30 +360,33 @@ function initCloud(){
     catch(e){ CLOUD = false; }
   }
   const b=document.getElementById('cloudBadge');
-  if(CLOUD){ b.textContent='☁️ Datos en la nube — Maxi y Angela ven lo mismo'; b.classList.add('show'); }
-  else { b.textContent='📱 Modo local (sin nube) — configurá Supabase para compartir'; b.classList.add('show','off'); }
+  if(CLOUD){ b.textContent='🟢 AmarangoElectro en la nube'; b.classList.add('show'); }
+  else { b.textContent='🟡 Modo local'; b.classList.add('show','off'); }
 }
 
 /* ============ DATOS ============ */
 const DB = {
-  clientes: [], ventas: [],
+  clientes: [], ventas: [], mensajes: [],
   async load(){
     if(CLOUD){
       try{
         const {data:cli} = await sb.from('clientes').select('*');
         const {data:ven} = await sb.from('ventas').select('*');
         this.clientes = cli||[]; this.ventas = ven||[];
+        try{ const {data:msg} = await sb.from('mensajes').select('*'); this.mensajes = msg||[]; }catch(e){ this.mensajes=[]; }
         return;
       }catch(e){ console.error(e); }
     }
     try{
       this.clientes = JSON.parse(localStorage.getItem('ae_clientes')||'[]');
       this.ventas   = JSON.parse(localStorage.getItem('ae_ventas')||'[]');
-    }catch(e){ this.clientes=[]; this.ventas=[]; }
+      this.mensajes = JSON.parse(localStorage.getItem('ae_mensajes')||'[]');
+    }catch(e){ this.clientes=[]; this.ventas=[]; this.mensajes=[]; }
   },
   saveLocal(){
     localStorage.setItem('ae_clientes', JSON.stringify(this.clientes));
     localStorage.setItem('ae_ventas', JSON.stringify(this.ventas));
+    localStorage.setItem('ae_mensajes', JSON.stringify(this.mensajes));
   },
   async upsertCliente(c){
     if(CLOUD){ await sb.from('clientes').upsert(c); }
@@ -340,6 +402,18 @@ const DB = {
   },
   async delVenta(id){
     if(CLOUD){ await sb.from('ventas').delete().eq('id',id); }
+    this.saveLocal();
+  },
+  async enviarMensaje(m){
+    if(CLOUD){ await sb.from('mensajes').upsert(m); }
+    this.saveLocal();
+  },
+  async borrarMensaje(id){
+    if(CLOUD){ await sb.from('mensajes').delete().eq('id',id); }
+    this.saveLocal();
+  },
+  async recargarMensajes(){
+    if(CLOUD){ try{ const {data}=await sb.from('mensajes').select('*'); this.mensajes=data||[]; }catch(e){} }
     this.saveLocal();
   }
 };
@@ -401,6 +475,24 @@ function calificar(cliId){
   if(compras>=3) return {key:'excelente',label:'Excelente',cls:'green',ico:'🟢'};
   return {key:'bueno',label:'Bueno',cls:'yellow',ico:'🟡'};
 }
+function numCliente(c){
+  if(c.num) return c.num;
+  // Respaldo: posición por orden de alta para clientes viejos sin número
+  const ord=[...DB.clientes].sort((a,b)=>new Date(a.alta||0)-new Date(b.alta||0));
+  return ord.findIndex(x=>x.id===c.id)+1;
+}
+function nivelVIP(cliId){
+  const vs=DB.ventas.filter(v=>v.clienteId===cliId);
+  if(!vs.length) return null;
+  const compras=vs.length;
+  const gastado=vs.reduce((s,v)=>s+(v.precioVenta||0),0);
+  let atrasos=0; vs.forEach(v=>{ if(estadoVenta(v).key==='atrasado') atrasos++; });
+  const cumple = atrasos===0;
+  if(compras>=4 && gastado>=500000 && cumple) return {label:'Cliente VIP',ico:'🥇'};
+  if(compras>=2 && gastado>=250000 && cumple) return {label:'Cliente Premium',ico:'🥈'};
+  if(compras>=2) return {label:'Cliente Frecuente',ico:'🥉'};
+  return null;
+}
 
 /* ============ NAVEGACIÓN ============ */
 let currentView='inicio';
@@ -424,6 +516,7 @@ function render(){
   if(currentView==='ventas') renderVentas();
   if(currentView==='cobranzas') renderCobranzas();
   if(currentView==='finanzas') renderFinanzas();
+  if(typeof actualizarBadge==='function') actualizarBadge();
 }
 function mesActual(f){ const d=new Date(f),n=new Date(); return d.getMonth()===n.getMonth()&&d.getFullYear()===n.getFullYear(); }
 
@@ -454,27 +547,64 @@ function renderInicio(){
       <div><div class="alert-t">${cli.nombre}</div><div class="alert-x">${x.v.producto} · Cuota ${x.e.px.num} · vence ${dispDate(x.e.px.vence)}</div></div>
       <span class="alert-go" style="color:var(--blue);font-weight:800;font-size:13px;">$${fmt(x.e.px.monto)}</span></div>`;
   }).join('');
+  // Resumen del día
+  const rd=document.getElementById('resumenDia');
+  if(rd){
+    const ventasHoy=DB.ventas.filter(v=>v.fecha===hoyStr);
+    const ventasHoyTot=ventasHoy.reduce((s,v)=>s+v.precioVenta,0);
+    const ganHoy=ventasHoy.reduce((s,v)=>s+(v.precioVenta-v.precioCosto-(v.envio||0)),0);
+    let cuotasVenc=0,cuotasVencMonto=0;
+    DB.ventas.forEach(v=>{ const e=estadoVenta(v); if(e.key==='atrasado'){cuotasVenc++; cuotasVencMonto+=(e.px?e.px.monto:0);} });
+    const filas=[
+      ['🛒 Ventas de hoy', ventasHoy.length+' · $'+fmt(ventasHoyTot)],
+      ['💰 Ganancia de hoy', '$'+fmt(ganHoy)],
+      ['🔴 Cuotas vencidas', cuotasVenc+' · $'+fmt(cuotasVencMonto)]
+    ];
+    rd.innerHTML=filas.map((f,i)=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:7px 0;${i<filas.length-1?'border-bottom:1px solid var(--border);':''}"><span style="color:var(--muted);">${f[0]}</span><span style="font-weight:800;color:var(--blue);">${f[1]}</span></div>`).join('');
+  }
 }
 
 function renderClientes(){
   const q=(document.getElementById('searchCli').value||'').toLowerCase();
-  let cs=DB.clientes.filter(c=>c.nombre.toLowerCase().includes(q)||(c.telefono||'').includes(q));
+  let cs=DB.clientes.filter(c=>c.nombre.toLowerCase().includes(q)||(c.telefono||'').includes(q)||(c.dni||'').includes(q));
   cs.sort((a,b)=>a.nombre.localeCompare(b.nombre));
   const cont=document.getElementById('listaClientes');
   if(!cs.length){ cont.innerHTML=emptyState('👥','Sin clientes','Tocá el + para agregar el primero'); return; }
   cont.innerHTML=cs.map(c=>{
     const cal=calificar(c.id); const nv=DB.ventas.filter(v=>v.clienteId===c.id).length;
+    const vip=nivelVIP(c.id);
     return `<div class="list-item" onclick="detalleCliente('${c.id}')">
       <div class="avatar" style="background:${avatarColor(c.nombre)}">${initials(c.nombre)}</div>
-      <div class="li-info"><div class="li-name">${c.nombre}</div><div class="li-meta">${c.localidad||'—'} · ${nv} compra${nv!==1?'s':''}</div></div>
+      <div class="li-info"><div class="li-name">#${numCliente(c)} · ${c.nombre} ${vip?vip.ico:''}</div><div class="li-meta">${c.localidad||'—'} · ${nv} compra${nv!==1?'s':''}</div></div>
       <div class="li-right"><span class="rating-pill rp-${cal.cls}">${cal.ico} ${cal.label}</span></div></div>`;
   }).join('');
 }
 
+let vistaVentas='lista';
+function setVistaVentas(v,el){ vistaVentas=v; document.querySelectorAll('[data-vv]').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderVentas(); }
 function renderVentas(){
   const cont=document.getElementById('listaVentas');
   let vs=[...DB.ventas].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
   if(!vs.length){ cont.innerHTML=emptyState('💰','Sin ventas','Registrá tu primera venta con el +'); return; }
+  if(vistaVentas==='planilla'){
+    cont.innerHTML=`<div class="planilla-hint">← deslizá la tabla para ver todas las columnas →</div>
+    <div class="planilla-wrap"><table class="planilla">
+      <thead><tr><th>Nombre</th><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th></tr></thead>
+      <tbody>${vs.map(v=>{
+        const cli=DB.clientes.find(c=>c.id===v.clienteId)||{nombre:'?'};
+        return `<tr onclick="detalleVenta('${v.id}')" style="cursor:pointer;">
+          <td>${cli.nombre}</td>
+          <td><b>${v.producto}</b></td>
+          <td class="col-num">${v.cuotas>1?'de '+v.cuotas:'Contado'}</td>
+          <td class="col-monto">$${fmt(v.precioVenta)}</td>
+          <td>${dispDate(v.fecha)}</td>
+          <td style="color:var(--orange);font-weight:700;">${v.inversionista||'—'}</td>
+          <td>${v.revendedor||'—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+    return;
+  }
   cont.innerHTML=vs.map(v=>{
     const cli=DB.clientes.find(c=>c.id===v.clienteId)||{nombre:'?'};
     const e=estadoVenta(v);
@@ -548,29 +678,37 @@ function emptyState(i,t,x){ return `<div class="empty"><div class="empty-ico">${
 function formCliente(edit){
   const c=edit||{};
   openModal(`<div class="modal-title">${edit?'Editar':'Nuevo'} cliente</div><div class="modal-sub">Datos para la libreta</div>
-    <div class="field"><label>Nombre completo *</label><input id="f_nombre" value="${c.nombre||''}" placeholder="Ej: Ana Soto"></div>
-    <div class="field-row"><div class="field"><label>Teléfono</label><input id="f_tel" value="${c.telefono||''}" placeholder="11..." inputmode="tel"></div>
-    <div class="field"><label>Localidad</label><input id="f_loc" value="${c.localidad||''}" placeholder="Localidad"></div></div>
+    <div class="field"><label>Nombre completo *</label><input id="f_nombre" value="${c.nombre||''}" placeholder="Nombre y apellido"></div>
+    <div class="field-row"><div class="field"><label>DNI</label><input id="f_dni" value="${c.dni||''}" placeholder="Documento" inputmode="numeric"></div>
+    <div class="field"><label>Teléfono</label><input id="f_tel" value="${c.telefono||''}" placeholder="11..." inputmode="tel"></div></div>
+    <div class="field"><label>Celular 2 <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input id="f_tel2" value="${c.telefono2||''}" placeholder="Otro teléfono" inputmode="tel"></div>
+    <div class="field"><label>Localidad</label><input id="f_loc" value="${c.localidad||''}" placeholder="Localidad"></div>
     <div class="field"><label>Dirección</label><input id="f_dir" value="${c.direccion||''}" placeholder="Calle y número"></div>
+    <div class="field-row"><div class="field"><label>Cliente de revendedor <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="f_revend" value="${c.revendedor||''}" placeholder="Nombre revendedor"></div>
+    <div class="field"><label>Inversionista <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="f_inver" value="${c.inversionista||''}" placeholder="Nombre"></div></div>
     <div class="field"><label>Observaciones</label><textarea id="f_obs" placeholder="Notas...">${c.observaciones||''}</textarea></div>
     <button class="btn btn-orange" onclick="saveCliente('${edit?edit.id:''}')">💾 Guardar cliente</button>`);
 }
 async function saveCliente(id){
   const nombre=document.getElementById('f_nombre').value.trim();
   if(!nombre){ toast('Poné un nombre'); return; }
-  const data={ nombre, telefono:document.getElementById('f_tel').value.trim(), localidad:document.getElementById('f_loc').value.trim(), direccion:document.getElementById('f_dir').value.trim(), observaciones:document.getElementById('f_obs').value.trim() };
+  const data={ nombre, dni:document.getElementById('f_dni').value.trim(), telefono:document.getElementById('f_tel').value.trim(), telefono2:document.getElementById('f_tel2').value.trim(), localidad:document.getElementById('f_loc').value.trim(), direccion:document.getElementById('f_dir').value.trim(), revendedor:document.getElementById('f_revend').value.trim(), inversionista:document.getElementById('f_inver').value.trim(), observaciones:document.getElementById('f_obs').value.trim() };
   let rec;
   if(id){ rec=DB.clientes.find(x=>x.id===id); Object.assign(rec,data); }
-  else { rec={id:'c'+Date.now(), alta:isoDate(today()), ...data}; DB.clientes.push(rec); }
+  else { 
+    const maxNum=DB.clientes.reduce((m,c)=>Math.max(m,c.num||0),0);
+    rec={id:'c'+Date.now(), num:maxNum+1, alta:isoDate(today()), ...data}; 
+    DB.clientes.push(rec); 
+  }
   await DB.upsertCliente(rec); closeModal(); toast('Cliente guardado'); render();
 }
 
 /* ============ FORM VENTA ============ */
 let ventaCuotasSel=1;
-function formVenta(){
+function formVenta(preCliente){
   if(!DB.clientes.length){ toast('Primero cargá un cliente'); formCliente(); return; }
   ventaCuotasSel=1;
-  const opts=DB.clientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  const opts=DB.clientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(c=>`<option value="${c.id}" ${preCliente===c.id?'selected':''}>${c.nombre}</option>`).join('');
   openModal(`<div class="modal-title">Nueva venta</div><div class="modal-sub">Producto, precios y plan de pago</div>
     <div class="field"><label>Cliente *</label><select id="v_cli">${opts}</select></div>
     <div class="field"><label>Producto *</label><input id="v_prod" placeholder="Ej: Moto G15 128GB"></div>
@@ -579,15 +717,27 @@ function formVenta(){
     <div class="field-row"><div class="field"><label>Envío</label><input id="v_envio" type="number" inputmode="numeric" placeholder="0" oninput="calcGan()"></div>
     <div class="field"><label>Responsable</label><select id="v_resp"><option>Maxi</option><option>Angela</option><option>Sabry</option><option>Guido</option></select></div></div>
     <div class="field"><label>Fecha</label><input id="v_fecha" type="date" value="${isoDate(today())}"></div>
+    <div class="field-row"><div class="field"><label>Inversionista <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="v_inver" placeholder="Ej: Angie / Maxi"></div>
+    <div class="field"><label>Revendedor <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="v_revend" placeholder="Ej: Carla"></div></div>
     <div style="background:var(--bg);border-radius:11px;padding:10px 12px;margin-bottom:12px;display:flex;justify-content:space-between;font-size:13px;font-weight:700;"><span style="color:var(--muted);">Ganancia estimada</span><span id="v_gan" style="color:var(--green);">$0</span></div>
+    <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="v_desc" style="width:auto;" onchange="calcGan();renderPlan()"> Aplicar descuento 10%</label><div id="descPreview"></div></div>
     <div class="field"><label>Plan de pago</label><div id="cuotasChips">${[1,2,3,4,5,6].map(n=>`<span class="chip ${n===1?'sel':''}" data-c="${n}" onclick="selCuota(${n})">${n===1?'Contado':n+' cuotas'}</span>`).join('')}</div></div>
     <div id="planPreview"></div>
     <button class="btn btn-orange" onclick="saveVenta()">💾 Registrar venta</button>`);
 }
 function selCuota(n){ ventaCuotasSel=n; document.querySelectorAll('#cuotasChips .chip').forEach(x=>x.classList.toggle('sel',+x.dataset.c===n)); renderPlan(); }
-function calcGan(){ const v=+document.getElementById('v_venta').value||0,c=+document.getElementById('v_costo').value||0,e=+document.getElementById('v_envio').value||0; document.getElementById('v_gan').textContent='$'+fmt(v-c-e); }
+function calcGan(){ const v=precioFinal(),c=+document.getElementById('v_costo').value||0,e=+document.getElementById('v_envio').value||0; document.getElementById('v_gan').textContent='$'+fmt(v-c-e); }
+function precioFinal(){
+  const base=+document.getElementById('v_venta').value||0;
+  const desc=document.getElementById('v_desc')&&document.getElementById('v_desc').checked;
+  return desc ? Math.round(base*0.9) : base;
+}
 function renderPlan(){
-  const venta=+document.getElementById('v_venta').value||0; const cont=document.getElementById('planPreview');
+  const venta=precioFinal(); const cont=document.getElementById('planPreview');
+  const base=+document.getElementById('v_venta').value||0;
+  const dEl=document.getElementById('descPreview');
+  const desc=document.getElementById('v_desc')&&document.getElementById('v_desc').checked;
+  if(dEl){ dEl.innerHTML = (desc&&base) ? `<div style="font-size:12px;margin-top:6px;color:var(--muted);">Original: <s>$${fmt(base)}</s> · <b style="color:var(--green);">Con descuento: $${fmt(venta)}</b></div>` : ''; }
   if(!venta||ventaCuotasSel<=1){ cont.innerHTML=''; return; }
   const m=planCuotas(venta,ventaCuotasSel); const total=m.reduce((s,x)=>s+x,0);
   cont.innerHTML=`<div style="background:#fff8f0;border-radius:11px;padding:10px 12px;margin-bottom:12px;font-size:12px;"><div style="display:flex;justify-content:space-between;font-weight:800;color:var(--blue);"><span>${ventaCuotasSel} cuotas de</span><span style="color:var(--orange);">$${fmt(m[0])}</span></div><div style="display:flex;justify-content:space-between;color:var(--muted);margin-top:4px;"><span>Total financiado</span><span>$${fmt(total)}</span></div></div>`;
@@ -595,13 +745,16 @@ function renderPlan(){
 async function saveVenta(){
   const clienteId=document.getElementById('v_cli').value;
   const producto=document.getElementById('v_prod').value.trim();
-  const precioVenta=+document.getElementById('v_venta').value||0;
+  const precioVenta=precioFinal();
   if(!producto||!precioVenta){ toast('Falta producto o precio'); return; }
-  const rec={ id:'v'+Date.now(), clienteId, producto, precioCosto:+document.getElementById('v_costo').value||0, precioVenta, envio:+document.getElementById('v_envio').value||0, responsable:document.getElementById('v_resp').value, fecha:document.getElementById('v_fecha').value, cuotas:ventaCuotasSel, pagadas:0 };
+  const rec={ id:'v'+Date.now(), clienteId, producto, precioCosto:+document.getElementById('v_costo').value||0, precioVenta, envio:+document.getElementById('v_envio').value||0, responsable:document.getElementById('v_resp').value, inversionista:(document.getElementById('v_inver')?document.getElementById('v_inver').value.trim():''), revendedor:(document.getElementById('v_revend')?document.getElementById('v_revend').value.trim():''), fecha:document.getElementById('v_fecha').value, cuotas:ventaCuotasSel, pagadas:0 };
   DB.ventas.push(rec); await DB.upsertVenta(rec); closeModal(); toast('Venta registrada'); render();
+  setTimeout(()=>detalleCliente(clienteId), 250);
 }
 
 /* ============ DETALLE CLIENTE (estado de cuenta) ============ */
+let vistaCliente='tarjetas';
+function setVistaCliente(v,id){ vistaCliente=v; detalleCliente(id); }
 function detalleCliente(id){
   const c=DB.clientes.find(x=>x.id===id); if(!c)return;
   const cal=calificar(id);
@@ -610,12 +763,16 @@ function detalleCliente(id){
   let deuda=0,pagado=0;
   vs.forEach(v=>ventaCuotas(v).forEach(q=>{ if(q.pagada)pagado+=q.monto; else deuda+=q.monto; }));
   openModal(`<div class="detail-head"><div class="detail-avatar" style="background:${avatarColor(c.nombre)}">${initials(c.nombre)}</div>
-    <div><div class="detail-name">${c.nombre}</div><span class="rating-pill rp-${cal.cls}">${cal.ico} Cliente ${cal.label}</span></div></div>
+    <div><div class="detail-name">#${numCliente(c)} · ${c.nombre} ${(nivelVIP(c.id)?nivelVIP(c.id).ico:'')}</div><span class="rating-pill rp-${cal.cls}">${cal.ico} Cliente ${cal.label}</span>${nivelVIP(c.id)?` <span class="rating-pill rp-yellow">${nivelVIP(c.id).ico} ${nivelVIP(c.id).label}</span>`:''}</div></div>
     <div class="info-grid">
+      <div class="info-box"><div class="info-lbl">DNI</div><div class="info-val">${c.dni||'—'}</div></div>
       <div class="info-box"><div class="info-lbl">Teléfono</div><div class="info-val">${c.telefono||'—'}</div></div>
+      ${c.telefono2?`<div class="info-box"><div class="info-lbl">Celular 2</div><div class="info-val">${c.telefono2}</div></div>`:''}
       <div class="info-box"><div class="info-lbl">Localidad</div><div class="info-val">${c.localidad||'—'}</div></div>
       <div class="info-box"><div class="info-lbl">Dirección</div><div class="info-val">${c.direccion||'—'}</div></div>
       <div class="info-box"><div class="info-lbl">Cliente desde</div><div class="info-val">${dispDate(c.alta)}</div></div>
+      ${c.revendedor?`<div class="info-box"><div class="info-lbl">🤝 Cliente de revendedor</div><div class="info-val">${c.revendedor}</div></div>`:''}
+      ${c.inversionista?`<div class="info-box"><div class="info-lbl">💼 Inversionista</div><div class="info-val">${c.inversionista}</div></div>`:''}
     </div>
     <div class="info-grid">
       <div class="info-box" style="background:#f0fbf4;"><div class="info-lbl">Pagado</div><div class="info-val" style="color:var(--green);">$${fmt(pagado)}</div></div>
@@ -624,8 +781,36 @@ function detalleCliente(id){
     ${c.observaciones?`<div class="info-box" style="margin-bottom:14px;"><div class="info-lbl">Observaciones</div><div class="info-val" style="font-weight:500;">${c.observaciones}</div></div>`:''}
     <div class="btn-row" style="margin-bottom:8px;">${c.telefono?`<button class="btn btn-green btn-sm" onclick="waCliente('${id}')">💬 WhatsApp</button>`:'<div></div>'}<button class="btn btn-ghost btn-sm" onclick="formCliente(DB.clientes.find(x=>x.id==='${id}'))">✏️ Editar</button></div>
     <div class="sec-title">Historial de compras (${vs.length})</div>
-    <div style="margin-bottom:6px;font-size:12px;color:var(--muted);">Total comprado: <b style="color:var(--blue);">$${fmt(totalComprado)}</b></div>
-    ${vs.length?vs.map(v=>{const e=estadoVenta(v);return `<div class="list-item" onclick="detalleVenta('${v.id}')"><div class="rdot" style="background:var(--${e.cls==='green'?'green':e.cls==='red'?'red':'orange'});"></div><div class="li-info"><div class="li-name">${v.producto}</div><div class="li-meta">${v.cuotas>1?v.cuotas+' cuotas':'Contado'} · ${dispDate(v.fecha)}</div></div><div class="li-right"><div class="li-amt">$${fmt(v.precioVenta)}</div><div class="li-tag" style="color:var(--${e.cls==='green'?'green':e.cls==='red'?'red':'orange'});">${e.label}</div></div></div>`}).join(''):'<div class="empty-x" style="color:var(--muted);">Sin compras todavía</div>'}
+    <div style="margin-bottom:10px;font-size:12px;color:var(--muted);">Total comprado: <b style="color:var(--blue);">$${fmt(totalComprado)}</b></div>
+    ${vs.length?`<div class="seg" style="margin-bottom:10px;">
+      <button class="seg-btn ${vistaCliente==='tarjetas'?'active':''}" onclick="setVistaCliente('tarjetas','${id}')">🗂️ Tarjetas</button>
+      <button class="seg-btn ${vistaCliente==='planilla'?'active':''}" onclick="setVistaCliente('planilla','${id}')">📊 Planilla</button>
+    </div>`:''}
+    ${!vs.length?'<div class="empty-x" style="color:var(--muted);margin-bottom:10px;">Sin compras todavía</div>':
+      vistaCliente==='planilla'?
+      `<div class="planilla-hint">← deslizá para ver más →</div><div class="planilla-wrap"><table class="planilla">
+        <thead><tr><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Inversionista</th><th>Revendedor</th></tr></thead>
+        <tbody>${vs.map(v=>{const e=estadoVenta(v);return `<tr onclick="detalleVenta('${v.id}')" style="cursor:pointer;">
+          <td><b>${v.producto}</b></td><td class="col-num">${v.cuotas>1?'de '+v.cuotas:'Contado'}</td>
+          <td class="col-monto">$${fmt(v.precioVenta)}</td><td>${dispDate(v.fecha)}</td>
+          <td style="color:var(--${e.cls==='green'?'green':e.cls==='red'?'red':'orange'});font-weight:700;">${e.label}</td>
+          <td style="color:var(--orange);">${v.inversionista||'—'}</td><td>${v.revendedor||'—'}</td></tr>`;}).join('')}</tbody>
+      </table></div>`:
+      vs.map(v=>{
+        const e=estadoVenta(v);
+        const col=e.cls==='green'?'green':e.cls==='red'?'red':'orange';
+        return `<div class="card" style="margin-bottom:10px;padding:12px 14px;border-left:4px solid var(--${col});cursor:pointer;" onclick="detalleVenta('${v.id}')">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+            <div style="font-weight:800;color:var(--blue);font-size:15px;">📦 ${v.producto}</div>
+            <div class="li-tag" style="color:var(--${col});white-space:nowrap;">${e.label}</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;">
+            <span style="color:var(--muted);">${v.cuotas>1?v.cuotas+' cuotas':'Contado'} · ${dispDate(v.fecha)}</span>
+            <span style="font-weight:800;color:var(--orange);">$${fmt(v.precioVenta)}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    <button class="btn btn-orange" style="margin-top:4px;" onclick="formVenta('${id}')">➕ Agregar producto / venta</button>
     <button class="btn btn-ghost btn-sm" style="margin-top:12px;color:var(--red);" onclick="delCliente('${id}')">🗑️ Eliminar cliente</button>`);
 }
 async function delCliente(id){ if(!confirm('¿Eliminar este cliente y sus ventas?'))return; DB.clientes=DB.clientes.filter(c=>c.id!==id); DB.ventas=DB.ventas.filter(v=>v.clienteId!==id); await DB.delCliente(id); closeModal(); toast('Cliente eliminado'); render(); }
@@ -659,7 +844,11 @@ const MSG_COBRANZA = `😃 Hola, te recordamos que se aproxima la fecha de venci
 function waCobranza(id){
   const v=DB.ventas.find(x=>x.id===id); const c=DB.clientes.find(x=>x.id===v.clienteId);
   if(!c.telefono){ toast('El cliente no tiene teléfono'); return; }
-  window.open(waLink(c.telefono,MSG_COBRANZA),'_blank');
+  const px=proxVencimiento(v);
+  const nombre=(c.nombre||'').split(' ')[0];
+  let msg=MSG_COBRANZA;
+  if(px){ msg=`😃 Hola ${nombre}, te recordamos que tu cuota vence el día ${dispDate(px.vence)}.\n\nSi ya abonaste, ignorá este mensaje.\n\n¡Gracias por confiar en AmarangoElectro! 🐝`; }
+  window.open(waLink(c.telefono,msg),'_blank');
 }
 function waMasivo(filtro){
   // junta clientes únicos con cuota en ese estado
@@ -689,18 +878,9 @@ function exportData(){
 
 /* ============ DEMO (solo modo local, primera vez) ============ */
 function seedDemo(){
+  // Sin datos de prueba. El CRM arranca limpio.
   if(CLOUD) return;
-  if(localStorage.getItem('ae_seeded'))return;
-  DB.clientes=[
-    {id:'c1',nombre:'Ana Soto',telefono:'1145678901',localidad:'Lanús',direccion:'Av. Hipólito 123',observaciones:'Clienta frecuente, paga puntual',alta:isoDate(today())},
-    {id:'c2',nombre:'Carla Kemex',telefono:'1156789012',localidad:'Avellaneda',direccion:'',observaciones:'',alta:isoDate(today())},
-  ];
-  const hace2m=addMonths(today(),-2);
-  DB.ventas=[
-    {id:'v1',clienteId:'c1',producto:'Moto G15 128GB',precioCosto:180000,precioVenta:280000,envio:5000,responsable:'Maxi',fecha:isoDate(hace2m),cuotas:6,pagadas:1},
-    {id:'v2',clienteId:'c2',producto:'Cocina Peabody',precioCosto:70000,precioVenta:117777,envio:0,responsable:'Sabry',fecha:isoDate(today()),cuotas:2,pagadas:0},
-  ];
-  DB.saveLocal(); localStorage.setItem('ae_seeded','1');
+  localStorage.setItem('ae_seeded','1');
 }
 
 /* ============ LOGIN ============ */
@@ -723,7 +903,144 @@ async function startApp(){
   await DB.load();
   if(!DB.clientes.length && !DB.ventas.length){ seedDemo(); await DB.load(); }
   render();
+  // Revisar mensajes nuevos cada 20s (para el puntito rojo), solo si el chat está cerrado
+  setInterval(async()=>{
+    if(document.getElementById('chatBg') && document.getElementById('chatBg').classList.contains('show')) return;
+    await DB.recargarMensajes();
+    if(typeof actualizarBadge==='function') actualizarBadge();
+  }, 20000);
 }
+/* ============ DESLIZAR ENTRE PÁGINAS ============ */
+const ORDEN_VISTAS=['inicio','clientes','ventas','cobranzas','finanzas'];
+let swX=0, swY=0, swActivo=false;
+document.addEventListener('touchstart',(e)=>{
+  if(e.touches.length!==1){ swActivo=false; return; }
+  // No deslizar si el gesto arranca sobre una tabla planilla, un modal o un select
+  if(e.target.closest('.planilla-wrap, .modal-bg, select, input, textarea')){ swActivo=false; return; }
+  swX=e.touches[0].clientX; swY=e.touches[0].clientY; swActivo=true;
+},{passive:true});
+document.addEventListener('touchend',(e)=>{
+  if(!swActivo) return; swActivo=false;
+  const dx=e.changedTouches[0].clientX-swX;
+  const dy=e.changedTouches[0].clientY-swY;
+  // Solo si es claramente horizontal y suficientemente largo
+  if(Math.abs(dx)<70 || Math.abs(dx)<Math.abs(dy)*1.8) return;
+  // No cambiar de página si hay un modal abierto
+  if(document.getElementById('modalBg').classList.contains('show')) return;
+  let i=ORDEN_VISTAS.indexOf(currentView);
+  if(i<0) return;
+  if(dx<0 && i<ORDEN_VISTAS.length-1) go(ORDEN_VISTAS[i+1]);   // dedo a la izquierda → siguiente
+  else if(dx>0 && i>0) go(ORDEN_VISTAS[i-1]);                  // dedo a la derecha → anterior
+},{passive:true});
+
+/* ============ CHAT INTERNO ============ */
+const CHAT_EMOJIS=['👍','❤️','✅','⚠️','📦','💰','📲','🚚','👀','🐝','🔥','🙌'];
+const CHAT_AVISOS=[
+  {txt:'⚠️ Mirá la planilla', color:'rojo'},
+  {txt:'💰 Inversión a definir', color:'azul'},
+  {txt:'🔴 Atraso de pago', color:'rojo'},
+  {txt:'🚚 Pendiente de entrega', color:'naranja'},
+  {txt:'💵 Pago en efectivo', color:'verde'},
+  {txt:'🏦 Pago por transferencia', color:'verde'},
+  {txt:'👀 Revisar pendiente', color:'naranja'}
+];
+let chatTimer=null;
+function miNombre(){ return localStorage.getItem('ae_chat_nombre')||''; }
+function pedirNombre(){
+  const n=prompt('¿Cómo te llamás? (aparecerá en tus mensajes)','');
+  if(n&&n.trim()){ localStorage.setItem('ae_chat_nombre', n.trim()); return n.trim(); }
+  return '';
+}
+async function abrirChat(){
+  let yo=miNombre();
+  if(!yo){ yo=pedirNombre(); if(!yo) return; }
+  document.getElementById('chatYo').textContent='Sos: '+yo;
+  // emojis rápidos
+  document.getElementById('chatEmojis').innerHTML=CHAT_EMOJIS.map(e=>`<button class="chat-emoji" onclick="addEmoji('${e}')">${e}</button>`).join('');
+  // avisos rápidos
+  document.getElementById('chatAvisos').innerHTML=CHAT_AVISOS.map((a,i)=>`<button class="chat-aviso-btn" onclick="enviarAviso(${i})">${a.txt}</button>`).join('');
+  document.getElementById('chatBg').classList.add('show');
+  await DB.recargarMensajes();
+  localStorage.setItem('ae_chat_visto', Date.now());
+  pintarChat(); actualizarBadge();
+  // refresco automático cada 5 segundos mientras está abierto
+  if(chatTimer) clearInterval(chatTimer);
+  chatTimer=setInterval(async()=>{ await DB.recargarMensajes(); pintarChat(); }, 5000);
+}
+function cerrarChat(){
+  document.getElementById('chatBg').classList.remove('show');
+  if(chatTimer){ clearInterval(chatTimer); chatTimer=null; }
+  localStorage.setItem('ae_chat_visto', Date.now());
+  actualizarBadge();
+}
+function addEmoji(e){ const i=document.getElementById('chatInput'); i.value+=e; i.focus(); }
+async function enviarAviso(idx){
+  const a=CHAT_AVISOS[idx]; if(!a) return;
+  const yo=miNombre()||pedirNombre(); if(!yo) return;
+  const m={ id:'m'+Date.now()+Math.floor(Math.random()*1000), autor:yo, texto:a.txt, ts:Date.now(), fijado:false, tipo:'aviso', color:a.color };
+  DB.mensajes.push(m); pintarChat();
+  await DB.enviarMensaje(m);
+  localStorage.setItem('ae_chat_visto', Date.now());
+  toast('Aviso enviado 📨');
+}
+function pintarChat(){
+  const body=document.getElementById('chatBody');
+  const yo=miNombre();
+  const msgs=[...DB.mensajes].sort((a,b)=>a.ts-b.ts);
+  // notas fijadas
+  const pins=msgs.filter(m=>m.fijado);
+  const pinBox=document.getElementById('chatPins');
+  if(pins.length){
+    pinBox.style.display='block';
+    pinBox.innerHTML='<div style="font-weight:800;font-size:11px;color:#7a4a00;margin-bottom:2px;">📌 NOTAS FIJADAS</div>'+pins.map(m=>`<div class="chat-pin"><span>📌</span><div><b>${m.autor}:</b> ${escHtml(m.texto)} <span onclick="fijarMensaje('${m.id}',false)" style="color:var(--muted);cursor:pointer;">(quitar)</span></div></div>`).join('');
+  } else { pinBox.style.display='none'; pinBox.innerHTML=''; }
+  if(!msgs.length){ body.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;margin:auto;">No hay mensajes todavía.<br>¡Escribí el primero! 🐝</div>'; return; }
+  body.innerHTML=msgs.map(m=>{
+    const mine=m.autor===yo;
+    if(m.tipo==='aviso'){
+      const colCls=m.color==='azul'?'azul':m.color==='verde'?'verde':m.color==='naranja'?'naranja':'';
+      return `<div class="msg-aviso ${colCls}" ondblclick="fijarMensaje('${m.id}',${!m.fijado})">${m.fijado?'📌 ':''}${escHtml(m.texto)}<div style="font-size:10px;opacity:.7;font-weight:600;margin-top:3px;">— ${escHtml(m.autor)} · ${horaMsg(m.ts)}${mine?` · <span onclick="borrarMsg('${m.id}')" style="cursor:pointer;">🗑️</span>`:''}</div></div>`;
+    }
+    return `<div class="msg ${mine?'msg-mine':'msg-other'}" ondblclick="fijarMensaje('${m.id}',${!m.fijado})">
+      ${!mine?`<div class="msg-autor">${escHtml(m.autor)}</div>`:''}
+      ${m.texto?`<div>${escHtml(m.texto)}</div>`:''}
+      <div class="msg-time">${m.fijado?'📌 ':''}${horaMsg(m.ts)}${mine?` · <span onclick="borrarMsg('${m.id}')" style="cursor:pointer;">🗑️</span>`:''}</div>
+    </div>`;
+  }).join('');
+  body.scrollTop=body.scrollHeight;
+}
+function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function horaMsg(ts){ const d=new Date(ts); const hoy=new Date(); const sameDay=d.toDateString()===hoy.toDateString(); const hh=d.getHours().toString().padStart(2,'0'), mm=d.getMinutes().toString().padStart(2,'0'); return sameDay?`${hh}:${mm}`:`${d.getDate()}/${d.getMonth()+1} ${hh}:${mm}`; }
+async function enviarChat(){
+  const inp=document.getElementById('chatInput'); const txt=inp.value.trim();
+  if(!txt) return;
+  const yo=miNombre()||pedirNombre(); if(!yo) return;
+  const m={ id:'m'+Date.now()+Math.floor(Math.random()*1000), autor:yo, texto:txt, ts:Date.now(), fijado:false };
+  DB.mensajes.push(m); inp.value='';
+  pintarChat();
+  await DB.enviarMensaje(m);
+  localStorage.setItem('ae_chat_visto', Date.now());
+}
+async function fijarMensaje(id,estado){
+  const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
+  m.fijado=estado; pintarChat();
+  await DB.enviarMensaje(m);
+  toast(estado?'📌 Nota fijada':'Nota quitada');
+}
+async function borrarMsg(id){
+  if(!confirm('¿Borrar este mensaje?')) return;
+  DB.mensajes=DB.mensajes.filter(x=>x.id!==id); pintarChat();
+  await DB.borrarMensaje(id);
+}
+function actualizarBadge(){
+  const badge=document.getElementById('chatBadge'); if(!badge) return;
+  const visto=+(localStorage.getItem('ae_chat_visto')||0);
+  const yo=miNombre();
+  const nuevos=DB.mensajes.filter(m=>m.ts>visto && m.autor!==yo).length;
+  if(nuevos>0){ badge.style.display='block'; badge.textContent=nuevos>9?'9+':nuevos; }
+  else { badge.style.display='none'; }
+}
+
 window.addEventListener('DOMContentLoaded',()=>{
   if(sessionStorage.getItem('ae_auth')==='1'){ document.getElementById('loginScreen').classList.add('hide'); startApp(); }
 });
