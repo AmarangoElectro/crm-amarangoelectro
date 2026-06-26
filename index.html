@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AmarangoElectro</title>
+<meta name="theme-color" content="#0B2D6B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AmarangoElectro">
+<link rel="manifest" id="manifestLink">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -3818,11 +3823,13 @@ async function startApp(){
   if(!DB.clientes.length && !DB.ventas.length){ seedDemo(); await DB.load(); }
   render();
   iniciarPresencia();
+  pedirPermisoNotif();
   // Revisar mensajes nuevos cada 20s (para el puntito rojo), solo si el chat está cerrado
   setInterval(async()=>{
     if(document.getElementById('chatBg') && document.getElementById('chatBg').classList.contains('show')) return;
     await DB.recargarMensajes();
     if(typeof actualizarBadge==='function') actualizarBadge();
+    if(typeof revisarYNotificar==='function') revisarYNotificar();
   }, 20000);
 }
 /* ============ DESLIZAR ENTRE PÁGINAS ============ */
@@ -3957,6 +3964,81 @@ function actualizarBadge(){
   const nuevos=DB.mensajes.filter(m=>m.ts>visto && m.autor!==yo).length;
   if(nuevos>0){ badge.style.display='block'; badge.textContent=nuevos>9?'9+':nuevos; }
   else { badge.style.display='none'; }
+}
+
+/* ============ PWA: APP INSTALABLE + NOTIFICACIONES ============ */
+const APP_NOMBRE = "AmarangoElectro";
+// Arma el manifest dinámicamente usando el logo embebido como ícono
+(function montarManifest(){
+  try{
+    const icon = (typeof LOGO_AE==='string' && LOGO_AE) ? LOGO_AE : '';
+    const manifest = {
+      name: APP_NOMBRE,
+      short_name: APP_NOMBRE,
+      start_url: ".",
+      display: "standalone",
+      background_color: "#ffffff",
+      theme_color: "#0B2D6B",
+      icons: icon ? [
+        { src: icon, sizes: "256x256", type: "image/png", purpose: "any maskable" },
+        { src: icon, sizes: "512x512", type: "image/png", purpose: "any maskable" }
+      ] : []
+    };
+    const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const link = document.getElementById('manifestLink');
+    if(link) link.setAttribute('href', url);
+  }catch(e){ console.warn('manifest', e); }
+})();
+
+// Service worker mínimo (embebido) para que sea instalable y muestre notificaciones
+(function registrarSW(){
+  if(!('serviceWorker' in navigator)) return;
+  // El service worker solo funciona servido por http(s). En vista previa (file://) se omite sin avisar.
+  if(location.protocol!=='https:' && location.protocol!=='http:') return;
+  // Registra el archivo sw.js que está junto a este index.html
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+
+// Pide permiso de notificaciones (una vez)
+function pedirPermisoNotif(){
+  if(!('Notification' in window)) return;
+  if(Notification.permission==='default'){
+    Notification.requestPermission().catch(()=>{});
+  }
+}
+
+// Muestra una notificación del navegador
+function notificar(titulo, cuerpo){
+  try{
+    if(!('Notification' in window) || Notification.permission!=='granted') return;
+    const icon = (typeof LOGO_AE==='string' && LOGO_AE) ? LOGO_AE : '';
+    const opciones = { body: cuerpo||'', icon: icon||undefined, badge: icon||undefined, tag:'ae-msg', renotify:true };
+    if(navigator.serviceWorker && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(reg=>{ reg.showNotification(titulo, opciones); }).catch(()=>{ new Notification(titulo, opciones); });
+    } else {
+      new Notification(titulo, opciones);
+    }
+  }catch(e){ console.warn('notif', e); }
+}
+
+// Detecta mensajes nuevos y notifica (se apoya en el contador de no leídos)
+let _ultimoNotificado = +(localStorage.getItem('ae_chat_visto')||0);
+function revisarYNotificar(){
+  try{
+    const yo = (typeof miNombre==='function') ? miNombre() : '';
+    const nuevos = DB.mensajes.filter(m=>m.ts>_ultimoNotificado && m.autor!==yo);
+    if(nuevos.length){
+      const ult = nuevos[nuevos.length-1];
+      const quien = ult.autor || 'Alguien';
+      const texto = (ult.texto||'').toString().slice(0,80);
+      const titulo = nuevos.length===1 ? `💬 ${quien}` : `💬 ${nuevos.length} mensajes nuevos`;
+      // Solo notificar si el chat NO está abierto en este momento
+      const chatAbierto = document.getElementById('chatBg') && document.getElementById('chatBg').classList.contains('show');
+      if(!chatAbierto) notificar(titulo, texto);
+      _ultimoNotificado = Math.max(_ultimoNotificado, ...nuevos.map(m=>m.ts));
+    }
+  }catch(e){ console.warn('revisarNotif', e); }
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
