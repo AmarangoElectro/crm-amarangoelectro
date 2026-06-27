@@ -922,6 +922,7 @@ function toggleOcultar(){
 const today = () => { const d=new Date(); d.setHours(0,0,0,0); return d; };
 const parseD = s => { const d=new Date(s); d.setHours(0,0,0,0); return d; };
 const addMonths = (d,m) => { const x=new Date(d); x.setMonth(x.getMonth()+m); return x; };
+const addDays = (d,days) => { const x=new Date(d); x.setDate(x.getDate()+days); return x; };
 const isoDate = d => d.toISOString().slice(0,10);
 const dispDate = s => { const d=new Date(s); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}); };
 const initials = n => {
@@ -1118,10 +1119,11 @@ function ventaCuotas(v){
   const n = v.cuotas||1;
   const montos = (v.montoCuota>0) ? Array(n).fill(v.montoCuota) : planCuotas(v.precioVenta, n);
   const inicio = parseD(v.fecha);
+  const quinc = v.quincenal===true;  // si es quincenal, vence cada 15 días
   const out=[];
   for(let i=0;i<n;i++){
     out.push({ num:i+1, monto:montos[i],
-      vence: n<=1 ? isoDate(inicio) : isoDate(addMonths(inicio,i)),
+      vence: n<=1 ? isoDate(inicio) : isoDate(quinc ? addDays(inicio, i*15) : addMonths(inicio,i)),
       pagada: (v.pagadas||0) > i });
   }
   return out;
@@ -2703,6 +2705,25 @@ function renderTablaCuotas(){
           return `<div class="calc-line"><span class="cl-lbl">${n} cuotas → <b>${totalPagos} pagos</b> de <b style="color:var(--blue);">$${fmt(quinc)}</b></span><span class="cl-val" style="font-size:11px;color:var(--muted);">c/15 días</span></div>`;
         }).join('')}
         <button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="waQuincenalInv()">📲 Enviar plan quincenal</button>
+        <div style="margin-top:12px;border-top:1px dashed var(--border);padding-top:10px;">
+          ${cajonHeader('cajonCapQuinc','💰 Capital a invertir (quincenal)', false)}
+          <div id="cajonCapQuinc" style="display:none;margin-top:10px;">
+            ${(function(){
+              const costoQ=+document.getElementById('ci_costo').value||0;
+              const envioQ=+document.getElementById('ci_envio').value||0;
+              const invQ=Math.max(1,+document.getElementById('ci_inv').value||1);
+              if(!costoQ) return `<div style="font-size:12px;color:var(--muted);">Cargá el costo arriba para ver el capital.</div>`;
+              return `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Entrega = 1ra cuota MENSUAL completa. Capital = costo − entrega + envío.</div>`+
+              opciones.filter(n=>n<=6).map(n=>{
+                const plan=planCuotas(venta,n);
+                const cuotaMes=plan[0];               // 1ra cuota mensual completa
+                const cap=costoQ-cuotaMes+envioQ;     // capital con esa entrega
+                const porInv=Math.round(cap/invQ);
+                return `<div class="calc-line"><span class="cl-lbl">${n} cuotas <span style="color:var(--muted);font-size:11px;">(entrega $${fmt(cuotaMes)})</span></span><span class="cl-val" style="color:var(--orange);font-weight:800;">$${fmt(cap)}${invQ>1?` <span style="font-size:11px;color:var(--muted);">($${fmt(porInv)} c/u)</span>`:''}</span></div>`;
+              }).join('');
+            })()}
+          </div>
+        </div>
       </div>
     </div>`;
 }
@@ -2875,6 +2896,16 @@ function formVenta(preCliente){
     <div class="field"><label>Revendedor <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="v_revend" placeholder="Nombre"></div>
     <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="v_desc" style="width:auto;" onchange="recalcItems()"> Aplicar descuento 10% al total</label><div id="descPreview"></div></div>
     <div class="field"><label>Plan de pago</label><div id="cuotasChips">${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<span class="chip ${n===1?'sel':''}" data-c="${n}" onclick="selCuota(${n})">${n===1?'Contado':n+' cuotas'}</span>`).join('')}</div></div>
+    <div class="card" id="cajonQuincVentaBox" style="padding:10px 14px;margin-bottom:12px;display:none;">
+      ${cajonHeader('cajonQuincVenta','🗓️ ¿Pago quincenal? (cada 15 días)', false)}
+      <div id="cajonQuincVenta" style="display:none;margin-top:10px;">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+          <input type="checkbox" id="v_quincenal" style="width:auto;" onchange="recalcItems()">
+          <span style="font-weight:700;color:var(--blue);">Activar plan quincenal</span>
+        </label>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Mismo precio, pero las cuotas vencen cada 15 días en vez de cada mes. Las cobranzas se ajustan solas.</div>
+      </div>
+    </div>
     <div id="planPreview"></div>
     <div id="planEnviar"></div>
     <div class="card" style="padding:10px 14px;margin:12px 0;background:#f0fff4;border-left:3px solid var(--green);">
@@ -3225,7 +3256,7 @@ function recalcItems(){
   }
   renderPlan();
 }
-function selCuota(n){ ventaCuotasSel=n; ventaMontoCuotaManual=0; document.querySelectorAll('#cuotasChips .chip').forEach(x=>x.classList.toggle('sel',+x.dataset.c===n)); renderPlan(); recalcItems(); }
+function selCuota(n){ ventaCuotasSel=n; ventaMontoCuotaManual=0; document.querySelectorAll('#cuotasChips .chip').forEach(x=>x.classList.toggle('sel',+x.dataset.c===n)); const qb=document.getElementById('cajonQuincVentaBox'); if(qb) qb.style.display = n>1 ? 'block' : 'none'; renderPlan(); recalcItems(); }
 function selTipo(t){
   ventaTipo=t;
   document.querySelectorAll('#tipoChips .chip').forEach(x=>x.classList.toggle('sel',x.dataset.t===t));
@@ -3388,6 +3419,7 @@ async function saveVenta(){
     montoInvertido:(document.getElementById('v_montoinv')?+document.getElementById('v_montoinv').value||0:0),
     revendedor:(document.getElementById('v_revend')?document.getElementById('v_revend').value.trim():''),
     fecha:document.getElementById('v_fecha').value, cuotas:ventaCuotasSel, pagadas:0,
+    quincenal:(document.getElementById('v_quincenal')?document.getElementById('v_quincenal').checked:false),
     montoCuota:ventaMontoCuotaManual||0,
     envio:+document.getElementById('v_envio').value||0 };
   let rec;
@@ -4197,7 +4229,7 @@ function renderLoginPersonas(){
   cont.innerHTML=us.map(u=>{
     const col=nombreColor(u.nombre);
     return `<div class="login-persona" onclick="elegirPersona('${u.nombre}')">
-      <div class="lp-av" style="background:${col};">${initials(u.nombre)}</div>
+      <div class="lp-av" style="background:${col};display:flex;align-items:center;justify-content:center;font-size:30px;">🐝</div>
       <div class="lp-name">${u.nombre}${u.admin?' <span style="font-size:9px;color:var(--orange);">★</span>':''}</div>
     </div>`;
   }).join('');
