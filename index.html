@@ -3258,6 +3258,7 @@ function recalcItems(){
     if(lblEl) lblEl.textContent = ventaCuotasSel>1 ? `Ganancia (${ventaCuotasSel} cuotas, con interés)` : 'Ganancia estimada (contado)';
   }
   renderPlan();
+  if(typeof recalcInv==='function') recalcInv();
 }
 function selCuota(n){ ventaCuotasSel=n; ventaMontoCuotaManual=0; document.querySelectorAll('#cuotasChips .chip').forEach(x=>x.classList.toggle('sel',+x.dataset.c===n)); const qb=document.getElementById('cajonQuincVentaBox'); if(qb) qb.style.display = n>1 ? 'block' : 'none'; renderPlan(); recalcItems(); }
 function selTipo(t){
@@ -3297,13 +3298,25 @@ function renderInversoresForm(){
 }
 function recalcInv(){
   const prev=document.getElementById('invPreview'); if(!prev) return;
-  const costo = ventaTipo==='prestamo' ? (+document.getElementById('p_monto')?.value||0) : itemsVenta.reduce((s,it)=>s+(it.costo||0),0);
+  const costo = ventaTipo==='prestamo' ? (+document.getElementById('p_monto')?.value||0) : itemsVenta.reduce((s,it)=>s+((it.costo||0)*(it.cantidad||1)),0);
   const ganancia = ventaTipo==='prestamo' ? ((+document.getElementById('p_total')?.value||0)-costo) : (precioFinal()-costo);
   const sumaPct=ventaInversores.reduce((s,x)=>s+(x.pct||0),0);
+  // === CAPITAL A INVERTIR (igual que la calculadora): costo + comisión + envío − 1ra cuota del cliente ===
+  const envio=+document.getElementById('v_envio')?.value||0;
+  const tv=totalVentaItems();
+  const tieneRev=document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
+  const comision = tieneRev ? Math.round(tv*((ventaCuotasSel>1)?0.15:0.10)) : 0;
+  // 1ra cuota del cliente (la entrega)
+  let primeraCuota=0;
+  if(ventaTipo!=='prestamo' && ventaCuotasSel>1){
+    const plan=planCuotas(tv, ventaCuotasSel);
+    primeraCuota=plan[0]||0;
+  }
+  const capitalTotal = Math.max(0, costo + comision + envio - primeraCuota);
   let html='';
   ventaInversores.forEach(inv=>{
     if(inv.nombre.trim() && inv.pct>0){
-      const pone=Math.round(costo*inv.pct/100);
+      const pone=Math.round(capitalTotal*inv.pct/100);
       const gana=Math.round(ganancia*inv.pct/100);
       html+=`<div class="card" style="padding:8px 12px;margin-bottom:6px;border-left:3px solid ${nombreColor(inv.nombre.trim())};">
         <div style="font-weight:800;color:${nombreColor(inv.nombre.trim())};font-size:12px;">${inv.nombre.trim()} · ${inv.pct}%</div>
@@ -3312,6 +3325,13 @@ function recalcInv(){
       </div>`;
     }
   });
+  // desglose del capital (para que se entienda de dónde sale)
+  if(ventaInversores.length && capitalTotal>0){
+    html+=`<div class="card" style="padding:8px 12px;margin-bottom:6px;background:#f0f6ff;font-size:11px;">
+      <div style="font-weight:700;color:var(--blue);margin-bottom:4px;">🧮 Capital total: $${fmt(capitalTotal)}</div>
+      <div style="color:var(--muted);">Costo $${fmt(costo)}${comision>0?` + comisión $${fmt(comision)}`:''}${envio>0?` + envío $${fmt(envio)}`:''}${primeraCuota>0?` − 1ra cuota $${fmt(primeraCuota)}`:''}</div>
+    </div>`;
+  }
   // aviso de cuánto falta para 100%
   if(ventaInversores.length){
     const falta=100-sumaPct;
@@ -3322,7 +3342,7 @@ function recalcInv(){
     }
   }
   const mi=document.getElementById('v_montoinv');
-  if(mi) mi.value = Math.round(costo*sumaPct/100);
+  if(mi) mi.value = Math.round(capitalTotal*sumaPct/100);
   prev.innerHTML=html;
 }
 function precioFinal(){
