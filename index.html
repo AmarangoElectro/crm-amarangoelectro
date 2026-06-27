@@ -664,21 +664,42 @@ function esPropiedadPropia(v){
 }
 let loginSel=''; // persona elegida en el paso 1
 /* ============ AUDITORÍA (registro de actividad) ============ */
+let AUDIT_CACHE = [];  // copia en memoria de los avisos de la nube
 const AUDIT={
+  // carga local (respaldo si no hay nube)
   load(){ try{ return JSON.parse(localStorage.getItem('ae_audit')||'[]'); }catch(e){ return []; } },
   save(arr){ try{ localStorage.setItem('ae_audit', JSON.stringify(arr)); }catch(e){} },
   // registra una acción. accion: 'editó'|'borró'. tipo: 'venta'|'cliente'. detalle: texto
-  registrar(accion, tipo, detalle){
-    const arr=this.load();
-    arr.unshift({ id:'a'+Date.now()+Math.floor(Math.random()*999), quien:usuarioActual()||'?', accion, tipo, detalle, ts:Date.now() });
-    // limpiar avisos de más de 30 días (se borran solos al mes)
+  async registrar(accion, tipo, detalle){
+    const entrada={ id:'a'+Date.now()+Math.floor(Math.random()*999), quien:usuarioActual()||'?', accion, tipo, detalle, ts:Date.now() };
+    // 1) guardar en la nube para que TODOS lo vean
+    if(CLOUD && sb){
+      try{ await sb.from('auditoria').insert({ aid:entrada.id, quien:entrada.quien, accion:entrada.accion, tipo:entrada.tipo, detalle:entrada.detalle, ts:entrada.ts }); }catch(e){ console.warn('audit nube', e); }
+    }
+    // 2) guardar también local como respaldo
+    const arr=this.load(); arr.unshift(entrada);
     const limite=Date.now()-30*24*60*60*1000;
-    const limpio=arr.filter(a=>a.ts>=limite);
-    this.save(limpio);
+    this.save(arr.filter(a=>a.ts>=limite));
+    // 3) refrescar cache
+    AUDIT_CACHE.unshift(entrada);
   },
-  // avisos vigentes (últimos 30 días)
+  // trae los avisos de la nube (de todos los usuarios)
+  async recargar(){
+    if(CLOUD && sb){
+      try{
+        const limite=Date.now()-30*24*60*60*1000;
+        const {data}=await sb.from('auditoria').select('*').gte('ts', limite).order('ts',{ascending:false}).limit(300);
+        if(data){ AUDIT_CACHE=data.map(d=>({id:d.aid,quien:d.quien,accion:d.accion,tipo:d.tipo,detalle:d.detalle,ts:d.ts})); return AUDIT_CACHE; }
+      }catch(e){ console.warn('audit recargar', e); }
+    }
+    // sin nube: usar local
+    AUDIT_CACHE=this.vigentes();
+    return AUDIT_CACHE;
+  },
+  // avisos vigentes (últimos 30 días) - usa cache de nube si existe, sino local
   vigentes(){
     const limite=Date.now()-30*24*60*60*1000;
+    if(AUDIT_CACHE && AUDIT_CACHE.length) return AUDIT_CACHE.filter(a=>a.ts>=limite);
     return this.load().filter(a=>a.ts>=limite);
   },
   noVistos(){
@@ -692,7 +713,8 @@ function actualizarAvisoBadge(){
   const n=AUDIT.noVistos().length;
   if(n>0){ b.style.display='block'; b.textContent=n>9?'9+':n; } else b.style.display='none';
 }
-function abrirAvisos(){
+async function abrirAvisos(){
+  await AUDIT.recargar();   // traer avisos de TODOS desde la nube
   const avisos=AUDIT.vigentes();
   AUDIT.marcarVistos(); actualizarAvisoBadge();
   let lista;
@@ -2520,7 +2542,7 @@ async function saveCliente(id){
   if(!nombre){ toast('Poné un nombre'); return; }
   const data={ nombre, dni:document.getElementById('f_dni').value.trim(), telefono:document.getElementById('f_tel').value.trim(), telefono2:document.getElementById('f_tel2').value.trim(), localidad:document.getElementById('f_loc').value.trim(), direccion:document.getElementById('f_dir').value.trim(), responsable:(document.getElementById('f_resp')?document.getElementById('f_resp').value:'Maxi'), revendedor:document.getElementById('f_revend').value.trim(), inversionista:document.getElementById('f_inver').value.trim(), observaciones:document.getElementById('f_obs').value.trim() };
   let rec;
-  if(id){ rec=DB.clientes.find(x=>x.id===id); Object.assign(rec,data); }
+  if(id){ rec=DB.clientes.find(x=>x.id===id); Object.assign(rec,data); AUDIT.registrar('editó', 'cliente', `el cliente "${nombre}"`); }
   else { 
     const maxNum=DB.clientes.reduce((m,c)=>Math.max(m,c.num||0),0);
     rec={id:'c'+Date.now(), num:maxNum+1, alta:isoDate(today()), ...data}; 
@@ -3129,6 +3151,7 @@ async function delCliente(id){
   DB.clientes=DB.clientes.filter(x=>x.id!==id);
   DB.ventas=DB.ventas.filter(v=>v.clienteId!==id);
   await DB.delCliente(id);
+  AUDIT.registrar('borró', 'cliente', `el cliente "${c.nombre}"${ventasCli.length?` y sus ${ventasCli.length} venta(s)`:''}`);
   closeModal(); toastUndo('Cliente movido a papelera'); render();
 }
 
@@ -3824,12 +3847,14 @@ async function startApp(){
   render();
   iniciarPresencia();
   pedirPermisoNotif();
+  AUDIT.recargar().then(()=>actualizarAvisoBadge());  // traer avisos de todos al iniciar
   // Revisar mensajes nuevos cada 20s (para el puntito rojo), solo si el chat está cerrado
   setInterval(async()=>{
     if(document.getElementById('chatBg') && document.getElementById('chatBg').classList.contains('show')) return;
     await DB.recargarMensajes();
     if(typeof actualizarBadge==='function') actualizarBadge();
     if(typeof revisarYNotificar==='function') revisarYNotificar();
+    try{ await AUDIT.recargar(); actualizarAvisoBadge(); }catch(e){}
   }, 20000);
 }
 /* ============ DESLIZAR ENTRE PÁGINAS ============ */
