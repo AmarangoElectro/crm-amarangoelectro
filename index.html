@@ -366,13 +366,13 @@
     <span onclick="abrirChat()" title="Mensajes" style="position:relative;">💬<span id="chatBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
     <span onclick="abrirAvisos()" title="Avisos" style="position:relative;color:var(--yellow);"><span data-ico="alert" data-size="22"></span><span id="avisoBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
     <span onclick="toggleOcultar()" id="btnOjito" title="Ocultar montos" style="color:#fff;"><span data-ico="eyeoff" data-size="22"></span></span>
-    <span onclick="toggleMenuConfig(event)" title="Configuración" style="position:relative;color:var(--orange);"><span data-ico="gear" data-size="22"></span></span>
+    <span onclick="toggleMenuConfig(event)" title="Configuración" style="position:relative;color:var(--orange);"><span data-ico="gear" data-size="22"></span><span id="tareaBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;border:2px solid var(--blue);"></span></span>
     <span onclick="logout()" title="Salir">⏻</span>
   </div>
   <!-- menú desplegable de configuración -->
   <div id="menuConfig" class="menu-config" style="display:none;">
     <div class="mc-item" onclick="cerrarMenuConfig();abrirMiCuenta();"><span data-ico="user" data-size="18"></span> Mi cuenta / Contraseña</div>
-    <div class="mc-item" onclick="cerrarMenuConfig();abrirTareas();">📝 Mis tareas</div>
+    <div class="mc-item" onclick="cerrarMenuConfig();abrirTareas();">📝 Mis tareas <span id="tareaMenuBadge" style="display:none;background:var(--orange);color:#fff;font-size:11px;font-weight:800;padding:1px 7px;border-radius:10px;margin-left:4px;"></span></div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirBackup();"><span data-ico="download" data-size="18"></span> Respaldo de datos</div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirPapelera();"><span data-ico="trash" data-size="18"></span> Papelera</div>
   </div>
@@ -1439,8 +1439,25 @@ function amaraBuscarClientes(txt){
 }
 
 /* ============ MODAL ============ */
-function openModal(html){ document.getElementById('modal').innerHTML='<div class="modal-handle"></div><button class="modal-back" onclick="closeModal()">← Atrás</button>'+html; document.getElementById('modalBg').classList.add('show'); }
+function openModal(html){ document.getElementById('modal').innerHTML='<div class="modal-handle"></div><button class="modal-back" onclick="closeModal()">← Atrás</button>'+html; document.getElementById('modalBg').classList.add('show'); empujarHistorial(); }
 function closeModal(){ document.getElementById('modalBg').classList.remove('show'); }
+/* ====== Interceptar el gesto "atrás" para no salir de la app por error ====== */
+let _histArmado=false;
+function empujarHistorial(){ try{ history.pushState({ae:1}, ''); }catch(e){} }
+function armarBotonAtras(){
+  if(_histArmado) return; _histArmado=true;
+  // dejar un estado "colchón" para que el primer atrás no salga
+  try{ history.pushState({ae:1}, ''); }catch(e){}
+  window.addEventListener('popstate', function(e){
+    // si hay un modal abierto, cerrarlo en vez de salir
+    const modalAbierto=document.getElementById('modalBg') && document.getElementById('modalBg').classList.contains('show');
+    const chatAbierto=document.getElementById('chatBg') && document.getElementById('chatBg').classList.contains('show');
+    if(modalAbierto){ closeModal(); empujarHistorial(); return; }
+    if(chatAbierto){ if(typeof cerrarChat==='function') cerrarChat(); empujarHistorial(); return; }
+    // si no hay nada abierto, no salir: volver a poner el colchón
+    empujarHistorial();
+  });
+}
 
 /* ============ RENDER ROUTER ============ */
 function render(){
@@ -3705,7 +3722,30 @@ function eliminarDefPapelera(idPap){
 /* ============ MIS TAREAS (bloc de notas simple, por usuario) ============ */
 function tareasKey(){ return 'ae_tareas_'+(usuarioActual()||'user'); }
 function cargarTareas(){ try{ return JSON.parse(localStorage.getItem(tareasKey())||'[]'); }catch(e){ return []; } }
-function guardarTareas(arr){ try{ localStorage.setItem(tareasKey(), JSON.stringify(arr)); }catch(e){} }
+function guardarTareas(arr){ try{ localStorage.setItem(tareasKey(), JSON.stringify(arr)); }catch(e){} actualizarTareaBadge(); }
+/* Muestra un puntito con la cantidad de tareas pendientes en el engranaje */
+function actualizarTareaBadge(){
+  const pend=cargarTareas().filter(t=>!t.hecha).length;
+  const b=document.getElementById('tareaBadge');
+  const bm=document.getElementById('tareaMenuBadge');
+  if(b){ if(pend>0){ b.style.display='block'; b.textContent=pend>9?'9+':pend; } else b.style.display='none'; }
+  if(bm){ if(pend>0){ bm.style.display='inline-block'; bm.textContent=pend; } else bm.style.display='none'; }
+}
+/* Aviso suave una vez al día si hay tareas pendientes (toast + notificación si está permitida) */
+function recordarTareasDelDia(){
+  const pend=cargarTareas().filter(t=>!t.hecha);
+  if(!pend.length) return;
+  const hoyStr=isoDate(today());
+  const ultimoAviso=localStorage.getItem('ae_tareas_aviso')||'';
+  if(ultimoAviso===hoyStr) return;  // ya avisé hoy
+  localStorage.setItem('ae_tareas_aviso', hoyStr);
+  setTimeout(()=>{
+    toast(`📝 Tenés ${pend.length} tarea${pend.length>1?'s':''} pendiente${pend.length>1?'s':''} para hoy`);
+    if(typeof notificar==='function'){
+      notificar('📝 Tareas pendientes', `Tenés ${pend.length} tarea${pend.length>1?'s':''} por hacer. Tocá para verlas.`);
+    }
+  }, 1500);
+}
 function abrirTareas(){
   openModal(`<div class="modal-title">📝 Mis tareas</div><div class="modal-sub">Tu lista personal · tocá para tildar, deslizá las ideas del día</div>
     <div style="display:flex;gap:6px;margin-bottom:12px;">
@@ -4084,6 +4124,9 @@ async function startApp(){
   render();
   iniciarPresencia();
   pedirPermisoNotif();
+  actualizarTareaBadge();   // mostrar puntito si hay tareas pendientes
+  recordarTareasDelDia();   // aviso suave una vez al día si hay pendientes
+  armarBotonAtras();        // evitar salir de la app con el gesto "atrás"
   AUDIT.recargar().then(()=>actualizarAvisoBadge());  // traer avisos de todos al iniciar
   // Revisar mensajes nuevos cada 20s (para el puntito rojo), solo si el chat está cerrado
   setInterval(async()=>{
@@ -4145,6 +4188,7 @@ async function abrirChat(){
   document.getElementById('chatAvisos').innerHTML=CHAT_AVISOS.map((a,i)=>`<button class="chat-aviso-btn" onclick="enviarAviso(${i})">${a.txt}</button>`).join('');
   // ABRIR PRIMERO (a prueba de fallos: si la nube tarda o falla, el chat abre igual)
   document.getElementById('chatBg').classList.add('show');
+  if(typeof empujarHistorial==='function') empujarHistorial();
   pintarChat();
   // cargar mensajes después, sin bloquear la apertura
   try{ await DB.recargarMensajes(); pintarChat(); }catch(e){ console.error('chat:', e); }
