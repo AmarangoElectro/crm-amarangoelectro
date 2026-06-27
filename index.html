@@ -2747,8 +2747,9 @@ function calcInversion(){
   const inv=Math.max(1,+document.getElementById('ci_inv').value||1);
   const out=document.getElementById('ci_out');
   if(!venta){ out.innerHTML=''; return; }
-  // capital a invertir = costo - 1ra cuota + envío
-  const capital=costo-cuota+envio;
+  // capital a invertir = costo + comisión + envío - 1ra cuota del cliente
+  // (la comisión del revendedor es un gasto que ustedes adelantan; la cuota del cliente achica el gasto)
+  const capital=costo+comision+envio-cuota;
   const porInv=Math.round(capital/inv);
   // descuento al contado (siempre se muestra el precio rebajado del contado, sin importar el plan)
   const descOn=document.getElementById('ci_descOn')&&document.getElementById('ci_descOn').checked;
@@ -2783,11 +2784,13 @@ function calcInversion(){
       <div class="calc-line"><span class="cl-lbl">Precio venta (contado)</span><span class="cl-val">$${fmt(venta)}</span></div>
       ${(descOn && descPct>0)?`<div class="calc-line"><span class="cl-lbl" style="color:var(--orange);">🏷️ Contado con ${descPct}% off</span><span class="cl-val" style="color:var(--orange);font-weight:800;">$${fmt(contadoConDesc)}</span></div>`:''}
       ${ciCuotas>1?`<div class="calc-line"><span class="cl-lbl">Total que paga el cliente (${ciCuotas} cuotas)</span><span class="cl-val" style="color:var(--blue);">$${fmt(totalPagado)}</span></div>`:''}
-      <div class="calc-line"><span class="cl-lbl">Costo</span><span class="cl-val" style="color:var(--red);">−$${fmt(costo)}</span></div>
-      ${envio>0?`<div class="calc-line"><span class="cl-lbl">Envío</span><span class="cl-val" style="color:var(--red);">−$${fmt(envio)}</span></div>`:''}
-      ${comision>0?`<div class="calc-line"><span class="cl-lbl">Comisión revendedor</span><span class="cl-val" style="color:var(--red);">−$${fmt(comision)}</span></div>`:''}
-      <div class="calc-line" style="border-top:1px solid var(--line);margin-top:4px;padding-top:8px;"><span class="cl-lbl"><b>Inversión total</b></span><span class="cl-val"><b>$${fmt(capital)}</b></span></div>
-      <div class="calc-line"><span class="cl-lbl"><b>Ganancia total</b></span><span class="cl-val" style="color:var(--green);"><b>$${fmt(gan)}</b></span></div>
+      <div class="sec-title" style="margin-top:10px;font-size:12px;">🧮 Cómo se arma el capital</div>
+      <div class="calc-line"><span class="cl-lbl">Costo del producto</span><span class="cl-val">$${fmt(costo)}</span></div>
+      ${comision>0?`<div class="calc-line"><span class="cl-lbl">+ Comisión revendedor</span><span class="cl-val" style="color:var(--orange);">+$${fmt(comision)}</span></div>`:''}
+      ${envio>0?`<div class="calc-line"><span class="cl-lbl">+ Envío</span><span class="cl-val" style="color:var(--orange);">+$${fmt(envio)}</span></div>`:''}
+      ${cuota>0?`<div class="calc-line"><span class="cl-lbl">− 1ra cuota del cliente</span><span class="cl-val" style="color:var(--green);">−$${fmt(cuota)}</span></div>`:''}
+      <div class="calc-line" style="border-top:1px solid var(--line);margin-top:4px;padding-top:8px;"><span class="cl-lbl"><b>Capital a invertir</b></span><span class="cl-val"><b style="color:var(--orange);">$${fmt(capital)}</b></span></div>
+      <div class="calc-line" style="margin-top:8px;"><span class="cl-lbl"><b>Ganancia total</b></span><span class="cl-val" style="color:var(--green);"><b>$${fmt(gan)}</b></span></div>
     </div>
     <div class="sec-title" style="margin-top:14px;">Por cada inversionista (${inv})</div>
     <div class="card">
