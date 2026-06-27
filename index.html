@@ -2385,11 +2385,30 @@ function calcComisiones(){
 
 /* ---- INVERSIÓN: costo, 1ra cuota, inversionistas ---- */
 function calcInversionHTML(){
-  return `<div class="field"><label>Precio de VENTA ($)</label><input id="ci_venta" type="number" inputmode="numeric" placeholder="0" oninput="ciVentaChange()"></div>
-    <div class="field"><label>Precio de costo ($) <span style="color:var(--muted);font-weight:400;">— automático, editable</span></label><input id="ci_costo" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('costo');calcInversion()"></div>
+  return `<div class="card" style="padding:10px 12px;margin-bottom:12px;background:#f0f6ff;">
+      <div style="font-size:12px;color:var(--blue);font-weight:700;">💡 Llená cualquier campo y tocá "Sugerir": la calculadora arma el resto.</div>
+    </div>
+    <div class="field"><label>Precio de VENTA ($) <span style="color:var(--muted);font-weight:400;">— contado</span></label>
+      <div style="display:flex;gap:6px;">
+        <input id="ci_venta" type="number" inputmode="numeric" placeholder="0" oninput="ciVentaChange()" style="flex:1;">
+        <button class="btn btn-ghost btn-sm" onclick="ciSugerirDesde('costo')" title="Calcular venta desde el costo">⬆️ desde costo</button>
+      </div>
+    </div>
+    <div class="field"><label>Precio de COSTO ($)</label>
+      <div style="display:flex;gap:6px;">
+        <input id="ci_costo" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('costo');calcInversion()" style="flex:1;">
+        <button class="btn btn-ghost btn-sm" onclick="ciSugerirDesde('venta')" title="Calcular costo desde la venta">⬆️ desde venta</button>
+      </div>
+    </div>
     <div class="field"><label>Plan de pago</label>
       <div id="ci_planChips" class="chips" style="display:flex;flex-wrap:wrap;gap:6px;">
         ${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<div class="chip ${n===1?'sel':''}" data-cuotas="${n}" onclick="ciSelPlan(${n})">${n===1?'Contado':n+' cuotas'}</div>`).join('')}
+      </div>
+    </div>
+    <div class="field"><label>💰 Monto de UNA cuota ($) <span style="color:var(--muted);font-weight:400;">— o entrá por acá</span></label>
+      <div style="display:flex;gap:6px;">
+        <input id="ci_montoCuota" type="number" inputmode="numeric" placeholder="0" style="flex:1;">
+        <button class="btn btn-ghost btn-sm" onclick="ciSugerirDesde('cuota')" title="Armar todo desde el monto de la cuota">🧮 armar todo</button>
       </div>
     </div>
     <div class="field-row"><div class="field"><label>1ra cuota / entrega ($) <span style="color:var(--muted);font-weight:400;">— auto</span></label><input id="ci_cuota" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('cuota');calcInversion()"></div>
@@ -2402,6 +2421,7 @@ function calcInversionHTML(){
     </div>
     <div class="field" id="ci_comBox" style="display:none;"><label>Comisión revendedor ($) <span style="color:var(--muted);font-weight:400;">— auto, editable</span></label><input id="ci_comision" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('comision');calcInversion()"></div>
     <div class="field"><label>Cantidad de inversionistas</label><input id="ci_inv" type="number" inputmode="numeric" value="1" oninput="calcInversion()"></div>
+    <div id="ci_planTabla"></div>
     <div id="ci_out"></div>`;
 }
 let ciCuotas=1, ciHayRev=false, ciManualFlags={costo:false,cuota:false,comision:false};
@@ -2412,6 +2432,7 @@ function ciSelPlan(n){
   // recalcular 1ra cuota y comisión automáticas
   ciManualFlags.cuota=false; ciManualFlags.comision=false;
   ciAutoCalc();
+  renderTablaCuotas();
 }
 function ciSetRev(hay){
   ciHayRev=hay;
@@ -2446,6 +2467,58 @@ function ciAutoCalc(){
   }
   if(!ciHayRev){ document.getElementById('ci_comision').value=''; }
   calcInversion();
+  renderTablaCuotas();
+}
+/* Botón Sugerir: arma todo a partir del campo elegido (costo, venta o cuota) */
+function ciSugerirDesde(origen){
+  const ventaEl=document.getElementById('ci_venta');
+  const costoEl=document.getElementById('ci_costo');
+  const montoCuotaEl=document.getElementById('ci_montoCuota');
+  let venta=0;
+  if(origen==='venta'){
+    venta=+ventaEl.value||0;
+    if(!venta){ toast('Poné el precio de venta'); return; }
+    costoEl.value = costoDesdeVenta(venta)||'';
+  } else if(origen==='costo'){
+    const costo=+costoEl.value||0;
+    if(!costo){ toast('Poné el precio de costo'); return; }
+    venta = ventaDesdeCosto(costo);
+    ventaEl.value = venta||'';
+  } else if(origen==='cuota'){
+    const mc=+montoCuotaEl.value||0;
+    if(!mc){ toast('Poné el monto de una cuota'); return; }
+    venta = ventaDesdeCuota(mc, ciCuotas);
+    ventaEl.value = venta||'';
+    costoEl.value = costoDesdeVenta(venta)||'';
+  }
+  // recalcular todo lo automático con la venta nueva
+  ciManualFlags.costo = (origen==='venta'); // si vino de venta, el costo ya quedó puesto
+  ciManualFlags.cuota=false; ciManualFlags.comision=false;
+  // 1ra cuota auto
+  const plan=planCuotas(venta, ciCuotas);
+  document.getElementById('ci_cuota').value = plan[0]||'';
+  // comisión auto
+  if(ciHayRev){
+    const com=Math.round(venta*((ciCuotas>1)?0.15:0.10));
+    document.getElementById('ci_comision').value = com||'';
+  }
+  calcInversion();
+  renderTablaCuotas();
+}
+/* Tabla con todas las opciones de cuotas (2/3/4/5/6/12) para la venta actual */
+function renderTablaCuotas(){
+  const cont=document.getElementById('ci_planTabla'); if(!cont) return;
+  const venta=+document.getElementById('ci_venta').value||0;
+  if(!venta){ cont.innerHTML=''; return; }
+  const opciones=[2,3,4,5,6,12];
+  let filas=`<div class="calc-line"><span class="cl-lbl"><b>Contado</b></span><span class="cl-val" style="color:var(--blue);">$${fmt(round500(venta))}</span></div>`;
+  for(const n of opciones){
+    const plan=planCuotas(venta, n);
+    const cuota=plan[0]||0;
+    const total=cuota*n;
+    filas+=`<div class="calc-line"><span class="cl-lbl">${n} cuotas de <b>$${fmt(cuota)}</b></span><span class="cl-val" style="color:var(--muted);font-size:12px;">total $${fmt(total)}</span></div>`;
+  }
+  cont.innerHTML=`<div class="sec-title" style="margin-top:14px;">📅 Todas las opciones de cuotas</div><div class="card">${filas}</div>`;
 }
 function calcInversion(){
   const venta=+document.getElementById('ci_venta').value||0;
@@ -2861,6 +2934,29 @@ function costoDesdeVenta(venta){
     if(costo<=tope) return round500(costo);
   }
   return round500(venta/1.30);
+}
+/* directa: de costo deduce el precio de venta (igual que markupVenta) */
+function ventaDesdeCosto(costo){ return markupVenta(costo); }
+/* inversa de las cuotas: dado el monto de UNA cuota y la cantidad, deduce el precio de venta (contado).
+   Como planCuotas redondea cada cuota a $1.000, esto da el precio de venta aproximado. */
+function ventaDesdeCuota(montoCuota, n){
+  if(!montoCuota||montoCuota<=0) return 0;
+  if(n<=1) return round500(montoCuota);
+  const P=getPorc();
+  const f = pct => 1 + (pct/100);
+  let factorTotal;
+  if(n===2) factorTotal=f(P.p2);
+  else if(n===3) factorTotal=f(P.p3);
+  else if(n===4) factorTotal=f(P.p4);
+  else if(n===5) factorTotal=f(P.p5);
+  else if(n===6) factorTotal=f(P.p6);
+  else if(n>=7 && n<=12){
+    factorTotal=f(P.p6);
+    for(let k=7;k<=n;k++){ factorTotal *= (1 + ((k===7)?5:3)/100); }
+  } else factorTotal=1;
+  // total pagado ≈ montoCuota × n  →  venta = total / factorTotal
+  const totalPagado = montoCuota * n;
+  return round500(totalPagado / factorTotal);
 }
 function autoCostoItem(i){
   const venta=itemsVenta[i].venta||0;
