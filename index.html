@@ -1016,12 +1016,12 @@ function toastUndo(msg){
 /* ============ LÓGICA DE CUOTAS (Calculadora AmarangoElectro) ============ */
 function round500(n){ return Math.round(n/500)*500; }
 
-/* Comisión del revendedor: 10% del costo si es contado, 15% si es en cuotas. Solo si hay revendedor. */
+/* Comisión del revendedor: 10% del precio de contado si es contado, 15% del precio de contado si es en cuotas. Solo si hay revendedor. */
 function comisionRevendedor(v){
   if(!(v.revendedor||'').trim()) return 0;
-  const costo=v.precioCosto||0;
+  const contado=v.precioVenta||0;   // precio de contado (precio de venta)
   const esFinanciado=(v.cuotas||1)>1;
-  return Math.round(costo*(esFinanciado?0.15:0.10));
+  return Math.round(contado*(esFinanciado?0.15:0.10));
 }
 /* En cuántas partes se reparte el pago de la comisión al revendedor */
 function partesComision(v){
@@ -1029,9 +1029,10 @@ function partesComision(v){
   if(com<=0) return 0;
   const n=v.cuotas||1;
   if(n<=1) return 1;              // contado: 1 pago
-  if(com<=10000) return 2;        // excepción: comisión chica, máx 2 partes
-  if(n===2) return 2;             // 2 cuotas: 2 partes
-  return 3;                       // 4 o 6 cuotas: 3 partes
+  if(n===2) return 2;            // 2 cuotas: 2 partes
+  // 4 o 6 cuotas: 3 partes, salvo que cada parte quede por debajo de $10.000 → entonces 2
+  if(Math.floor(com/3) < 10000) return 2;
+  return 3;
 }
 /* Reparto de la comisión por cuota: array con cuánto se descuenta en cada cuota */
 function reparteComisionEnCuotas(v){
@@ -2438,9 +2439,9 @@ function ciAutoCalc(){
     const plan=planCuotas(venta, ciCuotas);
     document.getElementById('ci_cuota').value = plan[0]||'';
   }
-  // 3) comisión automática (10% contado / 15% financiado) si hay revendedor
+  // 3) comisión automática (10% contado / 15% financiado del precio de contado) si hay revendedor
   if(ciHayRev && !ciManualFlags.comision){
-    const com=Math.round(costo*((ciCuotas>1)?0.15:0.10));
+    const com=Math.round(venta*((ciCuotas>1)?0.15:0.10));
     document.getElementById('ci_comision').value = com||'';
   }
   if(!ciHayRev){ document.getElementById('ci_comision').value=''; }
@@ -2506,7 +2507,10 @@ function calcInversion(){
 function reparteComisionEnCuotasMonto(com, n){
   const arr=Array(n).fill(0);
   if(com<=0) return arr;
-  let partes; if(n<=1) partes=1; else if(com<=10000) partes=2; else if(n===2) partes=2; else partes=3;
+  let partes;
+  if(n<=1) partes=1;
+  else if(n===2) partes=2;
+  else partes=(Math.floor(com/3) < 10000) ? 2 : 3;  // 4 o 6 cuotas: 3 partes salvo que c/u quede <$10.000
   partes=Math.min(partes,n);
   const base=Math.floor(com/partes/100)*100;
   let acum=0;
