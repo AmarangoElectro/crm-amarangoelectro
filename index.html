@@ -1441,6 +1441,22 @@ function amaraBuscarClientes(txt){
 /* ============ MODAL ============ */
 function openModal(html){ document.getElementById('modal').innerHTML='<div class="modal-handle"></div><button class="modal-back" onclick="closeModal()">← Atrás</button>'+html; document.getElementById('modalBg').classList.add('show'); empujarHistorial(); }
 function closeModal(){ document.getElementById('modalBg').classList.remove('show'); }
+/* Acordeón reutilizable: pliega/despliega un cajón por su id. Devuelve el HTML del encabezado clickeable. */
+function cajonHeader(idCajon, titulo, abiertoPorDefecto){
+  const flecha = abiertoPorDefecto ? '▼' : '▶';
+  return `<div onclick="toggleCajon('${idCajon}')" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none;padding:2px 0;">
+    <span style="font-size:13px;font-weight:800;color:var(--blue);">${titulo}</span>
+    <span id="${idCajon}_flecha" style="font-size:13px;color:var(--orange);font-weight:800;transition:transform .2s;">${flecha}</span>
+  </div>`;
+}
+function toggleCajon(idCajon){
+  const cont=document.getElementById(idCajon);
+  const flecha=document.getElementById(idCajon+'_flecha');
+  if(!cont) return;
+  const abierto = cont.style.display!=='none';
+  cont.style.display = abierto ? 'none' : 'block';
+  if(flecha) flecha.textContent = abierto ? '▶' : '▼';
+}
 /* ====== Interceptar el gesto "atrás" para no salir de la app por error ====== */
 let _histArmado=false;
 function empujarHistorial(){ try{ history.pushState({ae:1}, ''); }catch(e){} }
@@ -2319,18 +2335,68 @@ function calcContado(){
 /* ---- CUOTAS: precio de venta -> planes con % editables + WhatsApp ---- */
 function calcCuotasHTML(){
   const P=getPorc();
-  return `<div class="field"><label>Precio de venta ($)</label><input id="cq_venta" type="number" inputmode="numeric" placeholder="0" oninput="calcCuotasGo()"></div>
+  return `<div class="field"><label>Precio de venta ($)</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="cq_venta" type="number" inputmode="numeric" placeholder="0" oninput="cqVentaInput()" style="flex:1;min-width:0;">
+        <button onclick="cqDesde('costo')" title="Calcular venta desde el costo" style="flex-shrink:0;background:#eef3ff;border:1px solid var(--border);border-radius:9px;padding:9px 10px;font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap;">⬆️ costo</button>
+      </div>
+    </div>
+    <div class="field"><label>Precio de costo ($) <span style="color:var(--muted);font-weight:400;">— auto, editable</span></label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="cq_costo" type="number" inputmode="numeric" placeholder="0" oninput="cqCostoInput()" style="flex:1;min-width:0;">
+        <button onclick="cqDesde('venta')" title="Calcular costo desde la venta" style="flex-shrink:0;background:#eef3ff;border:1px solid var(--border);border-radius:9px;padding:9px 10px;font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap;">⬆️ venta</button>
+      </div>
+    </div>
+    <div class="card" style="padding:10px 14px;margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+        <input type="checkbox" id="cq_descOn" style="width:auto;" onchange="calcCuotasGo()">
+        <span style="font-weight:700;color:var(--orange);">🏷️ Aplicar descuento al contado</span>
+      </label>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+        <span style="font-size:12px;color:var(--muted);">Descuento (%)</span>
+        <input id="cq_descPct" type="number" inputmode="decimal" value="10" min="0" max="90" oninput="calcCuotasGo()" style="width:80px;">
+      </div>
+    </div>
     <div class="card" style="padding:12px 14px;margin-bottom:12px;">
-      <div style="font-size:12px;font-weight:800;color:var(--blue);margin-bottom:4px;">⚙️ Recargo de cada plan (%)</div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">En cascada: cada uno suma su % sobre el total del plan anterior.</div>
-      <div class="field-row"><div class="field" style="margin-bottom:8px;"><label>2 cuotas (%)</label><input id="p_p2" type="number" step="0.1" inputmode="decimal" value="${P.p2}" oninput="guardarPorc();calcCuotasGo()"></div>
-      <div class="field" style="margin-bottom:8px;"><label>3 cuotas (%)</label><input id="p_p3" type="number" step="0.1" inputmode="decimal" value="${P.p3}" oninput="guardarPorc();calcCuotasGo()"></div></div>
-      <div class="field-row"><div class="field" style="margin-bottom:8px;"><label>4 cuotas (%)</label><input id="p_p4" type="number" step="0.1" inputmode="decimal" value="${P.p4}" oninput="guardarPorc();calcCuotasGo()"></div>
-      <div class="field" style="margin-bottom:8px;"><label>5 cuotas (%)</label><input id="p_p5" type="number" step="0.1" inputmode="decimal" value="${P.p5}" oninput="guardarPorc();calcCuotasGo()"></div></div>
-      <div class="field" style="margin-bottom:0;"><label>6 cuotas (%)</label><input id="p_p6" type="number" step="0.1" inputmode="decimal" value="${P.p6}" oninput="guardarPorc();calcCuotasGo()"></div>
-      <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="restaurarPorc()">↩️ Restaurar valores de fábrica</button>
+      ${cajonHeader('cajonPorc','⚙️ Recargo de cada plan (%)', false)}
+      <div id="cajonPorc" style="display:none;margin-top:10px;">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">En cascada: cada uno suma su % sobre el total del plan anterior.</div>
+        <div class="field-row"><div class="field" style="margin-bottom:8px;"><label>2 cuotas (%)</label><input id="p_p2" type="number" step="0.1" inputmode="decimal" value="${P.p2}" oninput="guardarPorc();calcCuotasGo()"></div>
+        <div class="field" style="margin-bottom:8px;"><label>3 cuotas (%)</label><input id="p_p3" type="number" step="0.1" inputmode="decimal" value="${P.p3}" oninput="guardarPorc();calcCuotasGo()"></div></div>
+        <div class="field-row"><div class="field" style="margin-bottom:8px;"><label>4 cuotas (%)</label><input id="p_p4" type="number" step="0.1" inputmode="decimal" value="${P.p4}" oninput="guardarPorc();calcCuotasGo()"></div>
+        <div class="field" style="margin-bottom:8px;"><label>5 cuotas (%)</label><input id="p_p5" type="number" step="0.1" inputmode="decimal" value="${P.p5}" oninput="guardarPorc();calcCuotasGo()"></div></div>
+        <div class="field" style="margin-bottom:0;"><label>6 cuotas (%)</label><input id="p_p6" type="number" step="0.1" inputmode="decimal" value="${P.p6}" oninput="guardarPorc();calcCuotasGo()"></div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="restaurarPorc()">↩️ Restaurar valores de fábrica</button>
+      </div>
     </div>
     <div id="cq_out"></div>`;
+}
+/* venta↔costo automático en Cuotas */
+function cqVentaInput(){
+  const venta=+document.getElementById('cq_venta').value||0;
+  const costoEl=document.getElementById('cq_costo');
+  if(costoEl && costoEl.dataset.manual!=='1'){ costoEl.value = venta>0 ? costoDesdeVenta(venta) : ''; }
+  calcCuotasGo();
+}
+function cqCostoInput(){
+  const costo=+document.getElementById('cq_costo').value||0;
+  document.getElementById('cq_costo').dataset.manual='1';
+  const ventaEl=document.getElementById('cq_venta');
+  if(ventaEl && (+ventaEl.value||0)===0){ ventaEl.value = costo>0 ? markupVenta(costo) : ''; calcCuotasGo(); }
+}
+function cqDesde(origen){
+  const ventaEl=document.getElementById('cq_venta');
+  const costoEl=document.getElementById('cq_costo');
+  if(origen==='costo'){
+    const costo=+costoEl.value||0;
+    if(!costo){ toast('Poné el costo'); return; }
+    ventaEl.value = markupVenta(costo);
+  } else {
+    const venta=+ventaEl.value||0;
+    if(!venta){ toast('Poné la venta'); return; }
+    costoEl.value = costoDesdeVenta(venta); costoEl.dataset.manual='1';
+  }
+  calcCuotasGo();
 }
 function guardarPorc(){
   const P={
@@ -2352,8 +2418,16 @@ function calcCuotasGo(){
   const out=document.getElementById('cq_out');
   if(!venta){ out.innerHTML=''; return; }
   window._calcVenta=venta;
-  let html=`<div class="calc-result"><div class="cr-lbl">Precio de venta</div><div class="cr-big">$<span>${fmt(venta)}</span></div></div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Tildá los planes que querés incluir en el mensaje.</div>`;
+  // descuento al contado
+  const descOn=document.getElementById('cq_descOn')&&document.getElementById('cq_descOn').checked;
+  const descPct=descOn ? (+document.getElementById('cq_descPct').value||0) : 0;
+  const contadoConDesc = descOn ? round500(venta*(1-descPct/100)) : venta;
+  window._calcContadoDesc=contadoConDesc;
+  let html=`<div class="calc-result"><div class="cr-lbl">Precio de venta</div><div class="cr-big">$<span>${fmt(venta)}</span></div></div>`;
+  if(descOn && descPct>0){
+    html+=`<div class="card" style="border-left:3px solid var(--orange);"><div class="calc-line"><span class="cl-lbl">🏷️ Contado con ${descPct}% off</span><span class="cl-val" style="color:var(--orange);font-weight:800;font-size:16px;">$${fmt(contadoConDesc)}</span></div><div class="calc-line"><span class="cl-lbl" style="font-size:11px;color:var(--muted);">Ahorro</span><span class="cl-val" style="font-size:12px;color:var(--green);">$${fmt(venta-contadoConDesc)}</span></div></div>`;
+  }
+  html+=`<div style="font-size:11px;color:var(--muted);margin:8px 0;">Tildá los planes que querés incluir en el mensaje.</div>`;
   [2,3,4,5,6].forEach(n=>{
     const m=planCuotas(venta,n); const total=m.reduce((s,x)=>s+x,0);
     const def=[2,4,6].includes(n)?'checked':'';
@@ -2371,7 +2445,10 @@ function waPlanesCalc(){
   const venta=window._calcVenta||0; if(!venta){ toast('Cargá un precio'); return; }
   const checks=[...document.querySelectorAll('.calc-plan-check:checked')].map(c=>+c.dataset.n);
   if(!checks.length){ toast('Tildá al menos un plan'); return; }
-  let msg=`*Precio de venta: $${fmt(venta)}*\n\n`;
+  let msg=`*Precio de venta: $${fmt(venta)}*\n`;
+  const cd=window._calcContadoDesc||0;
+  if(cd>0 && cd<venta){ msg+=`🏷️ *Contado con descuento: $${fmt(cd)}*\n`; }
+  msg+=`\n`;
   checks.sort((a,b)=>a-b).forEach(n=>{
     const m=planCuotas(venta,n);
     msg+=`❇️${n} cuotas de $${fmt(m[0])}\n`;
@@ -2407,15 +2484,15 @@ function calcInversionHTML(){
       <div style="font-size:12px;color:var(--blue);font-weight:700;">💡 Llená cualquier campo y tocá "Sugerir": la calculadora arma el resto.</div>
     </div>
     <div class="field"><label>Precio de VENTA ($) <span style="color:var(--muted);font-weight:400;">— contado</span></label>
-      <div style="display:flex;gap:6px;">
-        <input id="ci_venta" type="number" inputmode="numeric" placeholder="0" oninput="ciVentaChange()" style="flex:1;">
-        <button class="btn btn-ghost btn-sm" onclick="ciSugerirDesde('costo')" title="Calcular venta desde el costo">⬆️ desde costo</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="ci_venta" type="number" inputmode="numeric" placeholder="0" oninput="ciVentaChange()" style="flex:1;min-width:0;">
+        <button onclick="ciSugerirDesde('costo')" title="Calcular venta desde el costo" style="flex-shrink:0;background:#eef3ff;border:1px solid var(--border);border-radius:9px;padding:9px 10px;font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap;">⬆️ costo</button>
       </div>
     </div>
     <div class="field"><label>Precio de COSTO ($)</label>
-      <div style="display:flex;gap:6px;">
-        <input id="ci_costo" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('costo');calcInversion()" style="flex:1;">
-        <button class="btn btn-ghost btn-sm" onclick="ciSugerirDesde('venta')" title="Calcular costo desde la venta">⬆️ desde venta</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="ci_costo" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('costo');calcInversion()" style="flex:1;min-width:0;">
+        <button onclick="ciSugerirDesde('venta')" title="Calcular costo desde la venta" style="flex-shrink:0;background:#eef3ff;border:1px solid var(--border);border-radius:9px;padding:9px 10px;font-size:12px;font-weight:700;color:var(--blue);white-space:nowrap;">⬆️ venta</button>
       </div>
     </div>
     <div class="field"><label>Plan de pago</label>
@@ -2424,13 +2501,23 @@ function calcInversionHTML(){
       </div>
     </div>
     <div class="field"><label>💰 Monto de UNA cuota ($) <span style="color:var(--muted);font-weight:400;">— o entrá por acá</span></label>
-      <div style="display:flex;gap:6px;">
-        <input id="ci_montoCuota" type="number" inputmode="numeric" placeholder="0" style="flex:1;">
-        <button class="btn btn-ghost btn-sm" onclick="ciSugerirDesde('cuota')" title="Armar todo desde el monto de la cuota">🧮 armar todo</button>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="ci_montoCuota" type="number" inputmode="numeric" placeholder="0" style="flex:1;min-width:0;">
+        <button onclick="ciSugerirDesde('cuota')" title="Armar todo desde el monto de la cuota" style="flex-shrink:0;background:var(--orange);border:none;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;">🧮 armar</button>
       </div>
     </div>
     <div class="field-row"><div class="field"><label>1ra cuota / entrega ($) <span style="color:var(--muted);font-weight:400;">— auto</span></label><input id="ci_cuota" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('cuota');calcInversion()"></div>
     <div class="field"><label>Envío ($)</label><input id="ci_envio" type="number" inputmode="numeric" placeholder="0" oninput="calcInversion()"></div></div>
+    <div class="card" style="padding:10px 14px;margin-bottom:12px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+        <input type="checkbox" id="ci_descOn" style="width:auto;" onchange="calcInversion()">
+        <span style="font-weight:700;color:var(--orange);">🏷️ Aplicar descuento al contado</span>
+      </label>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+        <span style="font-size:12px;color:var(--muted);">Descuento (%)</span>
+        <input id="ci_descPct" type="number" inputmode="decimal" value="10" min="0" max="90" oninput="calcInversion()" style="width:80px;">
+      </div>
+    </div>
     <div class="field"><label>¿Hay revendedor?</label>
       <div class="chips" style="display:flex;gap:6px;">
         <div class="chip sel" id="ci_revNo" onclick="ciSetRev(false)">No</div>
@@ -2550,8 +2637,12 @@ function calcInversion(){
   // capital a invertir = costo - 1ra cuota + envío
   const capital=costo-cuota+envio;
   const porInv=Math.round(capital/inv);
-  // total que realmente paga el cliente (cuotas con recargo, o contado)
-  const totalPagado = ciCuotas>1 ? cuota*ciCuotas : venta;
+  // descuento al contado
+  const descOn=document.getElementById('ci_descOn')&&document.getElementById('ci_descOn').checked;
+  const descPct=descOn?(+document.getElementById('ci_descPct').value||0):0;
+  const contadoConDesc = (descOn && ciCuotas<=1) ? round500(venta*(1-descPct/100)) : venta;
+  // total que realmente paga el cliente (cuotas con recargo, o contado con/sin descuento)
+  const totalPagado = ciCuotas>1 ? cuota*ciCuotas : contadoConDesc;
   // ganancia total = lo que paga el cliente - costo - envío - comisión
   const gan=totalPagado-costo-envio-comision;
   const ganPorInv=Math.round(gan/inv);
@@ -2577,6 +2668,7 @@ function calcInversion(){
   out.innerHTML=`<div class="calc-result"><div class="cr-lbl">Capital a invertir</div><div class="cr-big">$<span>${fmt(capital)}</span></div></div>
     <div class="card">
       <div class="calc-line"><span class="cl-lbl">Precio venta (contado)</span><span class="cl-val">$${fmt(venta)}</span></div>
+      ${(descOn && descPct>0 && ciCuotas<=1)?`<div class="calc-line"><span class="cl-lbl" style="color:var(--orange);">🏷️ Contado con ${descPct}% off</span><span class="cl-val" style="color:var(--orange);font-weight:800;">$${fmt(contadoConDesc)}</span></div>`:''}
       ${ciCuotas>1?`<div class="calc-line"><span class="cl-lbl">Total que paga el cliente (${ciCuotas} cuotas)</span><span class="cl-val" style="color:var(--blue);">$${fmt(totalPagado)}</span></div>`:''}
       <div class="calc-line"><span class="cl-lbl">Costo</span><span class="cl-val" style="color:var(--red);">−$${fmt(costo)}</span></div>
       ${envio>0?`<div class="calc-line"><span class="cl-lbl">Envío</span><span class="cl-val" style="color:var(--red);">−$${fmt(envio)}</span></div>`:''}
