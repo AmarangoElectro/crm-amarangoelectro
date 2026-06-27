@@ -3239,10 +3239,10 @@ function recalcItems(){
   const tcEl=document.getElementById('v_totcosto'), tvEl=document.getElementById('v_totventa'), gEl=document.getElementById('v_gan');
   if(tcEl) tcEl.textContent='$'+fmt(tc);
   if(tvEl) tvEl.textContent='$'+fmt(tv);
-  // comisión revendedor: 10% costo contado / 15% financiado, solo si hay revendedor
+  // comisión revendedor: 10% contado / 15% financiado, sobre el PRECIO DE VENTA (contado), solo si hay revendedor
   const revEl=document.getElementById('v_revend');
   const tieneRev = revEl && revEl.value.trim();
-  const comision = tieneRev ? Math.round(tc*((ventaCuotasSel>1)?0.15:0.10)) : 0;
+  const comision = tieneRev ? Math.round(tv*((ventaCuotasSel>1)?0.15:0.10)) : 0;
   // lo que realmente paga el cliente: contado = venta; cuotas = suma de cuotas (con interés)
   let totalPagado = tv;
   if(ventaCuotasSel>1 && ventaTipo!=='prestamo'){
