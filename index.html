@@ -3746,6 +3746,19 @@ function recordarTareasDelDia(){
     }
   }, 1500);
 }
+/* Recordatorio cada hora: mientras la app está abierta/de fondo, avisa si hay tareas pendientes */
+let _tareaReloj=null;
+function iniciarRecordatorioHorario(){
+  if(_tareaReloj) return;  // no duplicar
+  _tareaReloj=setInterval(()=>{
+    const pend=cargarTareas().filter(t=>!t.hecha);
+    if(!pend.length) return;
+    if(typeof notificar==='function'){
+      notificar('⏰ ¡NO OLVIDES TUS TAREAS!', `Tenés ${pend.length} tarea${pend.length>1?'s':''} pendiente${pend.length>1?'s':''}. Tocá para verlas.`);
+    }
+    if(typeof toast==='function') toast(`⏰ No olvides: ${pend.length} tarea${pend.length>1?'s':''} pendiente${pend.length>1?'s':''}`);
+  }, 60*60*1000);  // cada 1 hora
+}
 function abrirTareas(){
   openModal(`<div class="modal-title">📝 Mis tareas</div><div class="modal-sub">Tu lista personal · tocá para tildar, deslizá las ideas del día</div>
     <div style="display:flex;gap:6px;margin-bottom:12px;">
@@ -4126,6 +4139,7 @@ async function startApp(){
   pedirPermisoNotif();
   actualizarTareaBadge();   // mostrar puntito si hay tareas pendientes
   recordarTareasDelDia();   // aviso suave una vez al día si hay pendientes
+  iniciarRecordatorioHorario();  // recordatorio cada hora si hay tareas
   armarBotonAtras();        // evitar salir de la app con el gesto "atrás"
   AUDIT.recargar().then(()=>actualizarAvisoBadge());  // traer avisos de todos al iniciar
   // Revisar mensajes nuevos cada 20s (para el puntito rojo), solo si el chat está cerrado
