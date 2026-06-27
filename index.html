@@ -372,6 +372,7 @@
   <!-- menú desplegable de configuración -->
   <div id="menuConfig" class="menu-config" style="display:none;">
     <div class="mc-item" onclick="cerrarMenuConfig();abrirMiCuenta();"><span data-ico="user" data-size="18"></span> Mi cuenta / Contraseña</div>
+    <div class="mc-item" onclick="cerrarMenuConfig();abrirTareas();">📝 Mis tareas</div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirBackup();"><span data-ico="download" data-size="18"></span> Respaldo de datos</div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirPapelera();"><span data-ico="trash" data-size="18"></span> Papelera</div>
   </div>
@@ -3274,8 +3275,52 @@ function detalleCliente(id){
           </div>
         </div>`;
       }).join('')}
+    <div id="resumenMensualCli"></div>
     <button class="btn btn-orange" style="margin-top:4px;" onclick="formVenta('${id}')">➕ Agregar producto / venta</button>
     <button class="btn btn-ghost btn-sm" style="margin-top:12px;color:var(--red);" onclick="delCliente('${id}')">🗑️ Eliminar cliente</button>`);
+  pintarResumenMensualCliente(id);
+}
+/* Calcula y muestra cuánto tiene que pagar el cliente ESTE MES (suma de cuotas que vencen en el mes en curso) */
+function pintarResumenMensualCliente(id){
+  const cont=document.getElementById('resumenMensualCli'); if(!cont) return;
+  const hoy=today();
+  const mesActual=hoy.getMonth(), anioActual=hoy.getFullYear();
+  const vs=DB.ventas.filter(v=>v.clienteId===id);
+  let totalMes=0, pendientesMes=0, vencidoMes=0, cuotasDetalle=[];
+  vs.forEach(v=>{
+    ventaCuotas(v).forEach(c=>{
+      const venc=parseD(c.vence);
+      if(venc.getMonth()===mesActual && venc.getFullYear()===anioActual){
+        if(!c.pagada){
+          totalMes+=c.monto; pendientesMes++;
+          if(venc<hoy) vencidoMes+=c.monto;
+          cuotasDetalle.push({prod:v.producto, num:c.num, total:v.cuotas, monto:c.monto, venc, atrasada:venc<hoy});
+        }
+      }
+    });
+  });
+  // también: total de TODO lo que debe (todas las cuotas pendientes, no solo este mes)
+  let deudaTotal=0;
+  vs.forEach(v=>{ ventaCuotas(v).forEach(c=>{ if(!c.pagada) deudaTotal+=c.monto; }); });
+  const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  if(totalMes<=0 && deudaTotal<=0){ cont.innerHTML=`<div class="card" style="padding:12px 14px;text-align:center;color:var(--green);font-weight:700;">✅ Este cliente no tiene cuotas pendientes</div>`; return; }
+  let detalleHtml='';
+  if(cuotasDetalle.length){
+    detalleHtml=cuotasDetalle.sort((a,b)=>a.venc-b.venc).map(d=>
+      `<div class="calc-line"><span class="cl-lbl" style="font-size:12px;">${d.atrasada?'🔴':'🟢'} ${d.prod} <span style="color:var(--muted);">(${d.num}/${d.total})</span></span><span class="cl-val" style="font-size:13px;">$${fmt(d.monto)}</span></div>`
+    ).join('');
+  }
+  cont.innerHTML=`
+    <div class="card" style="padding:14px;margin-top:14px;border-left:4px solid var(--orange);">
+      <div style="font-size:13px;font-weight:800;color:var(--blue);margin-bottom:8px;">📅 A pagar en ${meses[mesActual]}</div>
+      ${detalleHtml?`<div style="margin-bottom:8px;">${detalleHtml}</div>`:''}
+      <div class="calc-line" style="border-top:2px solid var(--border);padding-top:8px;margin-top:4px;">
+        <span class="cl-lbl" style="font-weight:800;">Total del mes</span>
+        <span class="cl-val" style="font-weight:900;color:var(--orange);font-size:18px;">$${fmt(totalMes)}</span>
+      </div>
+      ${vencidoMes>0?`<div class="calc-line"><span class="cl-lbl" style="color:var(--red);font-size:12px;">⚠️ De eso, ya vencido</span><span class="cl-val" style="color:var(--red);font-weight:800;">$${fmt(vencidoMes)}</span></div>`:''}
+      <div class="calc-line" style="margin-top:6px;"><span class="cl-lbl" style="font-size:12px;color:var(--muted);">Deuda total (todas las cuotas)</span><span class="cl-val" style="font-size:13px;color:var(--muted);">$${fmt(deudaTotal)}</span></div>
+    </div>`;
 }
 async function delCliente(id){
   const c=DB.clientes.find(x=>x.id===id); if(!c)return;
@@ -3656,6 +3701,62 @@ function eliminarDefPapelera(idPap){
   if(!confirm('¿Eliminar definitivamente? Esto NO se puede deshacer.'))return;
   PAPELERA.items=PAPELERA.items.filter(x=>x.idPap!==idPap); PAPELERA.save();
   toast('Eliminado definitivamente'); abrirPapelera();
+}
+/* ============ MIS TAREAS (bloc de notas simple, por usuario) ============ */
+function tareasKey(){ return 'ae_tareas_'+(usuarioActual()||'user'); }
+function cargarTareas(){ try{ return JSON.parse(localStorage.getItem(tareasKey())||'[]'); }catch(e){ return []; } }
+function guardarTareas(arr){ try{ localStorage.setItem(tareasKey(), JSON.stringify(arr)); }catch(e){} }
+function abrirTareas(){
+  openModal(`<div class="modal-title">📝 Mis tareas</div><div class="modal-sub">Tu lista personal · tocá para tildar, deslizá las ideas del día</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      <input id="nuevaTarea" placeholder="Escribí una tarea y tocá +" style="flex:1;" onkeydown="if(event.key==='Enter')agregarTarea()">
+      <button class="btn btn-orange" style="width:48px;padding:0;font-size:22px;font-weight:800;" onclick="agregarTarea()">+</button>
+    </div>
+    <div id="listaTareas"></div>`);
+  renderTareas();
+  setTimeout(()=>{ const i=document.getElementById('nuevaTarea'); if(i) i.focus(); }, 200);
+}
+function renderTareas(){
+  const cont=document.getElementById('listaTareas'); if(!cont) return;
+  const tareas=cargarTareas();
+  if(!tareas.length){ cont.innerHTML=`<div style="text-align:center;color:var(--muted);padding:24px 12px;font-size:13px;">No tenés tareas. ¡Agregá la primera! 📝</div>`; return; }
+  // pendientes arriba, hechas abajo
+  const pend=tareas.filter(t=>!t.hecha), hechas=tareas.filter(t=>t.hecha);
+  const fila=(t)=>`
+    <div class="card" style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:8px;${t.hecha?'opacity:.6;':''}">
+      <span onclick="toggleTarea('${t.id}')" style="cursor:pointer;font-size:22px;line-height:1;">${t.hecha?'✅':'⬜'}</span>
+      <span onclick="toggleTarea('${t.id}')" style="flex:1;cursor:pointer;font-size:14px;${t.hecha?'text-decoration:line-through;color:var(--muted);':'color:var(--text);'}">${(t.texto||'').replace(/</g,'&lt;')}</span>
+      <span onclick="borrarTarea('${t.id}')" style="cursor:pointer;color:var(--red);font-size:16px;padding:4px;">🗑️</span>
+    </div>`;
+  let html=pend.map(fila).join('');
+  if(hechas.length){
+    html+=`<div style="display:flex;align-items:center;justify-content:space-between;margin:14px 2px 8px;">
+      <span style="font-size:12px;color:var(--muted);font-weight:700;">Hechas (${hechas.length})</span>
+      <span onclick="limpiarHechas()" style="cursor:pointer;color:var(--red);font-size:12px;font-weight:700;">Borrar hechas</span></div>`;
+    html+=hechas.map(fila).join('');
+  }
+  cont.innerHTML=html;
+}
+function agregarTarea(){
+  const inp=document.getElementById('nuevaTarea'); if(!inp) return;
+  const texto=(inp.value||'').trim(); if(!texto) return;
+  const tareas=cargarTareas();
+  tareas.unshift({ id:'t'+Date.now()+Math.floor(Math.random()*999), texto, hecha:false, ts:Date.now() });
+  guardarTareas(tareas); inp.value=''; renderTareas(); inp.focus();
+}
+function toggleTarea(id){
+  const tareas=cargarTareas();
+  const t=tareas.find(x=>x.id===id); if(t) t.hecha=!t.hecha;
+  guardarTareas(tareas); renderTareas();
+}
+function borrarTarea(id){
+  let tareas=cargarTareas(); tareas=tareas.filter(x=>x.id!==id);
+  guardarTareas(tareas); renderTareas();
+}
+function limpiarHechas(){
+  if(!confirm('¿Borrar todas las tareas hechas?')) return;
+  let tareas=cargarTareas(); tareas=tareas.filter(x=>!x.hecha);
+  guardarTareas(tareas); renderTareas();
 }
 function abrirPapelera(){
   PAPELERA.load();
