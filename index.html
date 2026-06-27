@@ -48,8 +48,8 @@
   .login-box input{width:100%;padding:16px;border:none;border-radius:14px;font-size:18px;text-align:center;letter-spacing:3px;margin-bottom:14px;outline:none;}
   .login-box button{width:100%;padding:16px;border:none;border-radius:14px;background:var(--orange);color:#fff;font-weight:800;font-size:16px;cursor:pointer;}
   .login-err{color:#ffb3ba;font-size:13px;text-align:center;height:18px;margin-bottom:8px;}
-  .cloud-badge{position:fixed;top:0;left:0;right:0;background:var(--green);color:#fff;text-align:center;font-size:11px;font-weight:700;padding:5px;z-index:60;display:none;}
-  .cloud-badge.off{background:#f5b800;color:#3a2e00;}
+  .cloud-badge{position:fixed;top:8px;right:10px;background:rgba(29,185,84,.12);color:#1DB954;border:1px solid rgba(29,185,84,.35);border-radius:20px;font-size:10px;font-weight:700;padding:3px 9px;z-index:60;display:none;backdrop-filter:blur(4px);}
+  .cloud-badge.off{background:rgba(245,184,0,.15);color:#b38600;border-color:rgba(245,184,0,.4);}
   .cloud-badge.show{display:block;}
 
   /* HEADER */
@@ -786,8 +786,8 @@ function initCloud(){
     catch(e){ CLOUD = false; }
   }
   const b=document.getElementById('cloudBadge');
-  if(CLOUD){ b.textContent='🟢 AmarangoElectro en la nube'; b.classList.add('show'); }
-  else { b.textContent='🟡 Modo local'; b.classList.add('show','off'); }
+  if(CLOUD){ b.textContent='☁️ En la nube'; b.classList.add('show'); }
+  else { b.textContent='⚠️ Local'; b.classList.add('show','off'); }
 }
 
 /* ============ DATOS ============ */
@@ -2675,9 +2675,21 @@ function formVenta(preCliente){
     <div class="field"><label>Plan de pago</label><div id="cuotasChips">${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<span class="chip ${n===1?'sel':''}" data-c="${n}" onclick="selCuota(${n})">${n===1?'Contado':n+' cuotas'}</span>`).join('')}</div></div>
     <div id="planPreview"></div>
     <div id="planEnviar"></div>
+    <div class="card" style="padding:10px 14px;margin:12px 0;background:#f0fff4;border-left:3px solid var(--green);">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+        <input type="checkbox" id="v_pagado" style="width:auto;" onchange="togglePagadoInfo()">
+        <span style="font-weight:700;color:#1a7a3a;">✅ Esta venta ya está paga</span>
+      </label>
+      <div id="v_pagadoInfo" style="font-size:11px;color:var(--muted);margin-top:6px;display:none;">Se va a registrar como pagada (todas las cuotas marcadas). Podés cambiarlo después desde el detalle.</div>
+    </div>
     <button class="btn btn-orange" onclick="saveVenta()">💾 Registrar venta</button>`);
   renderItems();
   renderInversoresForm();
+}
+function togglePagadoInfo(){
+  const info=document.getElementById('v_pagadoInfo');
+  const chk=document.getElementById('v_pagado');
+  if(info&&chk) info.style.display=chk.checked?'block':'none';
 }
 function renderItems(){
   const box=document.getElementById('itemsBox'); if(!box) return;
@@ -3055,9 +3067,13 @@ function recalcInv(){
   let html='';
   ventaInversores.forEach(inv=>{
     if(inv.nombre.trim() && inv.pct>0){
+      const pone=Math.round(costo*inv.pct/100);
+      const gana=Math.round(ganancia*inv.pct/100);
       html+=`<div class="card" style="padding:8px 12px;margin-bottom:6px;border-left:3px solid ${nombreColor(inv.nombre.trim())};">
         <div style="font-weight:800;color:${nombreColor(inv.nombre.trim())};font-size:12px;">${inv.nombre.trim()} · ${inv.pct}%</div>
-        <div style="font-size:11px;color:var(--muted);">Pone $${fmt(Math.round(costo*inv.pct/100))} · Gana $${fmt(Math.round(ganancia*inv.pct/100))}</div></div>`;
+        <div style="font-size:11px;color:var(--muted);margin-bottom:6px;">Pone $${fmt(pone)} · Gana $${fmt(gana)}</div>
+        <button type="button" class="btn btn-ghost btn-sm" style="color:#25D366;font-weight:700;padding:5px 10px;font-size:11px;" onclick="invitarInversor(${pone},${gana})">📲 Invitar por WhatsApp</button>
+      </div>`;
     }
   });
   // aviso de cuánto falta para 100%
@@ -3187,7 +3203,11 @@ async function saveVenta(){
     const mayorista=(items.find(it=>it.mayorista)||{}).mayorista||'';
     rec={ ...base, producto, items, precioCosto, precioVenta, mayorista };
   }
-  DB.ventas.push(rec); await DB.upsertVenta(rec); closeModal(); toast(ventaTipo==='prestamo'?'Préstamo registrado':'Venta registrada'); render();
+  DB.ventas.push(rec);
+  // si se marcó "ya está paga", marcar todas las cuotas como pagadas
+  const yaPagada = document.getElementById('v_pagado') && document.getElementById('v_pagado').checked;
+  if(yaPagada){ rec.pagadas = rec.cuotas || 1; }
+  await DB.upsertVenta(rec); closeModal(); toast(ventaTipo==='prestamo'?'Préstamo registrado':(yaPagada?'Venta registrada y paga ✅':'Venta registrada')); render();
   setTimeout(()=>detalleCliente(clienteId), 250);
 }
 
