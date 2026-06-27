@@ -20,7 +20,7 @@
     --green:#1DB954; --yellow:#f5b800; --orange-c:#FF7A00; --red:#e63946;
     --border:#e6edf8;
   }
-  html,body{font-family:'Plus Jakarta Sans',sans-serif;background:#fff;color:var(--text);overscroll-behavior:none;}
+  html,body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Plus Jakarta Sans',sans-serif;background:#fff;color:var(--text);overscroll-behavior:none;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-0.01em;}
   body{
     padding-bottom:78px;min-height:100vh;
     background-color:#FFFDF7;
@@ -53,7 +53,7 @@
   .cloud-badge.show{display:block;}
 
   /* HEADER */
-  .topbar{background:var(--blue);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+  .topbar{background:rgba(11,45,107,.82);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
   .ambito-bar{display:flex;gap:6px;padding:8px 14px;background:var(--blue);position:sticky;top:0;z-index:30;}
   .ambito-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.7);border:none;font-weight:700;font-size:13px;padding:9px;border-radius:10px;cursor:pointer;}
   .ambito-btn.active{background:var(--orange);color:#fff;}
@@ -200,8 +200,8 @@
   .amara-send{background:var(--blue);color:#fff;border:none;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
   .amara-send:active{transform:scale(.92);}
 
-  .nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--border);display:flex;justify-content:space-around;padding:6px 4px 10px;z-index:50;box-shadow:0 -2px 14px rgba(11,45,107,.05);}
-  .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;flex:1;padding:8px 2px;min-height:56px;border-radius:12px;color:var(--muted);-webkit-tap-highlight-color:rgba(255,122,0,.15);}
+  .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.82);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-top:1px solid rgba(0,0,0,.06);display:flex;justify-content:space-around;padding:6px 4px 10px;z-index:50;box-shadow:0 -2px 14px rgba(11,45,107,.05);}
+  .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;flex:1;padding:10px 2px;min-height:62px;border-radius:12px;color:var(--muted);-webkit-tap-highlight-color:rgba(255,122,0,.15);touch-action:manipulation;}
   .nav-item:active{background:rgba(255,122,0,.1);transform:scale(.96);}
   .nav-item.active{color:var(--orange);}
   .nav-ico{font-size:24px;line-height:1;}
@@ -363,7 +363,7 @@
     </div>
   </div>
   <div class="topbar-actions">
-    <span onclick="abrirChat()" title="Mensajes" style="position:relative;">💬<span id="chatBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
+    <span onclick="abrirChat()" title="Mensajes" style="position:relative;color:#fff;"><span data-ico="chat" data-size="22"></span><span id="chatBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
     <span onclick="abrirAvisos()" title="Avisos" style="position:relative;color:var(--yellow);"><span data-ico="alert" data-size="22"></span><span id="avisoBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
     <span onclick="toggleOcultar()" id="btnOjito" title="Ocultar montos" style="color:#fff;"><span data-ico="eyeoff" data-size="22"></span></span>
     <span onclick="toggleMenuConfig(event)" title="Configuración" style="position:relative;color:var(--orange);"><span data-ico="gear" data-size="22"></span><span id="tareaBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;border:2px solid var(--blue);"></span></span>
@@ -940,7 +940,7 @@ const avatarColor = n => { const c=['#0B2D6B','#FF7A00','#1DB954','#9b59b6','#e7
 function svgIcon(path, size, fill){
   const s=size||14;
   const f=fill||false;
-  return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f?'currentColor':'none'}" stroke="${f?'none':'currentColor'}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:middle;">${path}</svg>`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="${f?'currentColor':'none'}" stroke="${f?'none':'currentColor'}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;vertical-align:middle;">${path}</svg>`;
 }
 const ICO={
   user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
@@ -4380,8 +4380,8 @@ document.addEventListener('touchend',(e)=>{
   if(!swActivo) return; swActivo=false;
   const dx=e.changedTouches[0].clientX-swX;
   const dy=e.changedTouches[0].clientY-swY;
-  // Solo si es claramente horizontal y suficientemente largo
-  if(Math.abs(dx)<70 || Math.abs(dx)<Math.abs(dy)*1.8) return;
+  // Solo si es un gesto largo (120px) y MUY claramente horizontal (3x más que vertical)
+  if(Math.abs(dx)<120 || Math.abs(dx)<Math.abs(dy)*3) return;
   // No cambiar de página si hay un modal abierto
   if(document.getElementById('modalBg').classList.contains('show')) return;
   let i=ORDEN_VISTAS.indexOf(currentView);
