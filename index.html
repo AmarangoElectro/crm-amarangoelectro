@@ -997,9 +997,23 @@ function poblarIconos(){
 }
 // Unifica nombres equivalentes (Angie=Angela, Max/Maximiliano=Maxi)
 function normPersona(n){
-  const k=(n||'').trim().toLowerCase();
-  if(k==='angie'||k==='angela'||k==='ángela') return 'Angela';
-  if(k==='max'||k==='maxi'||k==='maximiliano') return 'Maxi';
+  // normalizar: minúsculas, sin acentos, sin espacios extra
+  let k=(n||'').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');  // saca acentos (á→a)
+  if(!k) return '';
+  // Maxi / Max / Maximiliano / Maxi A
+  if(k==='max'||k==='maxi'||k==='maximiliano'||k.startsWith('maxi')) return 'Maxi';
+  // Angela / Angie / Ángela
+  if(k==='angie'||k==='angela'||k.startsWith('angel')||k==='angi') return 'Angela';
+  // Guido / Guichii / Guichi
+  if(k==='guido'||k==='guichi'||k==='guichii'||k.startsWith('guido')||k.startsWith('guich')) return 'Guido';
+  // Victoria / Vicky / Vicki / Vic
+  if(k==='victoria'||k==='vicky'||k==='vicki'||k==='vic'||k.startsWith('vick')||k.startsWith('victor')) return 'Victoria';
+  // Selene / Sechu / Sele
+  if(k==='selene'||k==='sechu'||k==='sele'||k.startsWith('selen')||k==='sechu') return 'Selene';
+  // Sabry / Sabrina
+  if(k==='sabry'||k==='sabrina'||k.startsWith('sabr')) return 'Sabry';
+  // por defecto: el nombre normalizado con primera mayúscula
   return (n||'').trim();
 }
 const nombreColor = n => {
