@@ -1657,6 +1657,15 @@ function renderPanelHoy(){
     html+=`<div style="font-size:12px;color:var(--muted);">Sin cobranzas para mañana</div>`;
   }
   html+=`</div></div>`;
+  // cajón de gastos personales (privado)
+  const totGastos=totalGastos();
+  html+=`<div class="card" style="margin-bottom:10px;">
+    ${cajonHeader('cajonGastos','💸 Mis gastos del mes · $'+fmt(totGastos), false)}
+    <div id="cajonGastos" style="display:none;margin-top:10px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Privado, solo en tu teléfono. Se reinicia cada mes.</div>
+      <button class="btn btn-ghost btn-sm" style="color:var(--blue);" onclick="abrirGastos()">✏️ Ver / cargar gastos</button>
+    </div>
+  </div>`;
   cont.innerHTML=html;
 }
 function renderCaja(){
@@ -4162,6 +4171,73 @@ function eliminarDefPapelera(idPap){
 function tareasKey(){ return 'ae_tareas_'+(usuarioActual()||'user'); }
 function cargarTareas(){ try{ return JSON.parse(localStorage.getItem(tareasKey())||'[]'); }catch(e){ return []; } }
 function guardarTareas(arr){ try{ localStorage.setItem(tareasKey(), JSON.stringify(arr)); }catch(e){} actualizarTareaBadge(); }
+/* ============ GASTOS PERSONALES (privados, por usuario y por mes) ============ */
+const GASTOS_CATEGORIAS=['💡 Luz','🔥 Gas','💧 Agua','🏠 Alquiler','🌐 Internet','📱 Teléfono','🍔 Gastos diarios','🚗 Transporte'];
+function mesClave(){ const d=today(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function gastosKey(){ return 'ae_gastos_'+(usuarioActual()||'user')+'_'+mesClave(); }
+function cargarGastos(){ try{ return JSON.parse(localStorage.getItem(gastosKey())||'[]'); }catch(e){ return []; } }
+function guardarGastos(arr){ try{ localStorage.setItem(gastosKey(), JSON.stringify(arr)); }catch(e){} }
+function totalGastos(){ return cargarGastos().reduce((s,g)=>s+(g.monto||0),0); }
+function abrirGastos(){
+  const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const mesNom=meses[today().getMonth()];
+  openModal(`<div class="modal-title">💸 Mis gastos</div><div class="modal-sub">${mesNom} · privado, solo en tu teléfono</div>
+    <div class="field"><label>Categoría</label>
+      <select id="g_cat">${GASTOS_CATEGORIAS.map(c=>`<option value="${c}">${c}</option>`).join('')}<option value="__nueva__">➕ Otra (escribir)</option></select>
+    </div>
+    <div id="g_nuevaCatBox" style="display:none;" class="field"><label>Nueva categoría</label><input id="g_nuevaCat" placeholder="Ej: 🎁 Regalos"></div>
+    <div class="field"><label>Monto ($)</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="g_monto" type="number" inputmode="numeric" placeholder="0" style="flex:1;min-width:0;" onkeydown="if(event.key==='Enter')agregarGasto()">
+        <button class="btn btn-orange" style="width:48px;padding:0;font-size:22px;font-weight:800;" onclick="agregarGasto()">+</button>
+      </div>
+    </div>
+    <div id="listaGastos"></div>`);
+  // mostrar campo de nueva categoría si elige "otra"
+  const sel=document.getElementById('g_cat');
+  if(sel) sel.onchange=function(){ document.getElementById('g_nuevaCatBox').style.display = this.value==='__nueva__'?'block':'none'; };
+  renderGastos();
+}
+function renderGastos(){
+  const cont=document.getElementById('listaGastos'); if(!cont) return;
+  const gastos=cargarGastos();
+  const total=gastos.reduce((s,g)=>s+(g.monto||0),0);
+  let html=`<div class="card" style="border-left:4px solid var(--red);margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:800;color:var(--blue);">Total del mes</span>
+      <span style="font-weight:900;color:var(--red);font-size:20px;">$${fmt(total)}</span>
+    </div></div>`;
+  if(!gastos.length){ html+=`<div style="text-align:center;color:var(--muted);padding:20px 12px;font-size:13px;">No cargaste gastos este mes</div>`; cont.innerHTML=html; return; }
+  html+=gastos.slice().reverse().map(g=>
+    `<div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:10px 13px;margin-bottom:6px;">
+      <span style="font-size:14px;">${(g.cat||'').replace(/</g,'&lt;')}</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-weight:800;color:var(--red);">$${fmt(g.monto)}</span>
+        <span onclick="borrarGasto('${g.id}')" style="cursor:pointer;color:var(--red);font-size:15px;">🗑️</span>
+      </div>
+    </div>`
+  ).join('');
+  cont.innerHTML=html;
+}
+function agregarGasto(){
+  const sel=document.getElementById('g_cat');
+  let cat=sel.value;
+  if(cat==='__nueva__'){ cat=(document.getElementById('g_nuevaCat').value||'').trim(); if(!cat){ toast('Escribí la categoría'); return; } }
+  const monto=+document.getElementById('g_monto').value||0;
+  if(monto<=0){ toast('Poné el monto'); return; }
+  const gastos=cargarGastos();
+  gastos.push({ id:'g'+Date.now()+Math.floor(Math.random()*999), cat, monto, ts:Date.now() });
+  guardarGastos(gastos);
+  document.getElementById('g_monto').value='';
+  if(document.getElementById('g_nuevaCat')) document.getElementById('g_nuevaCat').value='';
+  renderGastos();
+  if(currentView==='inicio') renderPanelHoy();
+}
+function borrarGasto(id){
+  let gastos=cargarGastos(); gastos=gastos.filter(g=>g.id!==id);
+  guardarGastos(gastos); renderGastos();
+  if(currentView==='inicio') renderPanelHoy();
+}
 /* Muestra un puntito con la cantidad de tareas pendientes en el engranaje */
 function actualizarTareaBadge(){
   const pend=cargarTareas().filter(t=>!t.hecha).length;
