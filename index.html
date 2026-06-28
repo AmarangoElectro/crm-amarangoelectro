@@ -494,6 +494,7 @@
       <div style="height:10px;background:#fff1e3;border-radius:10px;overflow:hidden;">
         <div id="finBar" style="height:100%;background:linear-gradient(90deg,var(--green),#44d978);width:0%;"></div>
       </div>
+      <button class="btn btn-orange" style="margin-top:12px;" onclick="abrirReporteMensual()">📊 Ver reporte del mes</button>
     </div>
   </div>
 
@@ -1224,6 +1225,7 @@ let currentView='inicio';
 let AMBITO='mio'; // 'mio' | 'general'
 function setAmbito(a){
   AMBITO=a;
+  window._gananciaRevelada=false;  // ocultar ganancia al cambiar de espacio (seguridad)
   document.getElementById('ambitoMio').classList.toggle('active', a==='mio');
   document.getElementById('ambitoGeneral').classList.toggle('active', a==='general');
   render();
@@ -1648,13 +1650,18 @@ function renderPanelHoy(){
     <div style="color:rgba(255,255,255,.85);font-size:13px;margin-top:4px;">${fraseHoy}</div>
   </div>`;
   html+=`<div class="sec-title" style="margin-top:4px;">☀️ Hoy${yo?(' · '+yo):''}</div>`;
-  // mi ganancia del mes
+  // mi ganancia del mes (privada, protegida con el PIN del capital)
+  window._miGananciaMes = miGananciaMes;
+  const revelada = window._gananciaRevelada===true;
   html+=`<div class="card" style="border-left:4px solid var(--green);margin-bottom:10px;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <span style="font-weight:800;color:var(--blue);">📈 Mi ganancia del mes</span>
-      <span style="font-weight:900;color:var(--green);font-size:20px;">$${fmt(miGananciaMes)}</span>
+      ${revelada
+        ? `<span style="font-weight:900;color:var(--green);font-size:20px;">$${fmt(miGananciaMes)}</span>`
+        : `<span onclick="revelarGanancia()" style="font-weight:900;color:var(--muted);font-size:20px;cursor:pointer;">🔒 ••••</span>`}
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px;">Tu parte de todas las ventas donde participás</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;">${revelada?'Tu parte de todas las ventas donde participás':'Privado · tocá el candado para ver con tu PIN'}</div>
+    ${revelada?`<button class="btn btn-ghost btn-sm" style="margin-top:6px;color:var(--muted);font-size:11px;" onclick="ocultarGanancia()">🙈 Ocultar de nuevo</button>`:''}
   </div>`;
   // tarjeta cobrar hoy
   html+=`<div class="card" style="border-left:4px solid var(--orange);margin-bottom:10px;">
@@ -2063,6 +2070,61 @@ function renderFinanzas(){
   document.getElementById('finBar').style.width=(tot?(cobrado/tot*100):0)+'%';
 }
 function finRow(l,val,c,plain){ return `<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:13px;"><span style="color:var(--muted);">${l}</span><span style="font-weight:700;color:${c};">${plain?val:'$'+fmt(val)}</span></div>`; }
+/* Reporte mensual del negocio. El TOTAL es del negocio (visible). La ganancia por persona NO se muestra acá (privada). */
+function abrirReporteMensual(){
+  const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const mesNom=meses[today().getMonth()]+' '+today().getFullYear();
+  // SIEMPRE sobre todo el negocio (no filtrado por persona) — esto es transparente para todos
+  const ventasMes=DB.ventas.filter(v=>mesActual(v.fecha));
+  const facturado=ventasMes.reduce((s,v)=>s+(v.precioVenta||0),0);
+  const costoTot=ventasMes.reduce((s,v)=>s+(v.precioCosto||0),0);
+  const envioTot=ventasMes.reduce((s,v)=>s+(v.envio||0),0);
+  const gananciaNegocio=facturado-costoTot-envioTot;
+  // cobrado y pendiente de TODAS las ventas (no solo del mes)
+  let cobrado=0, pendiente=0, vencido=0;
+  const hoy=today();
+  DB.ventas.forEach(v=>{ ventaCuotas(v).forEach(c=>{
+    if(c.pagada) cobrado+=c.monto;
+    else { pendiente+=c.monto; if(parseD(c.vence)<hoy) vencido+=c.monto; }
+  }); });
+  // clientes nuevos del mes
+  const clientesNuevos=DB.clientes.filter(c=>c.alta && mesActual(c.alta)).length;
+  openModal(`<div class="modal-title">📊 Reporte de ${mesNom}</div><div class="modal-sub">🐝 AmarangoElectro · el total del negocio</div>
+    <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);margin-bottom:14px;">
+      <div style="color:rgba(255,255,255,.8);font-size:12px;">Facturado este mes</div>
+      <div style="color:#fff;font-size:30px;font-weight:900;">$${fmt(facturado)}</div>
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <div class="sec-title" style="font-size:13px;margin-top:0;">💰 Resultado del mes</div>
+      <div class="calc-line"><span class="cl-lbl">Facturado (ventas)</span><span class="cl-val" style="color:var(--blue);">$${fmt(facturado)}</span></div>
+      <div class="calc-line"><span class="cl-lbl">− Costo de productos</span><span class="cl-val" style="color:var(--muted);">−$${fmt(costoTot)}</span></div>
+      ${envioTot>0?`<div class="calc-line"><span class="cl-lbl">− Envíos</span><span class="cl-val" style="color:var(--muted);">−$${fmt(envioTot)}</span></div>`:''}
+      <div class="calc-line" style="border-top:2px solid var(--border);margin-top:4px;padding-top:8px;"><span class="cl-lbl"><b>Ganancia del negocio</b></span><span class="cl-val"><b style="color:var(--green);">$${fmt(gananciaNegocio)}</b></span></div>
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <div class="sec-title" style="font-size:13px;margin-top:0;">📥 Cobranzas (histórico total)</div>
+      <div class="calc-line"><span class="cl-lbl">Ya cobrado</span><span class="cl-val" style="color:var(--green);">$${fmt(cobrado)}</span></div>
+      <div class="calc-line"><span class="cl-lbl">Falta cobrar</span><span class="cl-val" style="color:var(--orange);">$${fmt(pendiente)}</span></div>
+      ${vencido>0?`<div class="calc-line"><span class="cl-lbl" style="color:var(--red);">⚠️ De eso, vencido</span><span class="cl-val" style="color:var(--red);font-weight:800;">$${fmt(vencido)}</span></div>`:''}
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <div class="sec-title" style="font-size:13px;margin-top:0;">📈 Movimiento del mes</div>
+      <div class="calc-line"><span class="cl-lbl">Ventas cargadas</span><span class="cl-val" style="color:var(--blue);">${ventasMes.length}</span></div>
+      <div class="calc-line"><span class="cl-lbl">Clientes nuevos</span><span class="cl-val" style="color:var(--blue);">${clientesNuevos}</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);text-align:center;padding:4px 8px;">🔒 Las ganancias de cada persona son privadas. Cada uno ve la suya en su espacio con su PIN.</div>
+    <button class="btn btn-green" style="margin-top:10px;" onclick="compartirReporteMensual(${facturado},${gananciaNegocio},${cobrado},${pendiente})">📲 Compartir reporte</button>`);
+}
+function compartirReporteMensual(fact,gan,cobrado,pend){
+  const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const mesNom=meses[today().getMonth()]+' '+today().getFullYear();
+  let msg=`📊 *Reporte ${mesNom}* 🐝 AmarangoElectro\n\n`+
+    `💰 Facturado: $${fmt(fact)}\n`+
+    `📈 Ganancia del negocio: $${fmt(gan)}\n`+
+    `📥 Ya cobrado: $${fmt(cobrado)}\n`+
+    `⏳ Falta cobrar: $${fmt(pend)}`;
+  window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+}
 function emptyState(i,t,x){ return `<div class="empty"><div class="empty-ico">${i}</div><div class="empty-t">${t}</div><div class="empty-x">${x}</div></div>`; }
 
 /* ============================================================
@@ -4218,6 +4280,30 @@ function guardarGastos(arr){ try{ localStorage.setItem(gastosKey(), JSON.stringi
 function totalGastos(){ return cargarGastos().reduce((s,g)=>s+(g.monto||0),0); }
 /* ============ TU CAPITAL (privado, con PIN propio por usuario) ============ */
 function capitalKey(){ return 'ae_capital_'+(usuarioActual()||'user'); }
+/* Revelar/ocultar la ganancia personal usando el PIN del capital */
+function revelarGanancia(){
+  if(!capitalTienePin()){
+    // si todavía no creó PIN, lo manda a crearlo
+    toast('Primero creá tu PIN en "Tu capital"');
+    abrirCapital();
+    return;
+  }
+  openModal(`<div class="modal-title">🔒 Tu ganancia</div><div class="modal-sub">Ingresá tu PIN para ver</div>
+    <div class="field"><input id="gan_pin" type="number" inputmode="numeric" placeholder="••••" maxlength="4" style="font-size:24px;text-align:center;letter-spacing:8px;" onkeydown="if(event.key==='Enter')confirmarRevelarGanancia()"></div>
+    <button class="btn btn-orange" onclick="confirmarRevelarGanancia()">Ver mi ganancia</button>`);
+  setTimeout(()=>{ const i=document.getElementById('gan_pin'); if(i) i.focus(); },200);
+}
+function confirmarRevelarGanancia(){
+  const pin=(document.getElementById('gan_pin').value||'').trim();
+  if(!verificarCapitalPin(pin)){ toast('PIN incorrecto'); return; }
+  window._gananciaRevelada=true;
+  closeModal();
+  if(currentView==='inicio') renderPanelHoy();
+}
+function ocultarGanancia(){
+  window._gananciaRevelada=false;
+  if(currentView==='inicio') renderPanelHoy();
+}
 function capitalPinKey(){ return 'ae_capitalpin_'+(usuarioActual()||'user'); }
 function cargarCapital(){ try{ return +localStorage.getItem(capitalKey())||0; }catch(e){ return 0; } }
 function guardarCapital(monto){ try{ localStorage.setItem(capitalKey(), String(monto)); }catch(e){} }
