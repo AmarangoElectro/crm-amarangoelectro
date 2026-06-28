@@ -1701,6 +1701,7 @@ function renderPanelHoy(){
     <div id="cajonGastos" style="display:none;margin-top:10px;">
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Privado, solo en tu teléfono. Se reinicia cada mes.</div>
       <button class="btn btn-ghost btn-sm" style="color:var(--blue);" onclick="abrirGastos()">✏️ Ver / cargar gastos</button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--blue);margin-top:6px;" onclick="abrirCapital()">🔒 Tu capital (con PIN)</button>
     </div>
   </div>`;
   cont.innerHTML=html;
@@ -4215,6 +4216,93 @@ function gastosKey(){ return 'ae_gastos_'+(usuarioActual()||'user')+'_'+mesClave
 function cargarGastos(){ try{ return JSON.parse(localStorage.getItem(gastosKey())||'[]'); }catch(e){ return []; } }
 function guardarGastos(arr){ try{ localStorage.setItem(gastosKey(), JSON.stringify(arr)); }catch(e){} }
 function totalGastos(){ return cargarGastos().reduce((s,g)=>s+(g.monto||0),0); }
+/* ============ TU CAPITAL (privado, con PIN propio por usuario) ============ */
+function capitalKey(){ return 'ae_capital_'+(usuarioActual()||'user'); }
+function capitalPinKey(){ return 'ae_capitalpin_'+(usuarioActual()||'user'); }
+function cargarCapital(){ try{ return +localStorage.getItem(capitalKey())||0; }catch(e){ return 0; } }
+function guardarCapital(monto){ try{ localStorage.setItem(capitalKey(), String(monto)); }catch(e){} }
+function capitalTienePin(){ return !!localStorage.getItem(capitalPinKey()); }
+function verificarCapitalPin(pin){ return localStorage.getItem(capitalPinKey())===pin; }
+function setCapitalPin(pin){ try{ localStorage.setItem(capitalPinKey(), pin); }catch(e){} }
+function abrirCapital(){
+  // primera vez: crear PIN
+  if(!capitalTienePin()){
+    openModal(`<div class="modal-title">🔒 Tu capital</div><div class="modal-sub">Creá un PIN para proteger esta sección</div>
+      <div class="field"><label>Elegí un PIN (4 dígitos)</label><input id="cap_pinNuevo" type="number" inputmode="numeric" placeholder="••••" maxlength="4" style="font-size:24px;text-align:center;letter-spacing:8px;"></div>
+      <div class="field"><label>Repetí el PIN</label><input id="cap_pinNuevo2" type="number" inputmode="numeric" placeholder="••••" maxlength="4" style="font-size:24px;text-align:center;letter-spacing:8px;"></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">⚠️ Anotá tu PIN en un lugar seguro. Es solo tuyo y no se puede recuperar.</div>
+      <button class="btn btn-orange" onclick="crearCapitalPin()">🔒 Crear PIN y entrar</button>`);
+    return;
+  }
+  // ya tiene PIN: pedirlo
+  openModal(`<div class="modal-title">🔒 Tu capital</div><div class="modal-sub">Ingresá tu PIN</div>
+    <div class="field"><input id="cap_pin" type="number" inputmode="numeric" placeholder="••••" maxlength="4" style="font-size:24px;text-align:center;letter-spacing:8px;" onkeydown="if(event.key==='Enter')entrarCapital()"></div>
+    <button class="btn btn-orange" onclick="entrarCapital()">Entrar</button>`);
+  setTimeout(()=>{ const i=document.getElementById('cap_pin'); if(i) i.focus(); },200);
+}
+function crearCapitalPin(){
+  const p1=(document.getElementById('cap_pinNuevo').value||'').trim();
+  const p2=(document.getElementById('cap_pinNuevo2').value||'').trim();
+  if(p1.length<4){ toast('El PIN debe tener 4 dígitos'); return; }
+  if(p1!==p2){ toast('Los PIN no coinciden'); return; }
+  setCapitalPin(p1);
+  toast('PIN creado 🔒');
+  verCapital();
+}
+function entrarCapital(){
+  const pin=(document.getElementById('cap_pin').value||'').trim();
+  if(!verificarCapitalPin(pin)){ toast('PIN incorrecto'); return; }
+  verCapital();
+}
+function verCapital(){
+  const capital=cargarCapital();
+  const gastos=totalGastos();
+  const disponible=capital-gastos;
+  const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  openModal(`<div class="modal-title">🔒 Tu capital</div><div class="modal-sub">Privado · solo en tu teléfono</div>
+    <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);margin-bottom:14px;">
+      <div style="color:rgba(255,255,255,.8);font-size:12px;">Disponible (capital − gastos del mes)</div>
+      <div style="color:#fff;font-size:30px;font-weight:900;">$${fmt(disponible)}</div>
+    </div>
+    <div class="card" style="margin-bottom:14px;">
+      <div class="calc-line"><span class="cl-lbl">💰 Tu capital</span><span class="cl-val" style="color:var(--green);">$${fmt(capital)}</span></div>
+      <div class="calc-line"><span class="cl-lbl">💸 Gastos de ${meses[today().getMonth()]}</span><span class="cl-val" style="color:var(--red);">−$${fmt(gastos)}</span></div>
+      <div class="calc-line" style="border-top:2px solid var(--border);margin-top:4px;padding-top:8px;"><span class="cl-lbl"><b>Te queda</b></span><span class="cl-val"><b style="color:${disponible>=0?'var(--green)':'var(--red)'};">$${fmt(disponible)}</b></span></div>
+    </div>
+    <div class="field"><label>Actualizar tu capital ($)</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="cap_monto" type="number" inputmode="numeric" placeholder="0" value="${capital||''}" style="flex:1;min-width:0;">
+        <button class="btn btn-orange" style="white-space:nowrap;" onclick="guardarCapitalMonto()">💾 Guardar</button>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--muted);" onclick="abrirGastos()">💸 Ver mis gastos del mes</button>
+    <button class="btn btn-ghost btn-sm" style="margin-top:4px;color:var(--blue);" onclick="cambiarCapitalPin()">🔑 Cambiar mi PIN</button>`);
+}
+function guardarCapitalMonto(){
+  const monto=+document.getElementById('cap_monto').value||0;
+  guardarCapital(monto);
+  toast('Capital actualizado 💰');
+  verCapital();
+  if(currentView==='inicio') renderPanelHoy();
+}
+function cambiarCapitalPin(){
+  openModal(`<div class="modal-title">🔑 Cambiar PIN</div><div class="modal-sub">Tu capital</div>
+    <div class="field"><label>PIN actual</label><input id="cap_pinViejo" type="number" inputmode="numeric" placeholder="••••" maxlength="4" style="font-size:20px;text-align:center;letter-spacing:6px;"></div>
+    <div class="field"><label>PIN nuevo</label><input id="cap_pinN1" type="number" inputmode="numeric" placeholder="••••" maxlength="4" style="font-size:20px;text-align:center;letter-spacing:6px;"></div>
+    <div class="field"><label>Repetí el PIN nuevo</label><input id="cap_pinN2" type="number" inputmode="numeric" placeholder="••••" maxlength="4" style="font-size:20px;text-align:center;letter-spacing:6px;"></div>
+    <button class="btn btn-orange" onclick="confirmarCambioPin()">🔑 Cambiar PIN</button>`);
+}
+function confirmarCambioPin(){
+  const viejo=(document.getElementById('cap_pinViejo').value||'').trim();
+  if(!verificarCapitalPin(viejo)){ toast('PIN actual incorrecto'); return; }
+  const n1=(document.getElementById('cap_pinN1').value||'').trim();
+  const n2=(document.getElementById('cap_pinN2').value||'').trim();
+  if(n1.length<4){ toast('El PIN debe tener 4 dígitos'); return; }
+  if(n1!==n2){ toast('Los PIN nuevos no coinciden'); return; }
+  setCapitalPin(n1);
+  toast('PIN cambiado 🔑');
+  verCapital();
+}
 function abrirGastos(){
   const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const mesNom=meses[today().getMonth()];
