@@ -1586,6 +1586,21 @@ function renderPanelHoy(){
   });
   // tareas pendientes (del usuario)
   const tareas=cargarTareas().filter(t=>!t.hecha);
+  // ganancia MÍA del mes (proporcional a mi % en cada venta)
+  const yoNorm=normPersona(usuarioActual());
+  let miGananciaMes=0;
+  baseV.filter(v=>mesActual(v.fecha)).forEach(v=>{
+    const ganTotal=(v.precioVenta||0)-(v.precioCosto||0)-(v.envio||0);
+    const invs=listaInversoresVenta(v);
+    if(invs.length){
+      const mio=invs.find(i=>normPersona(i.nombre)===yoNorm);
+      if(mio) miGananciaMes+=Math.round(ganTotal*(mio.pct||0)/100);
+    } else {
+      // sin inversores: si soy responsable, es toda mía
+      const cli=DB.clientes.find(c=>c.id===v.clienteId);
+      if(cli && normPersona(cli.responsable)===yoNorm) miGananciaMes+=ganTotal;
+    }
+  });
   // armar HTML
   // saludo personalizado según la hora DE ARGENTINA + frase del día
   const horaArg=parseInt(new Date().toLocaleString('en-US',{timeZone:'America/Argentina/Buenos_Aires',hour:'2-digit',hour12:false}));
@@ -1619,6 +1634,14 @@ function renderPanelHoy(){
     <div style="color:rgba(255,255,255,.85);font-size:13px;margin-top:4px;">${fraseHoy}</div>
   </div>`;
   html+=`<div class="sec-title" style="margin-top:4px;">☀️ Hoy${yo?(' · '+yo):''}</div>`;
+  // mi ganancia del mes
+  html+=`<div class="card" style="border-left:4px solid var(--green);margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:800;color:var(--blue);">📈 Mi ganancia del mes</span>
+      <span style="font-weight:900;color:var(--green);font-size:20px;">$${fmt(miGananciaMes)}</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;">Tu parte de todas las ventas donde participás</div>
+  </div>`;
   // tarjeta cobrar hoy
   html+=`<div class="card" style="border-left:4px solid var(--orange);margin-bottom:10px;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
