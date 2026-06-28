@@ -1587,8 +1587,9 @@ function renderPanelHoy(){
   // tareas pendientes (del usuario)
   const tareas=cargarTareas().filter(t=>!t.hecha);
   // armar HTML
-  // saludo personalizado según la hora + frase del día
-  const h=hoy.getHours();
+  // saludo personalizado según la hora DE ARGENTINA + frase del día
+  const horaArg=parseInt(new Date().toLocaleString('en-US',{timeZone:'America/Argentina/Buenos_Aires',hour:'2-digit',hour12:false}));
+  const h=isNaN(horaArg)?hoy.getHours():horaArg;
   let saludo, emo;
   if(h<6){ saludo='Buenas noches'; emo='🌙'; }
   else if(h<13){ saludo='Buen día'; emo='☀️'; }
@@ -1614,7 +1615,7 @@ function renderPanelHoy(){
   const diaDelAnio=Math.floor((hoy-new Date(hoy.getFullYear(),0,0))/86400000);
   const fraseHoy=frases[diaDelAnio % frases.length];
   let html=`<div class="card" style="margin-top:6px;margin-bottom:12px;background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);">
-    <div style="color:#fff;font-size:18px;font-weight:800;">${emo} ${saludo}${yo?(', '+yo):''}!</div>
+    <div style="color:#fff;font-size:18px;font-weight:800;">${emo} ${saludo}${yo?(', '+yo):''}! ¿Cómo estás? 😊</div>
     <div style="color:rgba(255,255,255,.85);font-size:13px;margin-top:4px;">${fraseHoy}</div>
   </div>`;
   html+=`<div class="sec-title" style="margin-top:4px;">☀️ Hoy${yo?(' · '+yo):''}</div>`;
