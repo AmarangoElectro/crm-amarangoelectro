@@ -3535,6 +3535,35 @@ let vistaCliente='tarjetas';
 let verArchivadas=false;
 function setVistaCliente(v,id){ vistaCliente=v; detalleCliente(id); }
 function toggleVerArchivadas(id){ verArchivadas=!verArchivadas; detalleCliente(id); }
+/* Recalcula ganancia y capital de todas las ventas de un cliente con la fórmula nueva */
+async function recalcularVentasCliente(id){
+  const ventas=DB.ventas.filter(v=>v.clienteId===id);
+  if(!ventas.length){ toast('Este cliente no tiene ventas'); return; }
+  if(!confirm(`¿Recalcular las ganancias de las ${ventas.length} venta(s) de este cliente con la fórmula nueva?`)) return;
+  let actualizadas=0;
+  for(const v of ventas){
+    if(v.tipo==='prestamo') continue;  // los préstamos no usan esta fórmula
+    const costo=v.precioCosto||0;
+    const venta=v.precioVenta||0;
+    const envio=v.envio||0;
+    const n=v.cuotas||1;
+    // comisión total (15% cuotas / 10% contado) si hay revendedor
+    const comisionTotal = (v.revendedor||'').trim() ? Math.round(venta*((n>1)?0.15:0.10)) : 0;
+    const comision1ra = primeraParteComision(comisionTotal, n);
+    // 1ra cuota del cliente
+    let primeraCuota=0;
+    if(n>1){ primeraCuota = (v.montoCuota>0?v.montoCuota:planCuotas(venta,n)[0])||0; }
+    // capital = costo + 1ra parte comisión + envío − 1ra cuota
+    const capital=Math.max(0, costo + comision1ra + envio - primeraCuota);
+    // monto invertido según el % de inversores
+    const sumaPct=(v.inversores&&v.inversores.length)?v.inversores.reduce((s,x)=>s+(x.pct||0),0):100;
+    v.montoInvertido=Math.round(capital*sumaPct/100);
+    await DB.upsertVenta(v);
+    actualizadas++;
+  }
+  toast(`✅ ${actualizadas} venta(s) recalculada(s)`);
+  detalleCliente(id);
+}
 function detalleCliente(id){
   const c=DB.clientes.find(x=>x.id===id); if(!c)return;
   const cal=calificar(id);
@@ -3595,7 +3624,8 @@ function detalleCliente(id){
       }).join('')}
     <div id="resumenMensualCli"></div>
     <button class="btn btn-orange" style="margin-top:4px;" onclick="formVenta('${id}')">➕ Agregar producto / venta</button>
-    <button class="btn btn-ghost btn-sm" style="margin-top:12px;color:var(--red);" onclick="delCliente('${id}')">🗑️ Eliminar cliente</button>`);
+    <button class="btn btn-ghost btn-sm" style="margin-top:12px;color:var(--blue);" onclick="recalcularVentasCliente('${id}')">🔄 Recalcular ganancias de este cliente</button>
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--red);" onclick="delCliente('${id}')">🗑️ Eliminar cliente</button>`);
   pintarResumenMensualCliente(id);
 }
 /* Calcula y muestra cuánto tiene que pagar el cliente ESTE MES (suma de cuotas que vencen en el mes en curso) */
