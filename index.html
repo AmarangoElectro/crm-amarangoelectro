@@ -637,6 +637,17 @@ function getUsuarios(){
 }
 function saveUsuarios(u){ try{ localStorage.setItem('ae_usuarios', JSON.stringify(u)); }catch(e){} }
 function usuarioActual(){ return sessionStorage.getItem('ae_user')||''; }
+/* Apodo amigable según el nombre, para los saludos */
+function apodoDe(nombre){
+  const n=(nombre||'').trim().toLowerCase();
+  if(n.startsWith('angel')||n==='angie'||n==='ángela'||n==='angela') return 'Angie';
+  if(n.startsWith('guido')||n==='guichi'||n==='guichii') return 'Guichii';
+  if(n.startsWith('victor')||n.startsWith('vicky')||n==='vicki') return 'Vicky';
+  if(n.startsWith('selen')||n==='sechu') return 'Sechu';
+  if(n.startsWith('maxi')||n.startsWith('max')) return 'Maxi';
+  // por defecto, el nombre tal cual (capitalizado)
+  return (nombre||'').trim().charAt(0).toUpperCase()+(nombre||'').trim().slice(1);
+}
 function esAdmin(){ const u=getUsuarios().find(x=>x.nombre===usuarioActual()); return u?u.admin:false; }
 // ¿El usuario actual puede editar/borrar esta venta?
 // Regla: solo el RESPONSABLE del cliente. Los admin (Maxi/Angela) siempre pueden.
@@ -1497,7 +1508,7 @@ function render(){
   if(typeof actualizarAvisoBadge==='function') actualizarAvisoBadge();
   // poner el nombre del usuario en el switch
   const lbl=document.getElementById('ambitoMioLbl');
-  if(lbl){ const yo=usuarioActual(); lbl.textContent=yo?yo:'Mi espacio'; }
+  if(lbl){ const yo=usuarioActual(); lbl.textContent=yo?apodoDe(yo):'Mi espacio'; }
   if(currentView==='inicio') renderInicio();
   if(currentView==='clientes') renderClientes();
   if(currentView==='ventas') renderVentas();
@@ -1558,7 +1569,7 @@ function renderPanelHoy(){
   const cont=document.getElementById('panelHoy'); if(!cont) return;
   // solo en "Mi espacio" (no en General)
   if(typeof AMBITO!=='undefined' && AMBITO==='general'){ cont.innerHTML=''; return; }
-  const yo=usuarioActual()||'';
+  const yo=apodoDe(usuarioActual()||'');
   const baseV=ventasAmbito();
   const hoy=today(), hoyStr=isoDate(hoy);
   const manianaStr=isoDate(addDays(hoy,1));
@@ -1576,7 +1587,37 @@ function renderPanelHoy(){
   // tareas pendientes (del usuario)
   const tareas=cargarTareas().filter(t=>!t.hecha);
   // armar HTML
-  let html=`<div class="sec-title" style="margin-top:4px;">☀️ Hoy${yo?(' · '+yo):''}</div>`;
+  // saludo personalizado según la hora + frase del día
+  const h=hoy.getHours();
+  let saludo, emo;
+  if(h<6){ saludo='Buenas noches'; emo='🌙'; }
+  else if(h<13){ saludo='Buen día'; emo='☀️'; }
+  else if(h<20){ saludo='Buenas tardes'; emo='🌤️'; }
+  else { saludo='Buenas noches'; emo='🌙'; }
+  const frases=[
+    'Cada cliente cuenta. ¡A darle! 🐝',
+    'Un día a la vez, pero todos para adelante 💪',
+    'Las cuentas claras y la abeja contenta 🍯',
+    'Hoy es un buen día para cerrar ventas 🤝',
+    'El que no arriesga, no gana. ¡Vamos! 🚀',
+    'Constancia hoy, resultados mañana 📈',
+    'Pequeños pasos, grandes logros 🐝',
+    'Tu esfuerzo construye AmarangoElectro 🧡',
+    'Buena energía, buenas ventas ✨',
+    'A cobrar, a vender y a crecer 💰',
+    'El equipo es la fuerza. ¡A romperla! 🤝',
+    'Hoy se siembra lo que mañana se cosecha 🌱',
+    'Cada venta es un paso más cerca de la meta 🎯',
+    'La actitud lo es todo. ¡Para arriba! ⬆️'
+  ];
+  // frase según el día del año (rota una por día)
+  const diaDelAnio=Math.floor((hoy-new Date(hoy.getFullYear(),0,0))/86400000);
+  const fraseHoy=frases[diaDelAnio % frases.length];
+  let html=`<div class="card" style="margin-top:6px;margin-bottom:12px;background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);">
+    <div style="color:#fff;font-size:18px;font-weight:800;">${emo} ${saludo}${yo?(', '+yo):''}!</div>
+    <div style="color:rgba(255,255,255,.85);font-size:13px;margin-top:4px;">${fraseHoy}</div>
+  </div>`;
+  html+=`<div class="sec-title" style="margin-top:4px;">☀️ Hoy${yo?(' · '+yo):''}</div>`;
   // tarjeta cobrar hoy
   html+=`<div class="card" style="border-left:4px solid var(--orange);margin-bottom:10px;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
