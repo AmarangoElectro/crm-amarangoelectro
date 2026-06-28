@@ -3431,9 +3431,14 @@ async function saveVenta(){
     }
   }
   // inversores: array completo + campos viejos (1 y 2) para compatibilidad
-  const invsValidos=ventaInversores.filter(x=>x.nombre.trim() && x.pct>0);
+  let invsValidos=ventaInversores.filter(x=>x.nombre.trim() && x.pct>0);
+  const respVenta=document.getElementById('v_resp').value;
+  // Si NO se cargó ningún inversionista, el responsable del cliente es el dueño (100%)
+  if(!invsValidos.length && respVenta && respVenta.trim()){
+    invsValidos=[{nombre:respVenta.trim(), pct:100}];
+  }
   const base={ id:'v'+Date.now(), clienteId, tipo:ventaTipo,
-    responsable:document.getElementById('v_resp').value,
+    responsable:respVenta,
     inversionista:(invsValidos[0]?invsValidos[0].nombre.trim():''),
     inversionista2:(invsValidos[1]?invsValidos[1].nombre.trim():''),
     pct1:(invsValidos[0]?invsValidos[0].pct:0),
