@@ -447,7 +447,8 @@
   <div class="view-title">Cobranzas</div>
   <div class="view-desc">Control de cuotas y vencimientos</div>
   <div class="seg" style="flex-wrap:wrap;">
-    <button class="seg-btn active" data-cob="atrasados" onclick="segCob('atrasados',this)">🔴 Vencidas</button>
+    <button class="seg-btn active" data-cob="agenda" onclick="segCob('agenda',this)">🗓️ Agenda</button>
+    <button class="seg-btn" data-cob="atrasados" onclick="segCob('atrasados',this)">🔴 Vencidas</button>
     <button class="seg-btn" data-cob="hoy" onclick="segCob('hoy',this)">📅 Hoy</button>
     <button class="seg-btn" data-cob="prox" onclick="segCob('prox',this)">🔜 Próximas</button>
     <button class="seg-btn" data-cob="pagadas" onclick="segCob('pagadas',this)">🟢 Pagadas</button>
@@ -1981,7 +1982,7 @@ function renderVentas(){
   }).join('');
 }
 
-let cobFiltro='atrasados';
+let cobFiltro='agenda';
 function segCob(f,el){ cobFiltro=f; document.querySelectorAll('[data-cob]').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderCobranzas(); }
 function renderCobranzas(){
   const cont=document.getElementById('listaCobranzas');
@@ -1998,6 +1999,58 @@ function renderCobranzas(){
       rows.push({v,c,estado,venc});
     });
   });
+  // VISTA AGENDA: hoy, mañana, esta semana, vencidas — con totales y recordatorio masivo
+  if(cobFiltro==='agenda'){
+    const hoy=today();
+    const hoyStr=isoDate(hoy);
+    const manianaStr=isoDate(addDays(hoy,1));
+    const finSemana=addDays(hoy,7);
+    const pend=rows.filter(r=>r.estado!=='pagadas');
+    const grupos={vencidas:[], hoy:[], maniana:[], semana:[]};
+    pend.forEach(r=>{
+      const v=parseD(r.c.vence);
+      if(r.c.vence===hoyStr) grupos.hoy.push(r);
+      else if(r.c.vence===manianaStr) grupos.maniana.push(r);
+      else if(v<hoy) grupos.vencidas.push(r);
+      else if(v<=finSemana) grupos.semana.push(r);
+    });
+    function bloque(titulo, lista, color, claveWa){
+      if(!lista.length) return '';
+      lista.sort((a,b)=>a.venc-b.venc);
+      const total=lista.reduce((s,r)=>s+r.c.monto,0);
+      const filas=lista.map(r=>{
+        const cli=DB.clientes.find(c=>c.id===r.v.clienteId)||{nombre:'?'};
+        const inv=normPersona((r.v.inversionista||'').trim()||'Maxi');
+        const chkId=`chkag_${r.v.id}_${r.c.num}`;
+        return `<div class="list-item" style="padding:8px 10px;">
+          <input type="checkbox" id="${chkId}" class="chkAgenda" data-clave="${claveWa}" data-tel="${cli.telefono||''}" data-vid="${r.v.id}" checked style="width:20px;height:20px;margin-right:8px;flex-shrink:0;" onclick="event.stopPropagation();">
+          <div class="avatar" style="background:${nombreColor(inv)};width:34px;height:34px;font-size:13px;" onclick="detalleVenta('${r.v.id}')">${initials(cli.nombre)}</div>
+          <div class="li-info" onclick="detalleVenta('${r.v.id}')"><div class="li-name" style="font-size:14px;">${cli.nombre}</div><div class="li-meta">${r.v.producto} · ${dispDate(r.c.vence)}</div></div>
+          <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div></div></div>`;
+      }).join('');
+      return `<div class="card" style="margin-bottom:14px;padding:12px;border-left:4px solid ${color};">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-weight:800;color:${color};font-size:16px;">${titulo}</div>
+          <div style="font-size:13px;color:var(--muted);font-weight:700;">${lista.length} · $${fmt(total)}</div>
+        </div>
+        ${filas}
+        <button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="waMasivoAgenda('${claveWa}')">📲 Recordar a los tildados</button>
+      </div>`;
+    }
+    let html='';
+    html+=bloque('🔴 Vencidas', grupos.vencidas, 'var(--red)', 'vencidas');
+    html+=bloque('📅 Hoy', grupos.hoy, 'var(--orange)', 'hoy');
+    html+=bloque('🔜 Mañana', grupos.maniana, 'var(--blue)', 'maniana');
+    html+=bloque('🗓️ Esta semana', grupos.semana, 'var(--blue-light)', 'semana');
+    if(!html){ cont.innerHTML=emptyState('✅','¡Todo al día!','No tenés cobranzas pendientes'); return; }
+    // resumen arriba
+    const totalTodo=pend.filter(r=>{const v=parseD(r.c.vence);return r.c.vence===hoyStr||r.c.vence===manianaStr||v<hoy||v<=finSemana;}).reduce((s,r)=>s+r.c.monto,0);
+    cont.innerHTML=`<div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);margin-bottom:14px;">
+      <div style="color:rgba(255,255,255,.8);font-size:12px;">A cobrar esta semana (con vencidas)</div>
+      <div style="color:#fff;font-size:26px;font-weight:900;">$${fmt(totalTodo)}</div>
+    </div>`+html;
+    return;
+  }
   // VISTA POR DÍA: agrupa cuotas pendientes por día del mes
   if(cobFiltro==='pordia'){
     const pend=rows.filter(r=>r.estado!=='pagadas');
@@ -4668,6 +4721,27 @@ function waCobranza(id){
   let msg=MSG_COBRANZA;
   if(px){ msg=`😃 Hola ${nombre}, te recordamos que tu cuota vence el día ${dispDate(px.vence)}.\n\nSi ya abonaste, ignorá este mensaje.\n\n¡Gracias por confiar en AmarangoElectro! 🐝`; }
   window.open(waLink(c.telefono,msg),'_blank');
+}
+function waMasivoAgenda(clave){
+  // junta los clientes TILDADOS de ese bloque (vencidas/hoy/maniana/semana)
+  const checks=document.querySelectorAll(`input.chkAgenda[data-clave="${clave}"]:checked`);
+  const ids=new Set(); const targets=[];
+  checks.forEach(ch=>{
+    const vid=ch.dataset.vid;
+    const v=DB.ventas.find(x=>x.id===vid); if(!v)return;
+    const cli=DB.clientes.find(x=>x.id===v.clienteId);
+    if(cli&&cli.telefono&&!ids.has(cli.id)){ ids.add(cli.id); targets.push(cli); }
+  });
+  if(!targets.length){ toast('Nadie tildado con teléfono'); return; }
+  const cuando = clave==='hoy'?'hoy':clave==='maniana'?'mañana':clave==='vencidas'?'(ya venció)':'esta semana';
+  toast(`Abriendo WhatsApp para ${targets.length} cliente(s)...`);
+  targets.forEach((cli,i)=>{
+    const nombre=(cli.nombre||'').split(' ')[0];
+    const msg = clave==='vencidas'
+      ? `😃 Hola ${nombre}, te recordamos que tenés una cuota vencida pendiente de pago.\n\nSi ya abonaste, ignorá este mensaje.\n\n¡Gracias por confiar en AmarangoElectro! 🐝`
+      : `😃 Hola ${nombre}, te recordamos que tenés una cuota que vence ${cuando}.\n\nSi ya abonaste, ignorá este mensaje.\n\n¡Gracias por confiar en AmarangoElectro! 🐝`;
+    setTimeout(()=>window.open(waLink(cli.telefono,msg),'_blank'), i*600);
+  });
 }
 function waMasivoDia(dia){
   // junta los clientes TILDADOS de ese día
