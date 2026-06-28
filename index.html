@@ -395,6 +395,7 @@
       <div><div class="hs-val" id="heroCli">0</div><div class="hs-lbl">Clientes</div></div>
     </div>
   </div>
+  <div id="panelHoy"></div>
   <div class="sec-title">💰 Caja y capital</div>
   <div class="card" id="cajaBox" style="margin-bottom:14px;"></div>
   <div class="quick-grid">
@@ -1550,6 +1551,71 @@ function renderInicio(){
     rd.innerHTML=filas.map((f,i)=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:7px 0;${i<filas.length-1?'border-bottom:1px solid var(--border);':''}"><span style="color:var(--muted);">${f[0]}</span><span style="font-weight:800;color:var(--blue);">${f[1]}</span></div>`).join('');
   }
   renderCaja();
+  renderPanelHoy();
+}
+/* Panel "Hoy" personal: solo en Mi espacio. Cobrar hoy + tareas + cobrar mañana */
+function renderPanelHoy(){
+  const cont=document.getElementById('panelHoy'); if(!cont) return;
+  // solo en "Mi espacio" (no en General)
+  if(typeof AMBITO!=='undefined' && AMBITO==='general'){ cont.innerHTML=''; return; }
+  const yo=usuarioActual()||'';
+  const baseV=ventasAmbito();
+  const hoy=today(), hoyStr=isoDate(hoy);
+  const manianaStr=isoDate(addDays(hoy,1));
+  // cobrar HOY (cuotas que vencen hoy, sin pagar)
+  let cobrarHoy=0, listaHoy=[];
+  let cobrarManiana=0, listaManiana=[];
+  baseV.forEach(v=>{
+    ventaCuotas(v).forEach(c=>{
+      if(c.pagada) return;
+      const cli=DB.clientes.find(cc=>cc.id===v.clienteId)||{nombre:'?'};
+      if(c.vence===hoyStr){ cobrarHoy+=c.monto; listaHoy.push({cli:cli.nombre, monto:c.monto, prod:v.producto, vid:v.id}); }
+      else if(c.vence===manianaStr){ cobrarManiana+=c.monto; listaManiana.push({cli:cli.nombre, monto:c.monto, prod:v.producto, vid:v.id}); }
+    });
+  });
+  // tareas pendientes (del usuario)
+  const tareas=cargarTareas().filter(t=>!t.hecha);
+  // armar HTML
+  let html=`<div class="sec-title" style="margin-top:4px;">☀️ Hoy${yo?(' · '+yo):''}</div>`;
+  // tarjeta cobrar hoy
+  html+=`<div class="card" style="border-left:4px solid var(--orange);margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:800;color:var(--blue);">💰 A cobrar hoy</span>
+      <span style="font-weight:900;color:var(--orange);font-size:20px;">$${fmt(cobrarHoy)}</span>
+    </div>`;
+  if(listaHoy.length){
+    html+=`<div style="margin-top:8px;">`+listaHoy.map(x=>
+      `<div class="calc-line" onclick="detalleVenta('${x.vid}')" style="cursor:pointer;"><span class="cl-lbl" style="font-size:13px;">${x.cli} <span style="color:var(--muted);font-size:11px;">· ${x.prod}</span></span><span class="cl-val" style="font-size:13px;color:var(--blue);">$${fmt(x.monto)}</span></div>`
+    ).join('')+`</div>`;
+  } else {
+    html+=`<div style="font-size:12px;color:var(--green);margin-top:6px;">✅ No tenés cobranzas para hoy</div>`;
+  }
+  html+=`</div>`;
+  // tarjeta tareas
+  html+=`<div class="card" style="border-left:4px solid var(--blue);margin-bottom:10px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="abrirTareas()">
+      <span style="font-weight:800;color:var(--blue);">✅ Mis tareas</span>
+      <span style="font-weight:800;color:${tareas.length?'var(--orange)':'var(--green)'};">${tareas.length?tareas.length+' pendientes':'todo hecho'}</span>
+    </div>`;
+  if(tareas.length){
+    html+=`<div style="margin-top:8px;">`+tareas.slice(0,4).map(t=>
+      `<div style="font-size:13px;padding:5px 0;color:var(--text);">⬜ ${(t.texto||'').replace(/</g,'&lt;')}</div>`
+    ).join('')+(tareas.length>4?`<div style="font-size:11px;color:var(--muted);margin-top:4px;">+${tareas.length-4} más…</div>`:'')+`</div>`;
+  }
+  html+=`</div>`;
+  // cajón "los de mañana"
+  html+=`<div class="card" style="margin-bottom:10px;">
+    ${cajonHeader('cajonManiana','📅 A cobrar mañana · $'+fmt(cobrarManiana), false)}
+    <div id="cajonManiana" style="display:none;margin-top:10px;">`;
+  if(listaManiana.length){
+    html+=listaManiana.map(x=>
+      `<div class="calc-line" onclick="detalleVenta('${x.vid}')" style="cursor:pointer;"><span class="cl-lbl" style="font-size:13px;">${x.cli} <span style="color:var(--muted);font-size:11px;">· ${x.prod}</span></span><span class="cl-val" style="font-size:13px;color:var(--blue);">$${fmt(x.monto)}</span></div>`
+    ).join('');
+  } else {
+    html+=`<div style="font-size:12px;color:var(--muted);">Sin cobranzas para mañana</div>`;
+  }
+  html+=`</div></div>`;
+  cont.innerHTML=html;
 }
 function renderCaja(){
   const box=document.getElementById('cajaBox'); if(!box) return;
