@@ -525,6 +525,7 @@
 
   <div id="bloqueCatalogo" style="display:none;">
     <button class="btn btn-orange" style="margin-bottom:8px;" onclick="formProducto()">➕ Agregar producto al catálogo</button>
+    <button class="btn btn-green" style="margin-bottom:8px;" onclick="abrirCargarCelus()">📱 Cargar lista de celulares (reemplaza)</button>
     <button class="btn btn-blue" style="margin-bottom:8px;" onclick="verListaPublica()">📱 Ver lista pública de precios</button>
     <button class="btn btn-ghost btn-sm" style="margin-bottom:12px;color:var(--blue);" onclick="document.getElementById('fileProd').click()">📥 Importar productos desde Excel</button>
     <input type="file" id="fileProd" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importarProductos(this)">
@@ -1458,6 +1459,84 @@ function amaraResponder(txt){
     amaraBot(`En <b>Cobranzas</b> ves todas las cuotas por fecha: las vencidas, las de hoy y las que vienen. Podés marcar una cuota como pagada tocándola, y mandar recordatorio por WhatsApp.<br><br>Te llevo:`);
     amaraAccion('📅 Ir a Cobranzas', ()=>go('cobranzas'));
     return;
+  }
+
+  // ========== ¿TENÉS TAL PRODUCTO? (busca en catálogo) ==========
+  const preguntaTenes = tiene('tenes','tienen','tenés','hay stock de','tienen stock','queda','les queda','disponible','consultar','hay ','tendras','tendrias','conseguis','manejan');
+  // que NO sea una pregunta de cobranza/datos del negocio
+  const esConsultaProducto = preguntaTenes && !tiene('cobrar','cobranza','cliente','deuda','tarea','factur','gane','ganancia');
+  if(esConsultaProducto){
+    const det0=detectarPrecioPlaca(txt);
+    // si ya viene con precio, que lo calcule el bloque de abajo (no entro acá)
+    if(!det0.valor){
+      // buscar el producto en el catálogo por palabras clave
+      const limpio=amaraNorm(txt).replace(/tenes|tienen|tenés|hay|stock|de|queda|les|disponible|consultar|manejan|conseguis|tendras|tendrias|\?/g,' ').trim();
+      const palabras=limpio.split(/\s+/).filter(p=>p.length>=2);
+      let encontrados=[];
+      if(palabras.length){
+        encontrados=(DB.productos||[]).filter(pr=>{
+          const nom=amaraNorm((pr.nombre||'')+' '+(pr.memoria||''));
+          return palabras.some(pal=>nom.includes(pal));
+        });
+      }
+      if(encontrados.length){
+        // armar respuesta con los que matchean (hasta 5)
+        let html=`📦 <b>Esto tengo cargado:</b><br><br>`;
+        encontrados.slice(0,5).forEach(pr=>{
+          const precio=pr.venta||(pr.costo?markupVenta(pr.costo):0);
+          html+=`📱 <b>${pr.nombre}${pr.memoria?' '+pr.memoria:''}</b>`;
+          if(precio){
+            const c6=planCuotas(precio,6)[0];
+            html+=` — $${fmt(precio)}<br><span style="font-size:11px;color:var(--muted);">6 cuotas de $${fmt(c6)}</span>`;
+          } else { html+=` <span style="font-size:11px;color:var(--muted);">(sin precio cargado)</span>`; }
+          html+=`<br><br>`;
+        });
+        amaraBot(html);
+        amaraBot(`💡 Si querés que te arme la respuesta lista para el revendedor, decime <i>"armame respuesta de [producto]"</i> o pasame el precio.`);
+        return;
+      } else {
+        // no lo tiene cargado → pedir el precio
+        amaraBot(`Ese no lo tengo cargado todavía. 🤔<br><br>📲 <b>Pasame el precio y te saco la cuenta al toque</b> (precio + cuotas listas para mandar). Decime algo como <i>"precio 425 usd"</i> o <i>"cuesta 250000"</i>. 🐝`);
+        return;
+      }
+    }
+  }
+
+  // ========== AMARA CALCULA PRECIOS EN EL CHAT ==========
+  // si el mensaje habla de precio Y tiene un número, lo calcula directo
+  const pidePrecio = tiene('precio','cuanto','sale','vale','cobrar','cuesta','armame','calcula','calcular','cuotas');
+  if(pidePrecio){
+    const det=detectarPrecioPlaca(txt);
+    if(det.valor){
+      // determinar tipo: dólar si lo dice, venta si dice "venta/vender", sino costo
+      let tipo='costo';
+      if(det.esDolar || tiene('dolar','dolares','usd','u$s','verde')) tipo='dolar';
+      else if(tiene('venta','vender','vendo','precio de venta','ya con ganancia')) tipo='venta';
+      let precioVenta=0, detalle='';
+      if(tipo==='dolar'){
+        const cotiz=+localStorage.getItem('ae_cotizdolar')||0;
+        if(!cotiz){
+          amaraBot(`💵 Para calcular en dólares necesito la cotización. Andá a <b>Finanzas → 🎨 Placas</b>, elegí <b>Dólar</b> y poné la cotización una vez (se guarda). Después preguntame de nuevo. 🐝`);
+          amaraAccion('🎨 Ir a poner la cotización', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+          return;
+        }
+        const costoPesos=Math.round(det.valor*cotiz);
+        precioVenta=markupVenta(costoPesos);
+        detalle=`USD ${fmt(det.valor)} × $${fmt(cotiz)} = $${fmt(costoPesos)} (costo)`;
+      } else if(tipo==='venta'){
+        precioVenta=round500(det.valor);
+        detalle=`Tomé $${fmt(det.valor)} como precio de venta`;
+      } else {
+        precioVenta=markupVenta(det.valor);
+        detalle=`Costo $${fmt(det.valor)} → venta`;
+      }
+      const c2=planCuotas(precioVenta,2)[0], c4=planCuotas(precioVenta,4)[0], c6=planCuotas(precioVenta,6)[0];
+      amaraBot(`💰 <b>Precio de venta: $${fmt(precioVenta)}</b><br><span style="font-size:11px;color:var(--muted);">${detalle}</span><br><br>💳 2 cuotas de $${fmt(c2)}<br>💳 4 cuotas de $${fmt(c4)}<br>💳 6 cuotas de $${fmt(c6)}`);
+      const msg=`💵 *CONTADO: $${fmt(precioVenta)}*\n\n💳 2 cuotas de $${fmt(c2)}\n💳 4 cuotas de $${fmt(c4)}\n💳 6 cuotas de $${fmt(c6)}`;
+      amaraAccion('📲 Mandar este precio', ()=>window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank'));
+      amaraAccion('🎨 Armar placa completa', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+      return;
+    }
   }
 
   // ========== GUÍAS PASO A PASO (explicadas fácil, para todos) ==========
@@ -2448,6 +2527,77 @@ function renderPorPersona(){
 function selPersona(p){ persSel=p; renderPorPersona(); }
 
 /* ============ CATÁLOGO DE PRODUCTOS ============ */
+/* ============ CARGAR LISTA DE CELULARES (reemplaza los viejos) ============ */
+function abrirCargarCelus(){
+  const cotizGuardada=localStorage.getItem('ae_cotizdolar')||'';
+  openModal(`<div class="modal-title">📱 Cargar lista de celulares</div><div class="modal-sub">Reemplaza los celulares viejos por los nuevos</div>
+    <div class="card" style="padding:10px 12px;margin-bottom:12px;background:#fff4e6;border-left:4px solid var(--orange);">
+      <div style="font-size:12px;color:var(--blue);">⚠️ Esto <b>borra los celulares anteriores</b> y deja solo los de esta lista. Los electrodomésticos NO se tocan. Lo que no esté en la lista nueva, se va (sin stock).</div>
+    </div>
+    <div class="field"><label>💵 Cotización del dólar</label>
+      <input id="cc_cotiz" type="number" inputmode="numeric" placeholder="1520" value="${cotizGuardada}" style="font-size:18px;font-weight:700;">
+    </div>
+    <div class="field"><label>Pegá la lista (un celu por línea, con precio en USD)</label>
+      <textarea id="cc_lista" rows="8" placeholder="Samsung A06 64/4gb 110usd&#10;Samsung A57 5G 256/12gb 450usd&#10;Moto G15 128/8gb 155usd" oninput="previewCargarCelus()" style="width:100%;resize:vertical;font-size:13px;"></textarea>
+    </div>
+    <div id="cc_preview"></div>
+    <button class="btn btn-green" style="margin-top:8px;" onclick="confirmarCargarCelus()">✅ Reemplazar celulares</button>`);
+}
+function parsearLineaCelu(linea, cotiz){
+  const det=detectarPrecioPlaca(linea);
+  if(!det.valor) return null;
+  // el nombre es la línea sin el precio ni emojis/asteriscos
+  let nombre=linea
+    .replace(/(?:usd|u\$s|us\$|d[oó]lares?)\s*\$?\s*[\d][\d.,]*/i,'')
+    .replace(/\$?\s*[\d][\d.,]*\s*(?:usd|u\$s|us\$|d[oó]lares?)/i,'')
+    .replace(/\$\s*[\d][\d.,]*/,'')
+    .replace(/[*_•▪️📱〽️🔱🇦🇷]/g,'')
+    .replace(/\s{2,}/g,' ').trim();
+  if(!nombre) return null;
+  // precio de venta = USD × cotización, redondeado (sin markup, ya viene con margen)
+  const venta=round500(det.valor*cotiz);
+  return { nombre, venta, usd:det.valor };
+}
+function previewCargarCelus(){
+  const out=document.getElementById('cc_preview'); if(!out) return;
+  const texto=document.getElementById('cc_lista').value||'';
+  const cotiz=+document.getElementById('cc_cotiz').value||0;
+  const lineas=texto.split('\n').map(l=>l.trim()).filter(l=>l);
+  if(!lineas.length || !cotiz){ out.innerHTML=''; return; }
+  let ok=0, ignoradas=0;
+  lineas.forEach(l=>{ const p=parsearLineaCelu(l,cotiz); if(p) ok++; else ignoradas++; });
+  out.innerHTML=`<div class="card" style="background:#f7faff;padding:10px;margin-bottom:8px;">
+    <div style="font-size:13px;color:var(--green);font-weight:700;">✅ ${ok} celular(es) detectado(s)</div>
+    ${ignoradas?`<div style="font-size:11px;color:var(--muted);">${ignoradas} línea(s) sin precio (se ignoran, ej: títulos)</div>`:''}
+  </div>`;
+}
+async function confirmarCargarCelus(){
+  const texto=document.getElementById('cc_lista').value||'';
+  const cotiz=+document.getElementById('cc_cotiz').value||0;
+  if(!cotiz){ toast('Poné la cotización del dólar'); return; }
+  const lineas=texto.split('\n').map(l=>l.trim()).filter(l=>l);
+  const nuevos=[];
+  lineas.forEach(l=>{ const p=parsearLineaCelu(l,cotiz); if(p) nuevos.push(p); });
+  if(!nuevos.length){ toast('No detecté celulares con precio'); return; }
+  if(cotiz>0) localStorage.setItem('ae_cotizdolar', String(cotiz));
+  // contar celulares viejos
+  const viejos=(DB.productos||[]).filter(p=>p.categoria==='celular');
+  if(!confirm(`Voy a borrar ${viejos.length} celular(es) viejo(s) y cargar ${nuevos.length} nuevo(s).\n\nLos electrodomésticos NO se tocan.\n\n¿Confirmás?`)) return;
+  // 1) borrar celulares viejos
+  for(const v of viejos){
+    DB.productos=DB.productos.filter(x=>x.id!==v.id);
+    if(typeof DB.delProducto==='function') await DB.delProducto(v.id);
+  }
+  // 2) cargar los nuevos marcados como celular
+  for(const n of nuevos){
+    const prod={ id:'cel'+Date.now()+Math.floor(Math.random()*9999), nombre:n.nombre, memoria:'', venta:n.venta, costo:0, mayorista:'Stagliano', categoria:'celular' };
+    DB.productos.push(prod);
+    if(typeof DB.upsertProducto==='function') await DB.upsertProducto(prod);
+  }
+  closeModal();
+  toast(`✅ ${nuevos.length} celulares actualizados`);
+  renderCatalogo();
+}
 function renderCatalogo(){
   const cont=document.getElementById('listaCatalogo'); if(!cont) return;
   const q=(document.getElementById('searchProd')?.value||'').toLowerCase().trim();
