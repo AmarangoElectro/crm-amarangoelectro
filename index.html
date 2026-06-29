@@ -3123,12 +3123,14 @@ function convertirListaMasiva(ta){
     // detectar precio en USD en la línea: 110usd, $195, 450 usd, etc.
     const det=detectarPrecioPlaca(linea);
     if(det.valor && det.esDolar){
-      const pesos=round500(det.valor*cotiz);
+      // USD × cotización = COSTO → markup AmarangoElectro = precio de VENTA
+      const costoPesos=det.valor*cotiz;
+      const ventaFinal=markupVenta(costoPesos);
       convertidos++;
-      // reemplazar el número+usd (y opcional $) por el precio en pesos
+      // reemplazar el número+usd (y opcional $) por el precio de VENTA en pesos
       let nueva=linea
-        .replace(/(?:usd|u\$s|us\$|d[oó]lares?)\s*\$?\s*[\d][\d.,]*/i, ' $'+fmt(pesos))
-        .replace(/\$?\s*[\d][\d.,]*\s*(?:usd|u\$s|us\$|d[oó]lares?)/i, ' $'+fmt(pesos))
+        .replace(/(?:usd|u\$s|us\$|d[oó]lares?)\s*\$?\s*[\d][\d.,]*/i, ' $'+fmt(ventaFinal))
+        .replace(/\$?\s*[\d][\d.,]*\s*(?:usd|u\$s|us\$|d[oó]lares?)/i, ' $'+fmt(ventaFinal))
         .replace(/\s{2,}/g,' ');
       return nueva;
     }
@@ -3137,9 +3139,10 @@ function convertirListaMasiva(ta){
     if(det.valor && !det.esDolar){
       // ¿la línea tiene un producto (texto) y un precio chico tipo USD? Si el número es < 3000 asumimos USD
       if(det.valor < 3000){
-        const pesos=round500(det.valor*cotiz);
+        const costoPesos=det.valor*cotiz;
+        const ventaFinal=markupVenta(costoPesos);
         convertidos++;
-        return linea.replace(/\$\s*[\d][\d.,]*/, '$'+fmt(pesos)).replace(/[\d][\d.,]*\s*\$/, '$'+fmt(pesos));
+        return linea.replace(/\$\s*[\d][\d.,]*/, '$'+fmt(ventaFinal)).replace(/[\d][\d.,]*\s*\$/, '$'+fmt(ventaFinal));
       }
     }
     return linea;
@@ -4827,15 +4830,15 @@ function listaInversoresVenta(v){
   return invs;
 }
 function repartoInversores(v){
-  // === CAPITAL A INVERTIR (misma fórmula que "Agregar inversor"): ===
-  // costo + comisión (1ra parte) + envío − 1ra cuota del cliente
-  const costoBase=(v.precioCosto||0);
-  const envio=(v.envio||0);
-  const com=comisionRevendedor(v);
-  const com1ra=primeraParteComision(com, v.cuotas||1);
-  const cuotasPlan=ventaCuotas(v);
-  const primeraCuota=((v.cuotas||1)>1) ? (cuotasPlan[0]?.monto||0) : 0;
-  const costo=Math.max(0, costoBase+com1ra+envio-primeraCuota);
+  // CAPITAL real que se invierte = costo + 1ra parte comisión + envío − 1ra cuota del cliente
+  const _costo=v.precioCosto||0;
+  const _envio=v.envio||0;
+  const _n=v.cuotas||1;
+  const _comTotal=(v.revendedor||'').trim() ? Math.round((v.precioVenta||0)*((_n>1)?0.15:0.10)) : 0;
+  const _com1ra=primeraParteComision(_comTotal, _n);
+  let _primeraCuota=0;
+  if(v.tipo!=='prestamo' && _n>1){ _primeraCuota=(v.montoCuota>0?v.montoCuota:planCuotas(v.precioVenta||0,_n)[0])||0; }
+  const costo=Math.max(0, _costo + _com1ra + _envio - _primeraCuota);
   const gananciaTotal=gananciaVenta(v);
   let invs=listaInversoresVenta(v);
   // expandir "Amarango" = Angela 50 + Maxi 50 de su parte
