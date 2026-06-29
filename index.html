@@ -1403,11 +1403,87 @@ function amaraResponder(txt){
   }
 
 
-  if(tiene('cobranza','cobrar','quien me debe','vencimiento','cuotas de hoy','pagos de hoy','quien tiene que pagar')){
+  if(tiene('ir a cobranza','seccion cobranza','ver cobranzas','vencimiento','quien tiene que pagar')){
     amaraBot(`En <b>Cobranzas</b> ves todas las cuotas por fecha: las vencidas, las de hoy y las que vienen. Podés marcar una cuota como pagada tocándola, y mandar recordatorio por WhatsApp.<br><br>Te llevo:`);
     amaraAccion('📅 Ir a Cobranzas', ()=>go('cobranzas'));
     return;
   }
+
+  // ========== RESPUESTAS CON DATOS REALES DEL NEGOCIO ==========
+  const hoyD=today(), hoyStr=isoDate(hoyD);
+
+  // ¿Cuánto tengo que cobrar HOY?
+  if(tiene('cobrar hoy','cobro hoy','tengo que cobrar hoy','cuanto cobro hoy','cuanto tengo que cobrar')){
+    let total=0, lista=[];
+    ventasAmbito().forEach(v=>ventaCuotas(v).forEach(c=>{
+      if(!c.pagada && c.vence===hoyStr){ total+=c.monto; const cli=DB.clientes.find(x=>x.id===v.clienteId)||{nombre:'?'}; lista.push(cli.nombre+': $'+fmt(c.monto)); }
+    }));
+    if(total>0){ amaraBot(`Hoy tenés que cobrar <b>$${fmt(total)}</b> 💰<br><br>${lista.slice(0,8).join('<br>')}`); amaraAccion('📅 Ver en Cobranzas', ()=>go('cobranzas')); }
+    else amaraBot(`Hoy no tenés cuotas para cobrar ✅`);
+    return;
+  }
+
+  // ¿Cuánto facturé este mes? / ganancia
+  if(tiene('facture','facturado','facturacion','venta del mes','vendi este mes','cuanto vendi','cuanto gane','ganancia del mes','ganancias')){
+    const vm=ventasAmbito().filter(v=>mesActual(v.fecha));
+    const fact=vm.reduce((s,v)=>s+(v.precioVenta||0),0);
+    const gan=vm.reduce((s,v)=>s+((v.precioVenta||0)-(v.precioCosto||0)-(v.envio||0)),0);
+    amaraBot(`Este mes${AMBITO==='general'?' (todo el negocio)':''}:<br><br>💰 Facturado: <b>$${fmt(fact)}</b><br>📈 Ganancia: <b>$${fmt(gan)}</b><br>📦 Ventas cargadas: <b>${vm.length}</b><br><br>${AMBITO!=='general'?'💡 Tu ganancia personal con detalle está protegida en tu panel de Inicio.':''}`);
+    amaraAccion('📊 Ver reporte del mes', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof abrirReporteMensual==='function') abrirReporteMensual(); },300); });
+    return;
+  }
+
+  // ¿Quiénes están atrasados / vencidos?
+  if(tiene('atrasado','vencido','deben','morosos','quien debe','retrasado','no pago','no pagaron')){
+    const set=new Map();
+    ventasAmbito().forEach(v=>ventaCuotas(v).forEach(c=>{
+      if(!c.pagada && parseD(c.vence)<hoyD){ const cli=DB.clientes.find(x=>x.id===v.clienteId)||{nombre:'?',id:'?'}; set.set(cli.id,(set.get(cli.id)||{nombre:cli.nombre,total:0}));set.get(cli.id).total+=c.monto; }
+    }));
+    if(set.size){
+      const arr=[...set.values()].sort((a,b)=>b.total-a.total);
+      const totalV=arr.reduce((s,x)=>s+x.total,0);
+      amaraBot(`Tenés <b>${arr.length} cliente(s) atrasados</b> por un total de <b>$${fmt(totalV)}</b> ⚠️<br><br>${arr.slice(0,8).map(x=>x.nombre+': $'+fmt(x.total)).join('<br>')}`);
+      amaraAccion('📅 Ver vencidas', ()=>go('cobranzas'));
+    } else amaraBot(`¡No tenés clientes atrasados! Todo al día ✅`);
+    return;
+  }
+
+  // ¿Cuánto me debe [cliente]?
+  if(tiene('cuanto me debe','cuanto debe','deuda de','que debe','saldo de')){
+    const cli=amaraBuscarClientes(txt);
+    if(cli.length===1){
+      const c=cli[0];
+      let debe=0, pagado=0;
+      DB.ventas.filter(v=>v.clienteId===c.id).forEach(v=>ventaCuotas(v).forEach(cu=>{ if(cu.pagada)pagado+=cu.monto; else debe+=cu.monto; }));
+      amaraBot(`<b>${c.nombre}</b>:<br><br>💸 Debe: <b>$${fmt(debe)}</b><br>✅ Ya pagó: $${fmt(pagado)}`);
+      amaraAccion('👤 Ver ficha de '+c.nombre, ()=>detalleCliente(c.id));
+    } else if(cli.length>1){ amaraBot(`¿De cuál cliente?`); cli.slice(0,6).forEach(c=>amaraAccion('👤 '+c.nombre, ()=>detalleCliente(c.id))); }
+    else amaraBot(`No encontré ese cliente. Probá con el nombre exacto.`);
+    return;
+  }
+
+  // ¿Cuántos clientes / ventas tengo?
+  if(tiene('cuantos clientes','cantidad de clientes','total de clientes','cuantas ventas','cuantos productos')){
+    const nc=clientesAmbito().length, nv=ventasAmbito().length;
+    amaraBot(`Tenés <b>${nc} cliente(s)</b> y <b>${nv} venta(s)</b> cargadas${AMBITO==='general'?' en total':' en tu espacio'}.`);
+    return;
+  }
+
+  // Fórmulas: cómo se calcula la comisión / capital
+  if(tiene('como se calcula','formula','como saco la comision','como calculo','cuanto es la comision','capital a invertir','cuanto invierto')){
+    amaraBot(`📐 <b>Fórmulas del sistema AmarangoElectro:</b><br><br>🤝 <b>Comisión revendedor:</b> 10% al contado / 15% en cuotas, repartida en partes (2 o 3 según el plan).<br><br>💰 <b>Capital a invertir:</b> costo del producto + 1ra parte de la comisión + envío − 1ra cuota del cliente.<br><br>🧮 La calculadora hace todo esto sola. Te llevo:`);
+    amaraAccion('🧮 Abrir Calculadora', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('calc'); },200); });
+    return;
+  }
+
+  // Mis tareas
+  if(tiene('mis tareas','tareas pendientes','que tengo que hacer','pendientes')){
+    const pend=(typeof cargarTareas==='function')?cargarTareas().filter(t=>!t.hecha):[];
+    if(pend.length){ amaraBot(`Tenés <b>${pend.length} tarea(s) pendiente(s)</b>:<br><br>${pend.slice(0,6).map(t=>'⬜ '+(t.texto||'')).join('<br>')}`); amaraAccion('📝 Abrir mis tareas', ()=>abrirTareas()); }
+    else amaraBot(`No tenés tareas pendientes ✅`);
+    return;
+  }
+
 
   // ===== GUÍA: lista de precios / catálogo =====
   if(tiene('lista de precio','catalogo','precios','productos','agregar producto','precio publico')){
@@ -1454,7 +1530,7 @@ function amaraResponder(txt){
   if(tiene('que podes','que sabes','que haces','ayuda','help','que puedo','para que servis','opciones','menu')){
     amaraBot(`Te puedo guiar con todo esto 👇`);
     amaraChips(['➕ Cargar un cliente','💰 Cargar una venta','📲 Enviar precios a alguien','📅 Ver cobranzas de hoy','📦 Catálogo y precios','🧮 Usar la calculadora','📨 Solicitar inversión','🔒 Cambiar mi PIN','💾 Respaldar datos']);
-    amaraBot(`También escribime con tus palabras, ej: <i>"buscar a Carlos"</i> o <i>"cómo hago una venta en cuotas"</i>.`);
+    amaraBot(`También preguntame con datos, ej: <i>"cuánto tengo que cobrar hoy"</i>, <i>"cuánto me debe Carlos"</i>, <i>"cuánto facturé este mes"</i> o <i>"quiénes están atrasados"</i>.`);
     return;
   }
 
