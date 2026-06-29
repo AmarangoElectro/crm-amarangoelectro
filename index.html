@@ -1369,7 +1369,10 @@ function amaraNorm(s){
     [/\bkuota\b/g,'cuota'],[/\bkuotas\b/g,'cuotas'],
     [/\bwasap\b/g,'whatsapp'],[/\bwhatsap\b/g,'whatsapp'],[/\bwsp\b/g,'whatsapp'],[/\bwats\b/g,'whatsapp'],
     [/\bplaka\b/g,'placa'],[/\bplakas\b/g,'placas'],[/\bkobrar\b/g,'cobrar'],[/\bkobro\b/g,'cobro'],
-    [/\bembiar\b/g,'enviar'],[/\benbiar\b/g,'enviar'],[/\bmamdar\b/g,'mandar']
+    [/\bembiar\b/g,'enviar'],[/\benbiar\b/g,'enviar'],[/\bmamdar\b/g,'mandar'],
+    [/\bselu\b/g,'celular'],[/\bselular\b/g,'celular'],[/\bselulares\b/g,'celular'],[/\bcelu\b/g,'celular'],[/\bcelus\b/g,'celular'],[/\bcelulares\b/g,'celular'],
+    [/\bifon\b/g,'iphone'],[/\baifon\b/g,'iphone'],[/\baiphone\b/g,'iphone'],[/\biphon\b/g,'iphone'],[/\bifone\b/g,'iphone'],
+    [/\bsamsun\b/g,'samsung'],[/\bsiomi\b/g,'xiaomi'],[/\bshaomi\b/g,'xiaomi'],[/\belectrodomestico\b/g,'electro'],[/\belectrodomesticos\b/g,'electro']
   ];
   fix.forEach(([re,rep])=>{ t=t.replace(re,rep); });
   return t.trim();
@@ -1461,11 +1464,108 @@ function amaraResponder(txt){
     return;
   }
 
+  // ========== EMBUDO: guía con preguntas cuando es vago ==========
+  const MARCAS_CELU=['samsung','moto','motorola','xiaomi','redmi','poco','infinix','iphone','apple','nokia','tcl','zte','honor','realme'];
+  const det_e=detectarPrecioPlaca(txt);
+  const dicequeCelu=tiene('celular','iphone');
+  const dicemarcaCelu=MARCAS_CELU.some(m=>t.includes(m));
+  // ¿mencionó una marca? → buscar directo (cae en el bloque de "tenés tal producto")
+  // ¿dijo "celular" suelto sin marca ni modelo ni precio? → EMBUDO
+  if(dicequeCelu && !dicemarcaCelu && !det_e.valor && !tiene('gama','baja','media','alta')){
+    amaraBot(`📱 ¡Dale! ¿De qué <b>marca</b> buscás? 👇`);
+    amaraChips(['Samsung','Moto','Xiaomi','Redmi','Poco','iPhone','Infinix']);
+    amaraBot(`O si preferís, decime <i>"gama baja"</i>, <i>"gama media"</i> o <i>"gama alta"</i> y te muestro por precio. 🐝`);
+    return;
+  }
+  // pregunta MUY vaga: "tenés algo", "que tenés", "busco algo" sin nada más
+  const muyVago = (tiene('tenes algo','que tenes','busco algo','necesito algo','que hay','mostrame','que tienen','algo para vender','que me recomendas') && !dicemarcaCelu && !det_e.valor && !tiene('celular','iphone','heladera','lavarropas','cocina','tv','smart'));
+  if(muyVago){
+    amaraBot(`¡De una! Para encontrarte lo justo 👇<br><br>¿Qué estás buscando?`);
+    amaraChips(['📱 Celular','🔌 Electrodoméstico','💰 Armar un precio']);
+    return;
+  }
+  // si tocó "📱 Celular" en el embudo
+  if(t.trim()==='celular' || t.trim()==='📱 celular' || tiene('busco celular','quiero celular','un celular')){
+    amaraBot(`📱 ¡Joya! ¿De qué <b>marca</b>? 👇`);
+    amaraChips(['Samsung','Moto','Xiaomi','Redmi','Poco','iPhone','Infinix']);
+    amaraBot(`O decime <i>"gama baja/media/alta"</i> para verlos por precio. 🐝`);
+    return;
+  }
+  // si tocó "🔌 Electrodoméstico"
+  if(tiene('electrodomestico','electro','🔌 electro') && !dicemarcaCelu && !det_e.valor){
+    amaraBot(`🔌 ¡Bien! Para los electrodomésticos, lo mejor es armar el precio directo.<br><br>📲 <b>Pasame el costo</b> y te saco precio + cuotas. Ej: <i>"cuesta 250000"</i>. O andá a <b>Finanzas → 🎨 Placas</b> para armar la placa completa. 🐝`);
+    amaraAccion('🎨 Ir a armar precio', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+    return;
+  }
+
+  // ========== GAMA BAJA / MEDIA / ALTA ==========
+  if(tiene('gama baja','gama media','gama alta','gama','gamas','economico','economicos','barato','baratos','gama mas baja','los mas caros','mas baratos','gama de entrada')){
+    let nivel=null, emoji='', titulo='';
+    if(tiene('baja','economico','barato','entrada','mas barato')){ nivel='baja'; emoji='🟢'; titulo='Gama baja'; }
+    else if(tiene('media','medio','intermedio')){ nivel='media'; emoji='🟡'; titulo='Gama media'; }
+    else if(tiene('alta','caro','premium','gama mas alta','tope')){ nivel='alta'; emoji='🔴'; titulo='Gama alta'; }
+    const celus=(DB.productos||[]).filter(p=>p.categoria==='celular' && p.usd);
+    if(!celus.length){
+      amaraBot(`Todavía no tenés celulares cargados con precio en dólar. Cargá la lista en <b>Catálogo → 📱 Cargar lista de celulares</b> y después te los muestro por gama. 🐝`);
+      return;
+    }
+    if(!nivel){
+      // mostrar las 3 gamas resumidas
+      const baja=celus.filter(p=>gamaCelu(p.usd).nivel==='baja').length;
+      const media=celus.filter(p=>gamaCelu(p.usd).nivel==='media').length;
+      const alta=celus.filter(p=>gamaCelu(p.usd).nivel==='alta').length;
+      amaraBot(`📱 <b>Celulares por gama:</b><br><br>🟢 Gama baja: ${baja}<br>🟡 Gama media: ${media}<br>🔴 Gama alta: ${alta}<br><br>Decime <i>"gama baja"</i>, <i>"gama media"</i> o <i>"gama alta"</i> para verlos. 🐝`);
+      return;
+    }
+    const dela=celus.filter(p=>gamaCelu(p.usd).nivel===nivel).sort((a,b)=>(a.usd||0)-(b.usd||0));
+    if(!dela.length){ amaraBot(`No tengo celulares de ${titulo} cargados ahora. 🤔`); return; }
+    let html=`${emoji} <b>${titulo}</b> (${dela.length}):<br><br>`;
+    dela.slice(0,15).forEach(p=>{
+      const c6=planCuotas(p.venta,6)[0];
+      html+=`📱 <b>${p.nombre}</b> — $${fmt(p.venta)} <span style="font-size:11px;color:var(--muted);">(6c $${fmt(c6)})</span><br>`;
+    });
+    if(dela.length>15) html+=`<br><i>...y ${dela.length-15} más</i>`;
+    amaraBot(html);
+    return;
+  }
+
+  // ========== MARCA SOLA: mostrar esa marca por gama ==========
+  // si menciona una marca de celu y NO un modelo específico (palabra+número) ni precio
+  if(dicemarcaCelu && !det_e.valor){
+    const limpioM=amaraNorm(txt).replace(/tenes|tienen|tenés|hay|stock|de|queda|les|disponible|consultar|manejan|conseguis|que|tengo|busco|quiero|un|una|\?/g,' ').trim();
+    // ¿hay un modelo específico? (algo con número, ej "a57", "g15", "note 14")
+    const tieneModelo=/[a-z]+\s*\d|\d+\s*\/|note|edge|ultra|pro|plus|max/i.test(limpioM.replace(/samsung|moto|motorola|xiaomi|redmi|poco|infinix|iphone|apple/g,''));
+    if(!tieneModelo){
+      // marca sola → mostrar esa marca agrupada por gama
+      const marca=MARCAS_CELU.find(m=>t.includes(m));
+      const dela=(DB.productos||[]).filter(p=>p.categoria==='celular' && amaraNorm(p.nombre).includes(marca));
+      if(dela.length){
+        const baja=dela.filter(p=>p.usd&&gamaCelu(p.usd).nivel==='baja').sort((a,b)=>a.usd-b.usd);
+        const media=dela.filter(p=>p.usd&&gamaCelu(p.usd).nivel==='media').sort((a,b)=>a.usd-b.usd);
+        const alta=dela.filter(p=>p.usd&&gamaCelu(p.usd).nivel==='alta').sort((a,b)=>a.usd-b.usd);
+        const sinGama=dela.filter(p=>!p.usd);
+        const nombreMarca=marca.charAt(0).toUpperCase()+marca.slice(1);
+        let html=`📱 <b>${nombreMarca}</b> (${dela.length}):<br>`;
+        const linea=p=>`📱 ${p.nombre} — $${fmt(p.venta)}<br>`;
+        if(baja.length){ html+=`<br>🟢 <b>Gama baja</b><br>`+baja.map(linea).join(''); }
+        if(media.length){ html+=`<br>🟡 <b>Gama media</b><br>`+media.map(linea).join(''); }
+        if(alta.length){ html+=`<br>🔴 <b>Gama alta</b><br>`+alta.map(linea).join(''); }
+        if(sinGama.length){ html+=`<br>`+sinGama.map(linea).join(''); }
+        amaraBot(html);
+        amaraBot(`💡 Decime un modelo (ej: <i>"${nombreMarca} A57"</i>) y te paso el precio con cuotas listo para mandar. 🐝`);
+        return;
+      } else {
+        amaraBot(`No tengo ${marca.charAt(0).toUpperCase()+marca.slice(1)} cargados ahora. 🤔 Cargá la lista en <b>Catálogo → 📱 Cargar lista de celulares</b>. 🐝`);
+        return;
+      }
+    }
+  }
+
   // ========== ¿TENÉS TAL PRODUCTO? (busca en catálogo) ==========
   const preguntaTenes = tiene('tenes','tienen','tenés','hay stock de','tienen stock','queda','les queda','disponible','consultar','hay ','tendras','tendrias','conseguis','manejan');
   // que NO sea una pregunta de cobranza/datos del negocio
   const esConsultaProducto = preguntaTenes && !tiene('cobrar','cobranza','cliente','deuda','tarea','factur','gane','ganancia');
-  if(esConsultaProducto){
+  if(esConsultaProducto || dicemarcaCelu){
     const det0=detectarPrecioPlaca(txt);
     // si ya viene con precio, que lo calcule el bloque de abajo (no entro acá)
     if(!det0.valor){
@@ -1476,23 +1576,40 @@ function amaraResponder(txt){
       if(palabras.length){
         encontrados=(DB.productos||[]).filter(pr=>{
           const nom=amaraNorm((pr.nombre||'')+' '+(pr.memoria||''));
-          return palabras.some(pal=>nom.includes(pal));
+          // tiene que coincidir con TODAS las palabras (más preciso)
+          return palabras.every(pal=>nom.includes(pal));
         });
+        // si con "todas" no encuentra, probar con "alguna"
+        if(!encontrados.length){
+          encontrados=(DB.productos||[]).filter(pr=>{
+            const nom=amaraNorm((pr.nombre||'')+' '+(pr.memoria||''));
+            return palabras.some(pal=>nom.includes(pal));
+          });
+        }
       }
-      if(encontrados.length){
-        // armar respuesta con los que matchean (hasta 5)
-        let html=`📦 <b>Esto tengo cargado:</b><br><br>`;
-        encontrados.slice(0,5).forEach(pr=>{
-          const precio=pr.venta||(pr.costo?markupVenta(pr.costo):0);
-          html+=`📱 <b>${pr.nombre}${pr.memoria?' '+pr.memoria:''}</b>`;
-          if(precio){
-            const c6=planCuotas(precio,6)[0];
-            html+=` — $${fmt(precio)}<br><span style="font-size:11px;color:var(--muted);">6 cuotas de $${fmt(c6)}</span>`;
-          } else { html+=` <span style="font-size:11px;color:var(--muted);">(sin precio cargado)</span>`; }
-          html+=`<br><br>`;
+      if(encontrados.length===1){
+        const pr=encontrados[0];
+        const precio=pr.venta||(pr.costo?markupVenta(pr.costo):0);
+        let html=`✅ <b>Sí tengo:</b><br><br>📱 <b>${pr.nombre}${pr.memoria?' '+pr.memoria:''}</b>`;
+        if(precio){
+          const c2=planCuotas(precio,2)[0], c4=planCuotas(precio,4)[0], c6=planCuotas(precio,6)[0];
+          html+=` — $${fmt(precio)}<br><br>💳 2 cuotas de $${fmt(c2)}<br>💳 4 cuotas de $${fmt(c4)}<br>💳 6 cuotas de $${fmt(c6)}`;
+          amaraBot(html);
+          const msg=`✅ Sí, tengo el ${pr.nombre}\n\n💵 *CONTADO: $${fmt(precio)}*\n\n💳 2 cuotas de $${fmt(c2)}\n💳 4 cuotas de $${fmt(c4)}\n💳 6 cuotas de $${fmt(c6)}`;
+          amaraAccion('📲 Mandar este precio', ()=>window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank'));
+        } else { html+=` <span style="font-size:11px;color:var(--muted);">(sin precio cargado)</span>`; amaraBot(html); }
+        return;
+      } else if(encontrados.length>1 && encontrados.length<=6){
+        // varias coincidencias: mostrar las opciones
+        let html=`Encontré ${encontrados.length}, ¿cuál? 👇<br><br>`;
+        encontrados.forEach(pr=>{
+          const precio=pr.venta||0;
+          html+=`📱 <b>${pr.nombre}</b>${precio?` — $${fmt(precio)}`:''}<br>`;
         });
         amaraBot(html);
-        amaraBot(`💡 Si querés que te arme la respuesta lista para el revendedor, decime <i>"armame respuesta de [producto]"</i> o pasame el precio.`);
+        return;
+      } else if(encontrados.length>6){
+        amaraBot(`Tengo ${encontrados.length} que coinciden. 🤔 Decime más específico (ej: el modelo y la memoria) para encontrarlo justo. 🐝`);
         return;
       } else {
         // no lo tiene cargado → pedir el precio
@@ -2528,6 +2645,13 @@ function selPersona(p){ persSel=p; renderPorPersona(); }
 
 /* ============ CATÁLOGO DE PRODUCTOS ============ */
 /* ============ CARGAR LISTA DE CELULARES (reemplaza los viejos) ============ */
+// Gama según precio en USD: hasta 150 baja, 150-350 media, +350 alta
+function gamaCelu(usd){
+  if(!usd) return null;
+  if(usd<=150) return {nivel:'baja', emoji:'🟢', txt:'Gama baja'};
+  if(usd<=350) return {nivel:'media', emoji:'🟡', txt:'Gama media'};
+  return {nivel:'alta', emoji:'🔴', txt:'Gama alta'};
+}
 function abrirCargarCelus(){
   const cotizGuardada=localStorage.getItem('ae_cotizdolar')||'';
   openModal(`<div class="modal-title">📱 Cargar lista de celulares</div><div class="modal-sub">Reemplaza los celulares viejos por los nuevos</div>
@@ -2590,7 +2714,7 @@ async function confirmarCargarCelus(){
   }
   // 2) cargar los nuevos marcados como celular
   for(const n of nuevos){
-    const prod={ id:'cel'+Date.now()+Math.floor(Math.random()*9999), nombre:n.nombre, memoria:'', venta:n.venta, costo:0, mayorista:'Stagliano', categoria:'celular' };
+    const prod={ id:'cel'+Date.now()+Math.floor(Math.random()*9999), nombre:n.nombre, memoria:'', venta:n.venta, costo:0, usd:n.usd, mayorista:'Stagliano', categoria:'celular' };
     DB.productos.push(prod);
     if(typeof DB.upsertProducto==='function') await DB.upsertProducto(prod);
   }
