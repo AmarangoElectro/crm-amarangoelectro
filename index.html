@@ -2678,8 +2678,9 @@ function parsearLineaCelu(linea, cotiz){
     .replace(/[*_•▪️📱〽️🔱🇦🇷]/g,'')
     .replace(/\s{2,}/g,' ').trim();
   if(!nombre) return null;
-  // precio de venta = USD × cotización, redondeado (sin markup, ya viene con margen)
-  const venta=round500(det.valor*cotiz);
+  // USD × cotización = costo → markup AmarangoElectro = precio de venta
+  const costoPesos=det.valor*cotiz;
+  const venta=markupVenta(costoPesos);
   return { nombre, venta, usd:det.valor };
 }
 function previewCargarCelus(){
@@ -3166,6 +3167,8 @@ function convertirListaMasiva(ta){
     return linea;
   });
   const resultado=lineas.join('\n');
+  // guardar el texto original en el textarea para poder guardarlo al catálogo
+  ta.dataset.original = texto;
   out.innerHTML=`
     <div class="card" style="background:#f7faff;padding:10px;margin-bottom:8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -3174,7 +3177,33 @@ function convertirListaMasiva(ta){
       </div>
       <pre style="white-space:pre-wrap;font-family:inherit;font-size:12px;color:var(--text);margin:0;max-height:280px;overflow-y:auto;">${resultado.replace(/</g,'&lt;')}</pre>
     </div>
-    <button class="btn btn-green btn-sm" style="margin:0;" onclick="enviarPlacaWa(\`${resultado.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`)">📲 Enviar a WhatsApp</button>`;
+    <button class="btn btn-green btn-sm" style="margin:0 0 8px 0;" onclick="enviarPlacaWa(\`${resultado.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`)">📲 Enviar a WhatsApp</button>
+    <button class="btn btn-orange btn-sm" style="margin:0;" onclick="guardarListaDesdePlacas(this)">💾 Guardar y reemplazar en el catálogo</button>`;
+}
+// Guarda la lista de celulares al catálogo (reemplaza los viejos), desde Placas → Varios
+async function guardarListaDesdePlacas(btn){
+  // buscar el textarea de esta lista
+  const card=btn.closest('.card')?.parentElement || btn.parentElement;
+  const ta=card.querySelector('.plListaMasiva') || btn.parentElement.querySelector('.plListaMasiva');
+  const texto=(ta&&(ta.dataset.original||ta.value))||'';
+  const cotiz=+document.getElementById('pl_cotizM')?.value||+localStorage.getItem('ae_cotizdolar')||0;
+  if(!cotiz){ toast('Poné la cotización del dólar arriba'); return; }
+  const lineas=texto.split('\n').map(l=>l.trim()).filter(l=>l);
+  const nuevos=[];
+  lineas.forEach(l=>{ const p=parsearLineaCelu(l,cotiz); if(p) nuevos.push(p); });
+  if(!nuevos.length){ toast('No detecté celulares con precio'); return; }
+  const viejos=(DB.productos||[]).filter(p=>p.categoria==='celular');
+  if(!confirm(`Voy a borrar ${viejos.length} celular(es) viejo(s) y guardar ${nuevos.length} nuevo(s).\n\nLos electrodomésticos NO se tocan.\n\n¿Confirmás?`)) return;
+  for(const v of viejos){
+    DB.productos=DB.productos.filter(x=>x.id!==v.id);
+    if(typeof DB.delProducto==='function') await DB.delProducto(v.id);
+  }
+  for(const n of nuevos){
+    const prod={ id:'cel'+Date.now()+Math.floor(Math.random()*9999), nombre:n.nombre, memoria:'', venta:n.venta, costo:0, usd:n.usd, mayorista:'Stagliano', categoria:'celular' };
+    DB.productos.push(prod);
+    if(typeof DB.upsertProducto==='function') await DB.upsertProducto(prod);
+  }
+  toast(`✅ ${nuevos.length} celulares guardados en el catálogo`);
 }
 function vaciarUno(){
   const ta=document.getElementById('pl_texto'); if(ta){ ta.value=''; ta.focus(); }
