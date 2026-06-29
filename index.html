@@ -470,6 +470,7 @@
     <button class="seg-btn" id="modoPersBtn" onclick="setModoFin('persona')">👤 Por persona</button>
     <button class="seg-btn" id="modoCatBtn" onclick="setModoFin('catalogo')">📦 Catálogo</button>
     <button class="seg-btn" id="modoPlacaBtn" onclick="setModoFin('placas')">🎨 Placas</button>
+    <button class="seg-btn" id="modoRespBtn" onclick="setModoFin('respuestas')">💬 Respuestas</button>
     <button class="seg-btn" id="modoPanelBtn" onclick="setModoFin('panel')">📊 Panel</button>
   </div>
 
@@ -537,6 +538,9 @@
   </div>
   <div id="bloquePlacas" style="display:none;">
     <div id="placasContent"></div>
+  </div>
+  <div id="bloqueRespuestas" style="display:none;">
+    <div id="respuestasContent"></div>
   </div>
 </div>
 
@@ -2363,6 +2367,7 @@ function setModoFin(m){
   const cb=document.getElementById('modoCatBtn'); if(cb) cb.classList.toggle('active', m==='catalogo');
   const pnb=document.getElementById('modoPanelBtn'); if(pnb) pnb.classList.toggle('active', m==='panel');
   const plb=document.getElementById('modoPlacaBtn'); if(plb) plb.classList.toggle('active', m==='placas');
+  const rsb=document.getElementById('modoRespBtn'); if(rsb) rsb.classList.toggle('active', m==='respuestas');
   document.getElementById('bloqueFinanzas').style.display = m==='finanzas'?'block':'none';
   document.getElementById('bloqueCalc').style.display = m==='calc'?'block':'none';
   document.getElementById('bloqueInv').style.display = m==='inv'?'block':'none';
@@ -2370,12 +2375,14 @@ function setModoFin(m){
   const bc=document.getElementById('bloqueCatalogo'); if(bc) bc.style.display = m==='catalogo'?'block':'none';
   const bpn=document.getElementById('bloquePanel'); if(bpn) bpn.style.display = m==='panel'?'block':'none';
   const bpl=document.getElementById('bloquePlacas'); if(bpl) bpl.style.display = m==='placas'?'block':'none';
+  const brs=document.getElementById('bloqueRespuestas'); if(brs) brs.style.display = m==='respuestas'?'block':'none';
   if(m==='calc') renderCalc();
   if(m==='inv') renderInversores();
   if(m==='persona') renderPorPersona();
   if(m==='catalogo') renderCatalogo();
   if(m==='panel') renderPanel();
   if(m==='placas') renderPlacas();
+  if(m==='respuestas') renderRespuestas();
 }
 let persSel=null;
 function renderPorPersona(){
@@ -2615,6 +2622,137 @@ function enviarListaWA(){
 }
 
 /* ============ PANEL DE INTELIGENCIA ============ */
+/* ============ RESPUESTAS RÁPIDAS para revendedores ============ */
+const RESPUESTAS_FIJAS=[
+  { id:'confirmo', titulo:'⏳ Te confirmo en un rato', texto:'¡Hola! 😃 Dejame consultar disponibilidad y en un ratito te confirmo. 🙌' },
+  { id:'transfer', titulo:'💳 Datos para transferir / seña', texto:'Para reservar, podés señar por transferencia 👇\n\n🏦 Alias: ____\n👤 Titular: ____\n📲 Mandanos el comprobante y te lo reservamos. ¡Gracias! 🐝' },
+  { id:'envio', titulo:'🚚 Envío / cómo se entrega', texto:'¡Hola! 😃 El envío lo hacemos a todo el país 📦\n\nUna vez confirmado el pago, despachamos y te pasamos el seguimiento. También podés retirarlo. ¿Cómo preferís? 🐝' },
+  { id:'nostock', titulo:'❌ No hay por ahora', texto:'¡Hola! 😃 Ese no lo tenemos disponible por el momento. En cuanto entre te aviso. ¿Querés que te muestre algo similar? 🐝' }
+];
+let respTipo='costo'; // costo | venta | dolar (para la respuesta de stock)
+function respKey(){ return 'ae_respuestas_'+(usuarioActual()||'user'); }
+function cargarRespuestasMias(){ try{ return JSON.parse(localStorage.getItem(respKey())||'[]'); }catch(e){ return []; } }
+function guardarRespuestasMias(arr){ try{ localStorage.setItem(respKey(), JSON.stringify(arr)); }catch(e){} }
+function renderRespuestas(){
+  const cont=document.getElementById('respuestasContent'); if(!cont) return;
+  const mias=cargarRespuestasMias();
+  const tarjeta=(r,esMia)=>`
+    <div class="card" style="padding:12px 14px;margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-weight:800;color:var(--blue);font-size:14px;">${r.titulo}</span>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-ghost btn-sm" style="color:var(--orange);padding:4px 10px;margin:0;width:auto;" onclick="copiarTexto(\`${r.texto.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`,this)">📋 Copiar</button>
+          ${esMia?`<span onclick="borrarRespuestaMia('${r.id}')" style="cursor:pointer;color:var(--red);font-size:15px;align-self:center;">🗑️</span>`:''}
+        </div>
+      </div>
+      <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--text);margin:0;background:#f7faff;padding:8px 10px;border-radius:8px;">${r.texto.replace(/</g,'&lt;')}</pre>
+    </div>`;
+  cont.innerHTML=`
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#f0f6ff;border-left:4px solid var(--blue);">
+      <div style="font-size:12px;color:var(--blue);font-weight:700;">💬 Respuestas listas para contestarle rápido a los revendedores. Tocá <b>Copiar</b> y pegá en WhatsApp. 🐝</div>
+    </div>
+    <div class="sec-title" style="font-size:13px;">✅ Sí hay stock (con precio automático)</div>
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;border-left:4px solid var(--green);">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Pegá el producto que te mandaron, elegí el tipo de precio y las cuotas. Arma la respuesta sola. 🐝</div>
+      <div class="field"><label>Producto / precio que te pasaron</label>
+        <textarea id="resp_texto" rows="2" placeholder="Ej: Samsung A56 256/12gb 425usd" oninput="armarRespuestaStock()" style="width:100%;resize:vertical;font-size:14px;"></textarea>
+      </div>
+      <div class="field"><label>Ese precio es...</label>
+        <div class="seg" style="margin-top:4px;">
+          <button class="seg-btn active" id="respTipoCosto" onclick="setRespTipo('costo')">💰 Costo</button>
+          <button class="seg-btn" id="respTipoVenta" onclick="setRespTipo('venta')">🏷️ Venta</button>
+          <button class="seg-btn" id="respTipoDolar" onclick="setRespTipo('dolar')">💵 Dólar</button>
+        </div>
+      </div>
+      <div class="field" id="respDolarBox" style="display:none;">
+        <label>Cotización del dólar (se guarda)</label>
+        <input id="resp_cotiz" type="number" inputmode="numeric" placeholder="1520" oninput="guardarCotizResp()">
+      </div>
+      <div class="field"><label>¿Qué cuotas mostrar?</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${[2,3,4,6,12].map(n=>`<label style="display:flex;align-items:center;gap:5px;font-size:14px;background:#f0f6ff;padding:6px 12px;border-radius:20px;cursor:pointer;"><input type="checkbox" class="respCuota" value="${n}" ${(n===2||n===4||n===6)?'checked':''} onchange="armarRespuestaStock()" style="width:18px;height:18px;"> ${n}c</label>`).join('')}
+        </div>
+      </div>
+      <div id="respStockOut"></div>
+    </div>
+    <div class="sec-title" style="font-size:13px;">⭐ Otras respuestas listas</div>
+    ${RESPUESTAS_FIJAS.map(r=>tarjeta(r,false)).join('')}
+    ${mias.length?`<div class="sec-title" style="font-size:13px;">✍️ Mis respuestas</div>`+mias.map(r=>tarjeta(r,true)).join(''):''}
+    <button class="btn btn-orange" style="margin-top:8px;" onclick="nuevaRespuestaMia()">➕ Crear mi respuesta</button>`;
+}
+function setRespTipo(t){
+  respTipo=t;
+  document.getElementById('respTipoCosto').classList.toggle('active', t==='costo');
+  document.getElementById('respTipoVenta').classList.toggle('active', t==='venta');
+  document.getElementById('respTipoDolar').classList.toggle('active', t==='dolar');
+  document.getElementById('respDolarBox').style.display = t==='dolar'?'block':'none';
+  if(t==='dolar'){ const c=document.getElementById('resp_cotiz'); if(c && !c.value) c.value=localStorage.getItem('ae_cotizdolar')||''; }
+  armarRespuestaStock();
+}
+function guardarCotizResp(){
+  const v=+document.getElementById('resp_cotiz').value||0;
+  if(v>0) localStorage.setItem('ae_cotizdolar', String(v));
+  armarRespuestaStock();
+}
+function armarRespuestaStock(){
+  const out=document.getElementById('respStockOut'); if(!out) return;
+  const texto=(document.getElementById('resp_texto')?.value||'').trim();
+  if(!texto){ out.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:10px 0;">Pegá el producto arriba 👆</div>`; return; }
+  const det=detectarPrecioPlaca(texto);
+  if(!det.valor){ out.innerHTML=`<div style="font-size:12px;color:var(--orange);">⚠️ No encontré el precio. Tiene que tener $ o usd.</div>`; return; }
+  if(det.esDolar && respTipo!=='dolar'){ setRespTipo('dolar'); return; }
+  let precioVenta=0;
+  if(respTipo==='dolar'){
+    const cotiz=+document.getElementById('resp_cotiz')?.value||+localStorage.getItem('ae_cotizdolar')||0;
+    if(!cotiz){ out.innerHTML=`<div style="font-size:12px;color:var(--orange);">💵 Poné la cotización del dólar.</div>`; return; }
+    precioVenta=markupVenta(Math.round(det.valor*cotiz));
+  } else if(respTipo==='venta'){
+    precioVenta=round500(det.valor);
+  } else {
+    precioVenta=markupVenta(det.valor);
+  }
+  const cuotasSel=[...document.querySelectorAll('.respCuota:checked')].map(c=>+c.value).sort((a,b)=>a-b);
+  // armar la frase de cuotas
+  let fraseCuotas='';
+  if(cuotasSel.length){
+    const partes=cuotasSel.map(n=>`${n} cuotas de $${fmt(planCuotas(precioVenta,n)[0]||0)}`);
+    if(partes.length===1) fraseCuotas=partes[0];
+    else fraseCuotas=partes.slice(0,-1).join(', ')+' o '+partes[partes.length-1];
+  }
+  const completo=`¡Hola! 😃 Sí, tenemos stock disponible ✅\n\nEl precio es $${fmt(precioVenta)}${fraseCuotas?` y en ${fraseCuotas}`:''}.\n\n¿Te lo reservo? 🐝`;
+  out.innerHTML=`
+    <div class="card" style="margin-bottom:8px;padding:10px;background:#f7faff;">
+      <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--text);margin:0;">${completo.replace(/</g,'&lt;')}</pre>
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-green btn-sm" style="flex:1;margin:0;" onclick="enviarPlacaWa(\`${completo.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`)">📲 Enviar</button>
+      <button class="btn btn-ghost btn-sm" style="width:auto;margin:0;color:var(--orange);padding:0 16px;" onclick="copiarTexto(\`${completo.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`,this)">📋 Copiar</button>
+    </div>`;
+}
+function nuevaRespuestaMia(){
+  openModal(`<div class="modal-title">✍️ Nueva respuesta</div><div class="modal-sub">Se guarda en tu teléfono</div>
+    <div class="field"><label>Título (para reconocerla)</label><input id="nr_titulo" placeholder="Ej: 🎁 Promo del día"></div>
+    <div class="field"><label>El mensaje</label><textarea id="nr_texto" rows="5" placeholder="Escribí el mensaje que querés mandar..." style="width:100%;resize:vertical;"></textarea></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">💡 Podés poner ____ donde después completes un dato (precio, alias, etc.)</div>
+    <button class="btn btn-orange" onclick="guardarNuevaRespuesta()">💾 Guardar respuesta</button>`);
+}
+function guardarNuevaRespuesta(){
+  const titulo=(document.getElementById('nr_titulo').value||'').trim();
+  const texto=(document.getElementById('nr_texto').value||'').trim();
+  if(!titulo||!texto){ toast('Completá título y mensaje'); return; }
+  const mias=cargarRespuestasMias();
+  mias.push({ id:'r'+Date.now(), titulo, texto });
+  guardarRespuestasMias(mias);
+  closeModal();
+  toast('Respuesta guardada ✅');
+  renderRespuestas();
+}
+function borrarRespuestaMia(id){
+  if(!confirm('¿Borrar esta respuesta?')) return;
+  let mias=cargarRespuestasMias().filter(r=>r.id!==id);
+  guardarRespuestasMias(mias);
+  renderRespuestas();
+}
 /* ============ PEGADO INTELIGENTE: pego COSTO y arma todo ============ */
 function renderPlacas(){
   const cont=document.getElementById('placasContent'); if(!cont) return;
