@@ -1310,8 +1310,9 @@ function abrirAmara(){
   if(!amaraIniciada){
     amaraIniciada=true;
     const yo=usuarioActual()||'';
-    amaraBot(`¡Hola${yo?' '+yo:''}! Soy <b>Amara</b> 🐝 tu asistente. Te ayudo a usar el CRM y te llevo directo a lo que necesités.<br><br>Escribime con tus palabras (ej: <i>"cómo cargo una venta"</i> o <i>"enviar producto a María"</i>), o tocá una opción:`);
-    amaraChips(['➕ Cargar un cliente','💰 Cargar una venta','📲 Enviar precios a alguien','📅 Ver cobranzas de hoy','❓ ¿Qué podés hacer?']);
+    const apo=apodoDe(yo);
+    amaraBot(`¡Buenas${apo?' '+apo:''}! Soy <b>Amara</b> 🐝<br><br>¿En qué te puedo servir? Tocá una opción o contame qué necesitás y te guío. 😊`);
+    amaraChips(['💲 Armar un precio','➕ Cargar un cliente','💰 Cargar una venta','📲 Mandar precios','📅 Cómo cobrar','❓ ¿Qué podés hacer?']);
   }
   setTimeout(()=>{ const i=document.getElementById('amaraInput'); if(i) i.focus(); },200);
 }
@@ -1350,11 +1351,40 @@ function amaraEnviar(){
   setTimeout(()=>amaraResponder(txt), 250);
 }
 // quita tildes y pasa a minúsculas para detectar mejor
-function amaraNorm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+function amaraNorm(s){
+  let t=(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  t=' '+t+' ';
+  const fix=[
+    [/\bago\b/g,'hago'],[/\bacer\b/g,'hacer'],[/\baser\b/g,'hacer'],[/\baserle\b/g,'hacerle'],
+    [/\bkomo\b/g,'como'],[/\bkiero\b/g,'quiero'],[/\bkero\b/g,'quiero'],
+    [/\bke\b/g,'que'],[/\bxq\b/g,'porque'],[/\bxfa\b/g,'por favor'],
+    [/\bkargo\b/g,'cargo'],[/\bcliene\b/g,'cliente'],[/\bclinte\b/g,'cliente'],
+    [/\bvemta\b/g,'venta'],[/\bbenta\b/g,'venta'],[/\bbentas\b/g,'ventas'],
+    [/\bpresio\b/g,'precio'],[/\bpresios\b/g,'precios'],[/\bprecioz\b/g,'precios'],
+    [/\bkuota\b/g,'cuota'],[/\bkuotas\b/g,'cuotas'],
+    [/\bwasap\b/g,'whatsapp'],[/\bwhatsap\b/g,'whatsapp'],[/\bwsp\b/g,'whatsapp'],[/\bwats\b/g,'whatsapp'],
+    [/\bplaka\b/g,'placa'],[/\bplakas\b/g,'placas'],[/\bkobrar\b/g,'cobrar'],[/\bkobro\b/g,'cobro'],
+    [/\bembiar\b/g,'enviar'],[/\benbiar\b/g,'enviar'],[/\bmamdar\b/g,'mandar']
+  ];
+  fix.forEach(([re,rep])=>{ t=t.replace(re,rep); });
+  return t.trim();
+}
 
 function amaraResponder(txt){
   const t=amaraNorm(txt);
   const tiene=(...palabras)=>palabras.some(p=>t.includes(p));
+
+  // ===== AGRADECIMIENTO: cuando le dan las gracias =====
+  if(tiene('gracias','grasias','grasia','gracia','muchas gracias','te pasaste','sos un genio','sos una genia','genia','crack','espectacular','barbaro','buenisimo','de 10','sos lo mas')){
+    const apo=apodoDe(usuarioActual()||'');
+    const respuestas=[
+      `¡No por favor${apo?' '+apo:''}, estoy para servirte! 😊🐝`,
+      `¡De nada${apo?' '+apo:''}! Para eso estoy. 😊`,
+      `¡Un placer${apo?' '+apo:''}! Cuando me necesites, acá estoy. 🐝`
+    ];
+    amaraBot(respuestas[Math.floor(Math.random()*respuestas.length)]);
+    return;
+  }
 
   // ===== ATAJO: enviar producto/precios a una persona =====
   if(tiene('enviar','enviale','mandar','mandale','enviarle','pasar precio','pasale','mandar precio')){
@@ -1423,6 +1453,52 @@ function amaraResponder(txt){
   if(tiene('ir a cobranza','seccion cobranza','ver cobranzas','vencimiento','quien tiene que pagar')){
     amaraBot(`En <b>Cobranzas</b> ves todas las cuotas por fecha: las vencidas, las de hoy y las que vienen. Podés marcar una cuota como pagada tocándola, y mandar recordatorio por WhatsApp.<br><br>Te llevo:`);
     amaraAccion('📅 Ir a Cobranzas', ()=>go('cobranzas'));
+    return;
+  }
+
+  // ========== GUÍAS PASO A PASO (explicadas fácil, para todos) ==========
+  // detecta "como hago / como se hace / como cargo / quiero" + el tema
+  const preguntaComo = tiene('como','komo','quiero','necesito','ayuda con','no se','no entiendo','enseñame','ensename');
+
+  // CÓMO ARMAR UN PRECIO (con cuotas)
+  if(tiene('armar precio','hacer precio','sacar precio','calcular precio','poner precio','un precio','el precio','precio con cuota','precio en cuota','cuanto sale','cuanto cobrar por') || (preguntaComo && tiene('precio','cuota'))){
+    amaraBot(`📲 <b>Armar un precio con cuotas — fácil:</b><br><br>1️⃣ Abajo tocá <b>Finanzas</b> 💰<br>2️⃣ Arriba tocá <b>🎨 Placas</b><br>3️⃣ Pegá o escribí el producto con el costo (ej: <i>Lavarropas $100.000</i>)<br>4️⃣ Elegí si es <b>Costo</b>, <b>Venta</b> o <b>Dólar</b><br>5️⃣ ¡Listo! Te muestra el precio y las cuotas solas 🎉<br><br>Después tocás <b>📲 Enviar a WhatsApp</b> y lo mandás.`);
+    amaraAccion('🎨 Llevame a armar el precio', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+    return;
+  }
+
+  // CÓMO CARGAR UN CLIENTE
+  if(tiene('cargar cliente','agregar cliente','nuevo cliente','poner cliente','anotar cliente','crear cliente','sumar cliente') || (preguntaComo && tiene('cliente') && !tiene('debe','deuda'))){
+    amaraBot(`➕ <b>Cargar un cliente nuevo — fácil:</b><br><br>1️⃣ Abajo tocá <b>Clientes</b> 👥<br>2️⃣ Tocá el botón <b>+</b> (abajo a la derecha)<br>3️⃣ Escribí el <b>nombre</b> y el <b>teléfono</b><br>4️⃣ Tocá <b>Guardar</b> ✅<br><br>¡Y ya quedó cargado! Después le podés cargar ventas o mandarle precios.`);
+    amaraAccion('➕ Llevame a cargar cliente', ()=>{ go('clientes'); setTimeout(()=>{ if(typeof formCliente==='function') formCliente(); },250); });
+    return;
+  }
+
+  // CÓMO CARGAR UNA VENTA
+  if(tiene('cargar venta','hacer venta','anotar venta','poner venta','nueva venta','registrar venta','sumar venta','vender a') || (preguntaComo && tiene('venta'))){
+    amaraBot(`💰 <b>Cargar una venta — fácil:</b><br><br>1️⃣ Abajo tocá <b>Clientes</b> 👥<br>2️⃣ Tocá el cliente que compró (o cargalo nuevo)<br>3️⃣ Tocá <b>➕ Agregar producto / venta</b><br>4️⃣ Poné el <b>producto</b>, el <b>precio</b> y las <b>cuotas</b><br>5️⃣ Tocá <b>Guardar</b> ✅<br><br>¡Listo! La venta queda con sus cuotas y vencimientos solos.`);
+    amaraAccion('👥 Llevame a Clientes', ()=>go('clientes'));
+    return;
+  }
+
+  // CÓMO MANDAR PRECIOS POR WHATSAPP
+  if(tiene('mandar precio','enviar precio','pasar precio','mandar por whatsapp','enviar whatsapp','precios por whatsapp','mandar lista') || (preguntaComo && tiene('whatsapp'))){
+    amaraBot(`📲 <b>Mandar precios por WhatsApp — fácil:</b><br><br><b>Para un producto:</b><br>1️⃣ <b>Finanzas</b> → <b>🎨 Placas</b><br>2️⃣ Pegá el producto con su precio<br>3️⃣ Tocá <b>📲 Enviar a WhatsApp</b><br><br><b>Para una lista (varios):</b><br>1️⃣ En Placas tocá <b>📋 Varios a la vez</b><br>2️⃣ Poné la cotización del dólar<br>3️⃣ Pegá toda la lista<br>4️⃣ Tocá <b>📋 Copiar</b> y pegá en el grupo`);
+    amaraAccion('🎨 Llevame a Placas', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+    return;
+  }
+
+  // CÓMO ARMAR PLACAS / LISTAS
+  if(tiene('armar placa','hacer placa','placa','lista de precio','convertir lista','pasar dolar','dolar a peso','lista de celular') || (preguntaComo && tiene('placa','lista'))){
+    amaraBot(`🎨 <b>Armar placas y listas — fácil:</b><br><br>1️⃣ <b>Finanzas</b> 💰 → <b>🎨 Placas</b><br><br><b>Un producto:</b> pegá el producto y su precio, elegí costo/venta/dólar, y te arma todo.<br><br><b>Lista de celulares (varios):</b> tocá <b>📋 Varios a la vez</b>, poné el dólar (ej: 1520), pegá la lista entera y te pasa todos los precios a pesos solos. 🎉`);
+    amaraAccion('🎨 Llevame a Placas', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+    return;
+  }
+
+  // CÓMO COBRAR / MARCAR UN PAGO
+  if(tiene('como cobrar','marcar pago','registrar pago','anotar pago','cobre','ya pago','pago una cuota','marcar cuota','poner que pago') || (preguntaComo && tiene('cobrar','pago','pagar'))){
+    amaraBot(`✅ <b>Marcar un pago / cobrar — fácil:</b><br><br>1️⃣ Abajo tocá <b>Cobranzas</b> 📅<br>2️⃣ Buscá la cuota que te pagaron<br>3️⃣ Tocá el <b>círculo</b> de esa cuota (queda verde ✅)<br><br>¡Listo! Ya queda registrado el pago.<br><br>💡 Para recordarle a alguien que te pague, en Cobranzas tocá <b>📲 Recordar</b>.`);
+    amaraAccion('📅 Llevame a Cobranzas', ()=>go('cobranzas'));
     return;
   }
 
