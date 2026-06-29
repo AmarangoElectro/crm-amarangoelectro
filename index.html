@@ -571,8 +571,9 @@
       <span onclick="cerrarAmara()" style="font-size:24px;cursor:pointer;color:#fff;padding:4px 8px;">×</span>
     </div>
     <div class="amara-body" id="amaraBody"></div>
+    <div id="amaraSugerencias" style="display:none;padding:6px 10px 0;flex-wrap:wrap;gap:6px;"></div>
     <div class="amara-input">
-      <input id="amaraInput" placeholder="Escribime qué necesitás..." onkeydown="if(event.key==='Enter')amaraEnviar()" autocomplete="off">
+      <input id="amaraInput" placeholder="Escribime qué necesitás..." oninput="amaraSugerir()" onkeydown="if(event.key==='Enter')amaraEnviar()" autocomplete="off">
       <button onclick="amaraEnviar()" class="amara-send"><span data-ico="send" data-size="20"></span></button>
     </div>
   </div>
@@ -1344,6 +1345,13 @@ function amaraAccion(label, fn){
   b.onclick=()=>{ cerrarAmara(); fn(); };
   body.appendChild(b); body.scrollTop=body.scrollHeight;
 }
+// igual que amaraAccion pero NO cierra el chat (para botones que muestran más opciones adentro)
+function amaraAccionAbierta(label, fn){
+  const body=document.getElementById('amaraBody');
+  const b=document.createElement('button'); b.className='amara-action'; b.innerHTML=label;
+  b.onclick=()=>{ fn(); };
+  body.appendChild(b); body.scrollTop=body.scrollHeight;
+}
 function amaraDesdeChip(t){
   document.getElementById('amaraInput').value=t;
   amaraEnviar();
@@ -1353,7 +1361,41 @@ function amaraEnviar(){
   const txt=(inp.value||'').trim();
   if(!txt) return;
   amaraUser(txt); inp.value='';
+  const sug=document.getElementById('amaraSugerencias'); if(sug){ sug.style.display='none'; sug.innerHTML=''; }
   setTimeout(()=>amaraResponder(txt), 250);
+}
+// Sugerencias mientras escribe (autocompletar): marcas + modelos del catálogo
+function amaraSugerir(){
+  const inp=document.getElementById('amaraInput');
+  const cont=document.getElementById('amaraSugerencias');
+  if(!inp||!cont) return;
+  const q=(inp.value||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  if(q.length<2){ cont.style.display='none'; cont.innerHTML=''; return; }
+  // marcas fijas
+  const marcasFijas=['Samsung','Moto','Xiaomi','Redmi','Poco','iPhone','Infinix','Honor','Realme','Nokia','TCL'];
+  // marcas/nombres del catálogo de celulares
+  const celus=(DB.productos||[]).filter(p=>p.categoria==='celular');
+  let sugerencias=[];
+  // 1) marcas fijas que empiecen/contengan lo escrito
+  marcasFijas.forEach(m=>{ if(m.toLowerCase().includes(q)) sugerencias.push(m); });
+  // 2) modelos del catálogo que coincidan
+  celus.forEach(p=>{
+    const nom=(p.nombre||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if(nom.includes(q)) sugerencias.push(p.nombre);
+  });
+  // sacar repetidos y limitar a 6
+  sugerencias=[...new Set(sugerencias)].slice(0,6);
+  if(!sugerencias.length){ cont.style.display='none'; cont.innerHTML=''; return; }
+  cont.style.display='flex';
+  cont.innerHTML=sugerencias.map(s=>
+    `<button onclick="amaraUsarSugerencia('${s.replace(/'/g,"\\'")}')" style="background:#eef4ff;border:1px solid var(--blue);color:var(--blue);border-radius:16px;padding:5px 12px;font-size:13px;cursor:pointer;white-space:nowrap;">${s}</button>`
+  ).join('');
+}
+function amaraUsarSugerencia(txt){
+  const inp=document.getElementById('amaraInput');
+  if(inp){ inp.value=txt; }
+  const cont=document.getElementById('amaraSugerencias'); if(cont){ cont.style.display='none'; cont.innerHTML=''; }
+  amaraEnviar();
 }
 // quita tildes y pasa a minúsculas para detectar mejor
 function amaraNorm(s){
@@ -1394,9 +1436,60 @@ function amaraResponder(txt){
     return;
   }
 
+  // ========== PREGUNTAS FRECUENTES (datos reales del negocio) ==========
+  // GARANTÍA
+  if(tiene('garantia','garantiza','tiene garantia','cuanta garantia','que garantia','se rompe','si falla','si sale fallado','anda mal')){
+    amaraBot(`🛡️ <b>Garantía:</b> Todos los productos tienen <b>3 meses de garantía</b> que cubre <b>fallas de fábrica</b>.<br><br>⚠️ No cubre roturas, golpes ni daños por mojado. ¡Quedate tranqui que respaldamos lo que vendemos! 🐝`);
+    const msg=`🛡️ *Garantía AmarangoElectro*\n\nTodos los productos tienen *3 meses de garantía* que cubre fallas de fábrica.\n\n(No cubre roturas, golpes ni daños por líquido)`;
+    amaraAccion('📲 Mandar info de garantía', ()=>window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank'));
+    return;
+  }
+  // ENVÍO / RETIRO / LOCAL
+  if(tiene('envio','envian','hacen envio','mandan','como llega','como me llega','retiro','retirar','local','direccion','donde estan','donde retiro','tienen local','puedo retirar','llega a','mandan a')){
+    amaraBot(`🚚 <b>Envíos:</b> Hacemos envíos a <b>algunas zonas</b> (lo coordinamos según dónde estés).<br><br>📍 No tenemos local para retirar, trabajamos <b>solo con envío</b>.<br><br>Pasame tu zona y vemos cómo te lo hacemos llegar. 🐝`);
+    const msg=`🚚 *Envíos AmarangoElectro*\n\nHacemos envíos a coordinar según tu zona. Trabajamos solo con envío (sin local para retirar).\n\nPasame tu zona y vemos cómo hacértelo llegar 🐝`;
+    amaraAccion('📲 Mandar info de envío', ()=>window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank'));
+    return;
+  }
+  // CUOTAS / PLANES
+  if(tiene('cuotas','hacen cuotas','cuantas cuotas','en cuotas','plan','planes','financia','financiacion','pagar en partes','tarjeta')){
+    amaraBot(`💳 <b>Planes de cuotas:</b> Tenemos hasta <b>6 cuotas fijas</b> 🔥<br><br>Las cuotas son fijas (no cambian mes a mes). Decime qué producto te interesa y te paso el precio con las cuotas exactas. 🐝`);
+    amaraAccion('💲 Armar un precio', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+    return;
+  }
+  // MEDIOS DE PAGO
+  if(tiene('como pago','medios de pago','como se paga','formas de pago','aceptan','transferencia','efectivo','pago con')){
+    amaraBot(`💰 <b>Formas de pago:</b><br><br>✅ Efectivo<br>✅ Transferencia<br>✅ En cuotas (hasta 6 fijas)<br><br>Para reservar podés señar por transferencia. ¿Qué producto querés? 🐝`);
+    return;
+  }
+  // SEÑA / RESERVA
+  if(tiene('senar','seña','sena','reservar','reserva','como reservo','puedo señar','dejar señado','apartar')){
+    amaraBot(`📌 <b>Para reservar:</b> Podés <b>señar por transferencia</b> y te lo guardamos.<br><br>Una vez señado, coordinamos el envío. Decime qué producto querés reservar. 🐝`);
+    return;
+  }
+  // ESTADO: nuevo / sellado
+  if(tiene('es nuevo','sellado','sellados','usado','es original','son originales','viene sellado','caja cerrada','open box')){
+    amaraBot(`📦 <b>Todos nuestros productos son nuevos y originales</b>, en su caja. 🐝<br><br>Si algún producto fuera distinto (open box, etc.) te lo aclaramos antes. ¿Cuál te interesa?`);
+    return;
+  }
+  // VARIANTES / COLORES
+  if(tiene('otro color','que colores','colores','tenes en color','viene en','que color','otros colores')){
+    amaraBot(`🎨 Depende del modelo, solemos tener varios colores. Decime qué producto y te confirmo los colores disponibles. 🐝`);
+    return;
+  }
+  // ¿SON CONFIABLES? / DESCONFIANZA
+  if(tiene('son confiables','es confiable','es seguro','no es estafa','estafa','me puedo confiar','son de fiar','tienen referencias')){
+    amaraBot(`🤝 ¡Totalmente! En <b>AmarangoElectro</b> trabajamos con productos nuevos, garantía de 3 meses y muchos clientes conformes. Podés ver nuestras novedades en el canal de WhatsApp y en Instagram <b>@amarangoelectro</b>. 🐝`);
+    return;
+  }
+  // HORARIOS / ATENCIÓN
+  if(tiene('horario','atienden','a que hora','hasta que hora','estan abiertos','atencion')){
+    amaraBot(`🕐 Te respondemos lo antes posible por WhatsApp. Dejanos tu consulta y un asesor te contesta enseguida. 🐝`);
+    return;
+  }
+
   // ===== ATAJO: enviar producto/precios a una persona =====
   if(tiene('enviar','enviale','mandar','mandale','enviarle','pasar precio','pasale','mandar precio')){
-    // buscar un nombre mencionado entre los clientes
     const cliMatch=amaraBuscarClientes(txt);
     if(cliMatch.length===1){
       const c=cliMatch[0];
@@ -1595,20 +1688,28 @@ function amaraResponder(txt){
           const c2=planCuotas(precio,2)[0], c4=planCuotas(precio,4)[0], c6=planCuotas(precio,6)[0];
           html+=` — $${fmt(precio)}<br><br>💳 2 cuotas de $${fmt(c2)}<br>💳 4 cuotas de $${fmt(c4)}<br>💳 6 cuotas de $${fmt(c6)}`;
           amaraBot(html);
-          const msg=`✅ Sí, tengo el ${pr.nombre}\n\n💵 *CONTADO: $${fmt(precio)}*\n\n💳 2 cuotas de $${fmt(c2)}\n💳 4 cuotas de $${fmt(c4)}\n💳 6 cuotas de $${fmt(c6)}`;
-          amaraAccion('📲 Mandar este precio', ()=>window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank'));
+          const msg=`🐝 *${(pr.nombre||'').toUpperCase()}*\n\n💵 *CONTADO: $${fmt(precio)}*\n\n💳 2 cuotas de $${fmt(c2)}\n💳 4 cuotas de $${fmt(c4)}\n💳 6 cuotas de $${fmt(c6)}\n\n✨ _RETIRALA CON TU PRIMER CUOTA_ 🔥💣\n\n😃 Conocé nuestros planes de hasta 6 cuotas fijas\n\n📢 _Seguinos en nuestro canal de AMARANGO ELECTRO_`;
+          amaraAccion('📲 Mandar por WhatsApp', ()=>window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank'));
+          amaraAccion('📋 Copiar', ()=>{ if(typeof copiarTexto==='function') copiarTexto(msg); });
         } else { html+=` <span style="font-size:11px;color:var(--muted);">(sin precio cargado)</span>`; amaraBot(html); }
         return;
-      } else if(encontrados.length>1 && encontrados.length<=6){
-        // varias coincidencias: mostrar las opciones
-        let html=`Encontré ${encontrados.length}, ¿cuál? 👇<br><br>`;
+      } else if(encontrados.length>1 && encontrados.length<=8){
+        // varias coincidencias: cada una es un botón que arma el mensaje listo
+        amaraBot(`Encontré ${encontrados.length}, ¿cuál querés mandar? 👇`);
         encontrados.forEach(pr=>{
-          const precio=pr.venta||0;
-          html+=`📱 <b>${pr.nombre}</b>${precio?` — $${fmt(precio)}`:''}<br>`;
+          const precio=pr.venta||(pr.costo?markupVenta(pr.costo):0);
+          const etiqueta=`📲 ${pr.nombre}${precio?` — $${fmt(precio)}`:''}`;
+          amaraAccionAbierta(etiqueta, ()=>{
+            if(!precio){ amaraBot(`El ${pr.nombre} no tiene precio cargado. 🤔`); return; }
+            const c2=planCuotas(precio,2)[0], c4=planCuotas(precio,4)[0], c6=planCuotas(precio,6)[0];
+            const msg=`🐝 *${(pr.nombre||'').toUpperCase()}*\n\n💵 *CONTADO: $${fmt(precio)}*\n\n💳 2 cuotas de $${fmt(c2)}\n💳 4 cuotas de $${fmt(c4)}\n💳 6 cuotas de $${fmt(c6)}\n\n✨ _RETIRALA CON TU PRIMER CUOTA_ 🔥💣\n\n😃 Conocé nuestros planes de hasta 6 cuotas fijas\n\n📢 _Seguinos en nuestro canal de AMARANGO ELECTRO_`;
+            amaraBot(`📱 <b>${pr.nombre}</b> — $${fmt(precio)}<br><br>💳 2c $${fmt(c2)} · 4c $${fmt(c4)} · 6c $${fmt(c6)}`);
+            amaraAccion('📲 Mandar por WhatsApp', ()=>window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank'));
+            amaraAccion('📋 Copiar', ()=>{ if(typeof copiarTexto==='function') copiarTexto(msg); });
+          });
         });
-        amaraBot(html);
         return;
-      } else if(encontrados.length>6){
+      } else if(encontrados.length>8){
         amaraBot(`Tengo ${encontrados.length} que coinciden. 🤔 Decime más específico (ej: el modelo y la memoria) para encontrarlo justo. 🐝`);
         return;
       } else {
@@ -1699,6 +1800,48 @@ function amaraResponder(txt){
   if(tiene('como cobrar','marcar pago','registrar pago','anotar pago','cobre','ya pago','pago una cuota','marcar cuota','poner que pago') || (preguntaComo && tiene('cobrar','pago','pagar'))){
     amaraBot(`✅ <b>Marcar un pago / cobrar — fácil:</b><br><br>1️⃣ Abajo tocá <b>Cobranzas</b> 📅<br>2️⃣ Buscá la cuota que te pagaron<br>3️⃣ Tocá el <b>círculo</b> de esa cuota (queda verde ✅)<br><br>¡Listo! Ya queda registrado el pago.<br><br>💡 Para recordarle a alguien que te pague, en Cobranzas tocá <b>📲 Recordar</b>.`);
     amaraAccion('📅 Llevame a Cobranzas', ()=>go('cobranzas'));
+    return;
+  }
+
+  // CÓMO GUARDAR / CARGAR CELULARES (lista que reemplaza)
+  if(tiene('cargar celular','cargar celulares','guardar celular','lista de celulares','actualizar celulares','reemplazar celulares','subir celulares','cargar lista') || (preguntaComo && tiene('celular') && tiene('cargar','guardar','subir','actualizar'))){
+    amaraBot(`📱 <b>Cargar/actualizar la lista de celulares — fácil:</b><br><br>1️⃣ <b>Finanzas</b> 💰 → <b>📦 Catálogo</b><br>2️⃣ Tocá <b>"📱 Cargar lista de celulares (reemplaza)"</b><br>3️⃣ Poné la cotización del dólar<br>4️⃣ Pegá la lista entera (con precios en USD)<br>5️⃣ Tocá <b>"✅ Reemplazar celulares"</b><br><br>💡 Los celulares viejos se borran y quedan los nuevos. Los electrodomésticos NO se tocan. También podés guardarlos desde <b>Placas → Varios a la vez</b>.`);
+    amaraAccion('📦 Llevame al Catálogo', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('catalogo'); },250); });
+    return;
+  }
+
+  // CÓMO USAR LA CALCULADORA
+  if(tiene('calculadora','calcular cuota','calcular comision','calcular capital','cuanto invierto','cuanto gano','calcular ganancia') || (preguntaComo && tiene('calcular','calculadora'))){
+    amaraBot(`🧮 <b>Usar la calculadora — fácil:</b><br><br>1️⃣ <b>Finanzas</b> 💰 → <b>🧮 Calculadora</b><br>2️⃣ Poné el costo o el precio de venta<br>3️⃣ Te calcula las cuotas, la comisión y el capital a invertir solo<br><br>💡 También podés preguntarme acá directo: <i>"precio 425 usd"</i> o <i>"cuesta 250000"</i> y te lo calculo al toque.`);
+    amaraAccion('🧮 Llevame a la Calculadora', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('calc'); },250); });
+    return;
+  }
+
+  // CÓMO VER REPORTES / FINANZAS
+  if(tiene('reporte','reportes','resumen del mes','cuanto factur','cuanto gane el mes','balance','reporte mensual','informe','ganancias del mes') || (preguntaComo && tiene('reporte','finanzas','balance'))){
+    amaraBot(`📊 <b>Ver el reporte del negocio — fácil:</b><br><br>1️⃣ <b>Finanzas</b> 💰 → <b>📊 Finanzas</b><br>2️⃣ Tocá <b>"Reporte mensual"</b><br><br>Ahí ves lo facturado, el costo, la ganancia, lo cobrado y lo pendiente del mes. 📈<br><br>💡 También podés preguntarme: <i>"cuánto facturé este mes"</i>.`);
+    amaraAccion('📊 Llevame a Finanzas', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('finanzas'); },250); });
+    return;
+  }
+
+  // CÓMO USAR INVERSORES / REPARTO
+  if(tiene('inversor','inversores','reparto','dividir ganancia','repartir','quien puso','socios','quien invirtio') || (preguntaComo && tiene('inversor','reparto','socio'))){
+    amaraBot(`🤝 <b>Inversores y reparto — fácil:</b><br><br>1️⃣ Cuando cargás una venta, podés poner quién <b>invirtió</b> y su <b>%</b><br>2️⃣ El sistema reparte solo: cuánto <b>puso</b> cada uno y cuánto <b>gana</b><br>3️⃣ Para ver el resumen general: <b>Finanzas → 💼 Inversores</b><br><br>💡 El "puso" usa tu fórmula real: costo + 1ra parte comisión + envío − 1ra cuota.`);
+    amaraAccion('💼 Llevame a Inversores', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('inv'); },250); });
+    return;
+  }
+
+  // CÓMO BUSCAR / VER UN CLIENTE
+  if((preguntaComo && tiene('buscar','encontrar','ver')) && tiene('cliente')){
+    amaraBot(`🔍 <b>Buscar un cliente — fácil:</b><br><br>1️⃣ Abajo tocá <b>Clientes</b> 👥<br>2️⃣ Usá el buscador de arriba y escribí el nombre<br>3️⃣ Tocá el cliente para ver su ficha (ventas, deudas, teléfono)<br><br>💡 O preguntame acá: <i>"buscar a María"</i> y te llevo directo.`);
+    amaraAccion('👥 Llevame a Clientes', ()=>go('clientes'));
+    return;
+  }
+
+  // ¿DÓNDE ESTÁN LOS MENSAJES / RESPUESTAS RÁPIDAS?
+  if(tiene('mensajes','respuestas rapidas','respuestas listas','donde estan los mensajes','plantillas','mensajes guardados','respuestas guardadas') || (preguntaComo && tiene('respuesta','mensaje'))){
+    amaraBot(`💬 <b>Respuestas rápidas — dónde están:</b><br><br>1️⃣ <b>Finanzas</b> 💰 → <b>💬 Respuestas</b><br>2️⃣ Ahí tenés las respuestas listas (stock, envío, transferir, etc.)<br>3️⃣ Tocá <b>Copiar</b> y pegá en WhatsApp<br><br>💡 La de <b>"Sí hay stock"</b> arma el precio sola: pegás el producto y elegís costo/venta/dólar.`);
+    amaraAccion('💬 Llevame a Respuestas', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('respuestas'); },250); });
     return;
   }
 
@@ -1821,21 +1964,23 @@ function amaraResponder(txt){
 
   // ===== ¿Qué podés hacer? =====
   if(tiene('que podes','que sabes','que haces','ayuda','help','que puedo','para que servis','opciones','menu')){
-    amaraBot(`Te puedo guiar con todo esto 👇`);
-    amaraChips(['➕ Cargar un cliente','💰 Cargar una venta','📲 Enviar precios a alguien','📅 Ver cobranzas de hoy','📦 Catálogo y precios','🧮 Usar la calculadora','📨 Solicitar inversión','🔒 Cambiar mi PIN','💾 Respaldar datos']);
-    amaraBot(`También preguntame con datos, ej: <i>"cuánto tengo que cobrar hoy"</i>, <i>"cuánto me debe Carlos"</i>, <i>"cuánto facturé este mes"</i> o <i>"quiénes están atrasados"</i>.`);
+    amaraBot(`🐝 Soy tu asistente del CRM. Te llevo a cualquier función y te explico cómo usarla. <b>Atajos:</b>`);
+    amaraChips(['➕ Cargar un cliente','💰 Cargar una venta','💲 Armar un precio','📱 Cargar celulares','📅 Cómo cobrar','💬 Respuestas rápidas','🧮 Calculadora','📊 Reporte mensual','🤝 Inversores']);
+    amaraBot(`También respondo con tus datos 👇<br>• <i>"cuánto tengo que cobrar hoy"</i><br>• <i>"cuánto me debe Carlos"</i><br>• <i>"cuánto facturé este mes"</i><br>• <i>"quiénes están atrasados"</i><br>• <i>"mis tareas"</i><br><br>Y calculo precios al toque: <i>"precio 425 usd"</i> 🔥`);
     return;
   }
 
   // ===== saludo =====
   if(tiene('hola','buenas','buen dia','buenos dias','que tal','holis')){
-    amaraBot(`¡Hola! 🐝 ¿En qué te doy una mano? Puedo guiarte a cargar clientes, ventas, ver cobranzas y más. Tocá <b>"¿Qué podés hacer?"</b> o escribime tu duda.`);
+    const apo=apodoDe(usuarioActual()||'');
+    amaraBot(`¡Buenas${apo?' '+apo:''}! 🐝 Soy Amara, tu asistente del CRM. ¿En qué te ayudo? Tocá <b>"¿Qué podés hacer?"</b> o escribime.`);
+    amaraChips(['➕ Cargar un cliente','💰 Cargar una venta','💲 Armar un precio','❓ ¿Qué podés hacer?']);
     return;
   }
 
   // ===== no entendió =====
-  amaraBot(`Mmm, no estoy segura de eso 🤔 pero puedo ayudarte con varias cosas. Mirá:`);
-  amaraChips(['➕ Cargar un cliente','💰 Cargar una venta','📲 Enviar precios a alguien','📅 Cobranzas','❓ ¿Qué podés hacer?']);
+  amaraBot(`Mmm, eso no lo tengo todavía 🤔 pero soy tu asistente del CRM. Mirá lo que sé hacer:`);
+  amaraChips(['➕ Cargar un cliente','💰 Cargar una venta','💲 Armar un precio','📅 Cómo cobrar','❓ ¿Qué podés hacer?']);
 }
 
 // busca clientes cuyo nombre coincida con alguna palabra del texto
