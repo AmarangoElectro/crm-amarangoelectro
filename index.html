@@ -2747,8 +2747,26 @@ function renderCatalogo(){
     <div class="list-item" onclick="formProducto('${p.id}')">
       <div class="avatar" style="background:${nombreColor(p.mayorista||'?')}">${initials(p.nombre||'?')}</div>
       <div class="li-info"><div class="li-name">${p.nombre}${p.memoria?` · ${p.memoria}`:''}</div><div class="li-meta">${p.mayorista?'🏭 '+p.mayorista+' · ':''}${(p.venta||0)>0?'Venta: $'+fmt(p.venta)+' · ':''}Costo: $${fmt(p.costo||0)}</div></div>
-      <div class="li-right"><div class="li-tag" style="color:var(--red);" onclick="event.stopPropagation();delProductoUI('${p.id}')">🗑️</div></div>
+      <div class="li-right" style="display:flex;gap:10px;align-items:center;">
+        <div class="li-tag" style="color:var(--green);font-size:18px;" onclick="event.stopPropagation();enviarPrecioProducto('${p.id}')">📲</div>
+        <div class="li-tag" style="color:var(--red);" onclick="event.stopPropagation();delProductoUI('${p.id}')">🗑️</div>
+      </div>
     </div>`).join('');
+}
+function enviarPrecioProducto(id){
+  const p=DB.productos.find(x=>x.id===id); if(!p) return;
+  // precio de venta: el cargado, o si solo hay costo, aplico markup
+  const precio=p.venta||(p.costo?markupVenta(p.costo):0);
+  if(!precio){ toast('Este producto no tiene precio cargado'); return; }
+  const nombre=p.nombre+(p.memoria?' '+p.memoria:'');
+  const c2=planCuotas(precio,2)[0], c4=planCuotas(precio,4)[0], c6=planCuotas(precio,6)[0];
+  const msg=`🐝 *${nombre.toUpperCase()}*\n\n💵 *CONTADO: $${fmt(precio)}*\n\n💳 2 cuotas de $${fmt(c2)}\n💳 4 cuotas de $${fmt(c4)}\n💳 6 cuotas de $${fmt(c6)}\n\n✨ _RETIRALA CON TU PRIMER CUOTA_ 🔥💣\n\n😃 Conocé nuestros planes de hasta 6 cuotas fijas\n\n📢 _Seguinos en nuestro canal de AMARANGO ELECTRO_`;
+  openModal(`<div class="modal-title">📲 Enviar precio</div><div class="modal-sub">${nombre}</div>
+    <div class="card" style="background:#f7faff;padding:10px;margin-bottom:12px;">
+      <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--text);margin:0;">${msg.replace(/</g,'&lt;')}</pre>
+    </div>
+    <button class="btn btn-green" onclick="window.open('https://wa.me/?text='+encodeURIComponent(\`${msg.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`),'_blank')">📲 Enviar por WhatsApp</button>
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--orange);" onclick="copiarTexto(\`${msg.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`,this)">📋 Copiar</button>`);
 }
 function formProducto(id){
   const p = id ? DB.productos.find(x=>x.id===id) : {};
