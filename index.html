@@ -2526,25 +2526,27 @@ function enviarListaWA(){
 }
 
 /* ============ PANEL DE INTELIGENCIA ============ */
-/* ============ ARMADOR DE TEXTOS PARA PLACAS (para copiar a Canva) ============ */
+/* ============ PEGADO INTELIGENTE: pego COSTO y arma todo ============ */
 function renderPlacas(){
   const cont=document.getElementById('placasContent'); if(!cont) return;
   const prods=DB.productos||[];
   cont.innerHTML=`
-    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#f0f6ff;">
-      <div style="font-size:12px;color:var(--blue);font-weight:700;">📝 Armá el texto y los precios para tu placa. Después tocá "Copiar" y pegalo en tu plantilla de Canva. ¡El CRM hace los números, vos hacés la placa hermosa! 🐝</div>
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#fff4e6;border-left:4px solid var(--orange);">
+      <div style="font-size:12px;color:var(--blue);font-weight:700;">✨ Pegá el <b>COSTO</b> del producto y el CRM hace toda la cuenta de AmarangoElectro (precio + cuotas). Después copiás o mandás directo a WhatsApp. 🐝</div>
     </div>
     ${prods.length?`<div class="field"><label>Traer del catálogo (opcional)</label>
       <select id="pl_prod" onchange="placaDesdeCatalogo()">
         <option value="">— Elegir producto —</option>
-        ${prods.map((p,i)=>`<option value="${i}">${(p.nombre||'?')} · $${fmt(p.precio||p.venta||0)}</option>`).join('')}
+        ${prods.map((p,i)=>`<option value="${i}">${(p.nombre||'?')}</option>`).join('')}
       </select></div>`:''}
     <div class="field"><label>Producto *</label><input id="pl_nombre" placeholder="Ej: Lavarropas Candy 7kg" oninput="armarTextoPlaca()"></div>
-    <div class="field-row">
-      <div class="field"><label>Precio contado ($) *</label><input id="pl_precio" type="number" inputmode="numeric" placeholder="0" oninput="armarTextoPlaca()"></div>
-      <div class="field"><label>Cuotas</label><select id="pl_cuotas" onchange="armarTextoPlaca()"><option value="6">6 cuotas</option><option value="3">3 cuotas</option><option value="2">2 cuotas</option><option value="4">4 cuotas</option><option value="12">12 cuotas</option></select></div>
+    <div class="field"><label>💰 COSTO ($) — pegá acá *</label><input id="pl_costo" type="number" inputmode="numeric" placeholder="Pegá el costo y listo" oninput="armarTextoPlaca()" style="font-size:18px;font-weight:700;"></div>
+    <div class="field"><label>¿Qué cuotas mostrar?</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${[2,3,4,6,12].map(n=>`<label style="display:flex;align-items:center;gap:5px;font-size:14px;background:#f0f6ff;padding:6px 12px;border-radius:20px;cursor:pointer;"><input type="checkbox" class="plCuota" value="${n}" ${(n===2||n===4||n===6)?'checked':''} onchange="armarTextoPlaca()" style="width:18px;height:18px;"> ${n}c</label>`).join('')}
+      </div>
     </div>
-    <div class="field"><label>Specs (una por línea)</label><textarea id="pl_specs" rows="4" placeholder="Pantalla 6.7&quot;&#10;Cámara 50MP&#10;Batería 5000mAh&#10;256GB" oninput="armarTextoPlaca()" style="width:100%;resize:vertical;"></textarea></div>
+    <div class="field"><label>Specs (una por línea, opcional)</label><textarea id="pl_specs" rows="3" placeholder="7kg de capacidad&#10;1200 RPM&#10;Motor Inverter" oninput="armarTextoPlaca()" style="width:100%;resize:vertical;"></textarea></div>
     <div id="placaTextoOut"></div>`;
   setTimeout(armarTextoPlaca, 80);
 }
@@ -2553,44 +2555,50 @@ function placaDesdeCatalogo(){
   if(isNaN(i)) return;
   const p=DB.productos[i]; if(!p) return;
   document.getElementById('pl_nombre').value=p.nombre||'';
-  document.getElementById('pl_precio').value=p.precio||p.venta||0;
+  if(p.costo) document.getElementById('pl_costo').value=p.costo;
   if(p.specs) document.getElementById('pl_specs').value=Array.isArray(p.specs)?p.specs.join('\n'):p.specs;
   armarTextoPlaca();
 }
 function armarTextoPlaca(){
   const out=document.getElementById('placaTextoOut'); if(!out) return;
   const nombre=(document.getElementById('pl_nombre')?.value||'').trim();
-  const precio=+document.getElementById('pl_precio')?.value||0;
-  const nCuotas=+document.getElementById('pl_cuotas')?.value||6;
+  const costo=+document.getElementById('pl_costo')?.value||0;
   const specs=(document.getElementById('pl_specs')?.value||'').split('\n').filter(s=>s.trim());
-  if(!nombre && !precio){ out.innerHTML=`<div style="text-align:center;color:var(--muted);padding:24px 12px;font-size:13px;">Completá el producto y el precio para ver los textos 👆</div>`; return; }
-  const planM=planCuotas(precio, nCuotas);
-  const cuotaVal=planM[0]||0;
-  // bloque 1: título producto
-  // bloque 2: specs formateadas
+  if(!nombre && !costo){ out.innerHTML=`<div style="text-align:center;color:var(--muted);padding:24px 12px;font-size:13px;">Pegá el costo del producto para ver los precios 👆</div>`; return; }
+  // CUENTA DE AMARANGOELECTRO: costo -> precio de venta con markup
+  const precio = costo>0 ? markupVenta(costo) : 0;
+  // cuotas elegidas
+  const cuotasSel=[...document.querySelectorAll('.plCuota:checked')].map(c=>+c.value).sort((a,b)=>a-b);
+  // armar líneas de cuotas
+  const lineasCuotas = cuotasSel.map(n=>{
+    const plan=planCuotas(precio,n);
+    return `💳 ${n} cuotas de $${fmt(plan[0]||0)}`;
+  }).join('\n');
   const specsTxt=specs.map(s=>'• '+s.trim()).join('\n');
-  // bloque 3: precio + cuotas
-  const precioTxt=`💵 CONTADO: $${fmt(precio)}`;
-  const cuotaTxt=`💳 ${nCuotas} CUOTAS FIJAS de $${fmt(cuotaVal)}`;
-  // texto completo para WhatsApp/grupo
-  const completo=`🐝 *${nombre.toUpperCase()}*\n\n${specsTxt}${specsTxt?'\n\n':''}${precioTxt}\n${cuotaTxt}\n\n📲 *AmarangoElectro* · @amarangoelectro`;
-  const card=(titulo,contenido,id)=>`
+  // CIERRE DE PROMOCIÓN (fijo de AmarangoElectro)
+  const cierre=`✨ _RETIRALA CON TU PRIMER CUOTA_ 🔥💣\n\n😃 Conocé nuestros planes de hasta 6 cuotas fijas\n\n📢 _Seguinos en nuestro canal de AMARANGO ELECTRO_`;
+  // texto completo
+  const completo=`🐝 *${nombre.toUpperCase()}*\n\n${specsTxt}${specsTxt?'\n\n':''}💵 *CONTADO: $${fmt(precio)}*\n\n${lineasCuotas}\n\n${cierre}`;
+  // preview de la cuenta
+  out.innerHTML=`
+    <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);margin-bottom:12px;">
+      <div style="color:rgba(255,255,255,.75);font-size:11px;">Costo $${fmt(costo)} → precio de venta</div>
+      <div style="color:#fff;font-size:26px;font-weight:900;">$${fmt(precio)}</div>
+      <div style="color:rgba(255,255,255,.9);font-size:12px;margin-top:4px;">${cuotasSel.map(n=>{const p=planCuotas(precio,n);return n+'c × $'+fmt(p[0]||0);}).join('  ·  ')}</div>
+    </div>
     <div class="card" style="margin-bottom:10px;padding:12px 14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <span style="font-weight:800;color:var(--blue);font-size:13px;">${titulo}</span>
-        <button class="btn btn-ghost btn-sm" style="color:var(--orange);padding:4px 10px;margin:0;width:auto;" onclick="copiarTexto(\`${contenido.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`,this)">📋 Copiar</button>
+        <span style="font-weight:800;color:var(--blue);font-size:13px;">📲 Texto completo (listo para el grupo)</span>
+        <button class="btn btn-ghost btn-sm" style="color:var(--orange);padding:4px 10px;margin:0;width:auto;" onclick="copiarTexto(\`${completo.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`,this)">📋 Copiar</button>
       </div>
-      <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--text);margin:0;background:#f7faff;padding:8px 10px;border-radius:8px;">${contenido.replace(/</g,'&lt;')}</pre>
-    </div>`;
-  out.innerHTML=`
-    <div class="sec-title" style="font-size:13px;">📋 Textos listos para copiar</div>
-    ${card('🏷️ Título', nombre.toUpperCase(), 'tit')}
-    ${specsTxt?card('📝 Specs', specsTxt, 'spc'):''}
-    ${card('💵 Precio', precioTxt, 'pre')}
-    ${card('💳 Cuotas', cuotaTxt, 'cuo')}
-    ${card('📲 Texto completo (para el grupo)', completo, 'full')}
-    <button class="btn btn-green" style="margin-top:6px;" onclick="copiarTexto(\`${completo.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`,this)">📲 Copiar todo para WhatsApp</button>
-    <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">💡 Copiá lo que necesites y pegalo en tu plantilla de Canva. La cuota se calcula sola con tu sistema.</div>`;
+      <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--text);margin:0;background:#f7faff;padding:10px;border-radius:8px;">${completo.replace(/</g,'&lt;')}</pre>
+    </div>
+    <button class="btn btn-green" onclick="enviarPlacaWa(\`${completo.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`)">📲 Enviar a WhatsApp</button>
+    <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">💡 El precio sale de tu costo con la cuenta de AmarangoElectro. Las cuotas se calculan solas.</div>`;
+}
+function enviarPlacaWa(txt){
+  const limpio=txt.replace(/&quot;/g,'"');
+  window.open('https://wa.me/?text='+encodeURIComponent(limpio),'_blank');
 }
 function copiarTexto(txt, btn){
   const limpio=txt.replace(/&quot;/g,'"');
