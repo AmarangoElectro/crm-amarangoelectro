@@ -180,6 +180,7 @@
   .amara-bg{display:none;position:fixed;inset:0;height:100dvh;background:rgba(11,45,107,.4);z-index:300;align-items:flex-end;justify-content:center;}
   .amara-bg.show{display:flex;}
   .amara-win{background:var(--bg);width:100%;max-width:480px;height:85dvh;max-height:85dvh;border-radius:22px 22px 0 0;display:flex;flex-direction:column;overflow:hidden;animation:slideUp .3s ease;}
+  body.amara-abierta .amara-win{height:var(--amara-h, 85dvh);max-height:var(--amara-h, 85dvh);}
   .amara-head{background:linear-gradient(135deg,#0B2D6B,#1565C0);padding:14px 16px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
   .amara-avatar{width:42px;height:42px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid #FF7A00;}
   .amara-name{color:#fff;font-weight:800;font-size:17px;}
@@ -1312,6 +1313,8 @@ function fabMenuAccion(tipo){
 let amaraIniciada=false;
 function abrirAmara(){
   document.getElementById('amaraBg').classList.add('show');
+  document.body.classList.add('amara-abierta');
+  amaraEngancharTeclado();
   poblarIconos();
   if(!amaraIniciada){
     amaraIniciada=true;
@@ -1322,7 +1325,35 @@ function abrirAmara(){
   }
   setTimeout(()=>{ const i=document.getElementById('amaraInput'); if(i) i.focus(); },200);
 }
-function cerrarAmara(){ document.getElementById('amaraBg').classList.remove('show'); }
+// Ajusta la altura de la ventana de Amara según el teclado (header queda fijo, como WhatsApp)
+let _amaraVVfn=null;
+function amaraEngancharTeclado(){
+  if(!window.visualViewport) return;
+  const ajustar=()=>{
+    const h=window.visualViewport.height;
+    // la ventana de Amara ocupa el alto visible (menos un margen para ver el fondo arriba)
+    const alto=Math.max(320, Math.round(h*0.92));
+    document.documentElement.style.setProperty('--amara-h', alto+'px');
+    const b=document.getElementById('amaraBody'); if(b) b.scrollTop=b.scrollHeight;
+  };
+  _amaraVVfn=ajustar;
+  window.visualViewport.addEventListener('resize', ajustar);
+  window.visualViewport.addEventListener('scroll', ajustar);
+  ajustar();
+}
+function amaraDesengancharTeclado(){
+  if(window.visualViewport && _amaraVVfn){
+    window.visualViewport.removeEventListener('resize', _amaraVVfn);
+    window.visualViewport.removeEventListener('scroll', _amaraVVfn);
+    _amaraVVfn=null;
+  }
+  document.documentElement.style.removeProperty('--amara-h');
+}
+function cerrarAmara(){
+  document.getElementById('amaraBg').classList.remove('show');
+  document.body.classList.remove('amara-abierta');
+  amaraDesengancharTeclado();
+}
 function amaraBot(html){
   const body=document.getElementById('amaraBody');
   const d=document.createElement('div'); d.className='amara-msg bot'; d.innerHTML=html;
