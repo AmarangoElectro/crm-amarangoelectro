@@ -635,10 +635,20 @@ const USUARIOS_DEFAULT = [
   { nombre:'Angela', pin:'2222', admin:true },
   { nombre:'Guido',  pin:'3333', admin:false },
   { nombre:'Vicky',  pin:'4444', admin:false },
-  { nombre:'Selene', pin:'5555', admin:false }
+  { nombre:'Selene', pin:'5555', admin:false },
+  { nombre:'Rosi',   pin:'6666', admin:false }
 ];
 function getUsuarios(){
-  try{ const u=JSON.parse(localStorage.getItem('ae_usuarios')||'null'); return u&&u.length?u:USUARIOS_DEFAULT.slice(); }
+  try{
+    let u=JSON.parse(localStorage.getItem('ae_usuarios')||'null');
+    if(!u||!u.length) return USUARIOS_DEFAULT.slice();
+    // asegurar que Rosi esté (para listas guardadas antes de sumarla)
+    if(!u.some(x=>normPersona(x.nombre)===normPersona('Rosi'))){
+      u.push({ nombre:'Rosi', pin:'6666', admin:false });
+      saveUsuarios(u);
+    }
+    return u;
+  }
   catch(e){ return USUARIOS_DEFAULT.slice(); }
 }
 function saveUsuarios(u){ try{ localStorage.setItem('ae_usuarios', JSON.stringify(u)); }catch(e){} }
@@ -651,6 +661,7 @@ function apodoDe(nombre){
   if(n.startsWith('victor')||n.startsWith('vicky')||n==='vicki') return 'Vicky';
   if(n.startsWith('selen')||n==='sechu') return 'Sechu';
   if(n.startsWith('maxi')||n.startsWith('max')) return 'Maxi';
+  if(n.startsWith('rosi')||n.startsWith('rosal')||n.startsWith('rosa')||n==='rosario') return 'Rosi';
   // por defecto, el nombre tal cual (capitalizado)
   return (nombre||'').trim().charAt(0).toUpperCase()+(nombre||'').trim().slice(1);
 }
@@ -1019,6 +1030,8 @@ function normPersona(n){
   if(k==='selene'||k==='sechu'||k==='sele'||k.startsWith('selen')||k==='sechu') return 'Selene';
   // Sabry / Sabrina
   if(k==='sabry'||k==='sabrina'||k.startsWith('sabr')) return 'Sabry';
+  // Rosi / Rosalía / Rosalia
+  if(k==='rosi'||k==='rosalia'||k==='rosa'||k==='rosario'||k.startsWith('rosal')||k.startsWith('rosi')) return 'Rosi';
   // por defecto: el nombre normalizado con primera mayúscula
   return (n||'').trim();
 }
