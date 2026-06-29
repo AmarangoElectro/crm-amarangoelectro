@@ -2668,20 +2668,33 @@ function abrirCargarCelus(){
     <button class="btn btn-green" style="margin-top:8px;" onclick="confirmarCargarCelus()">✅ Reemplazar celulares</button>`);
 }
 function parsearLineaCelu(linea, cotiz){
-  const det=detectarPrecioPlaca(linea);
-  if(!det.valor) return null;
-  // el nombre es la línea sin el precio ni emojis/asteriscos
+  // proteger "1TB","2TB","512GB" etc para que no se confundan con el precio
+  // detectar el PRECIO: el número que tiene $ o usd pegado (no las memorias)
+  let precioUSD=0;
+  // 1) buscar precio con $ adelante o atrás
+  let m=linea.match(/\$\s*([\d][\d.,]*)/) || linea.match(/([\d][\d.,]*)\s*\$/);
+  if(m) precioUSD=parseFloat(m[1].replace(/\./g,'').replace(/,/g,'.'));
+  // 2) si no, buscar con usd/u$s
+  if(!precioUSD){
+    m=linea.match(/(?:usd|u\$s|us\$|d[oó]lares?)\s*([\d][\d.,]*)/i) || linea.match(/([\d][\d.,]*)\s*(?:usd|u\$s|us\$|d[oó]lares?)/i);
+    if(m) precioUSD=parseFloat(m[1].replace(/\./g,'').replace(/,/g,'.'));
+  }
+  if(!precioUSD) return null;
+  // el nombre: sacar SOLO el precio (con su $ o usd), dejar las memorias (1TB, 256GB) intactas
   let nombre=linea
-    .replace(/(?:usd|u\$s|us\$|d[oó]lares?)\s*\$?\s*[\d][\d.,]*/i,'')
-    .replace(/\$?\s*[\d][\d.,]*\s*(?:usd|u\$s|us\$|d[oó]lares?)/i,'')
-    .replace(/\$\s*[\d][\d.,]*/,'')
-    .replace(/[*_•▪️📱〽️🔱🇦🇷]/g,'')
+    .replace(/[-–—]?\s*\$\s*[\d][\d.,]*/,'')        // -$1850
+    .replace(/[\d][\d.,]*\s*\$/,'')                  // 1850$
+    .replace(/(?:usd|u\$s|us\$|d[oó]lares?)\s*\$?\s*[\d][\d.,]*/i,'')  // usd 1850
+    .replace(/[\d][\d.,]*\s*(?:usd|u\$s|us\$|d[oó]lares?)/i,'')        // 1850usd
+    .replace(/[*_•▪️📱〽️🔱🇦🇷🍎🔥💣✨]/g,'')   // emojis
+    .replace(/[-–—]\s*$/,'')                         // guión al final
     .replace(/\s{2,}/g,' ').trim();
-  if(!nombre) return null;
+  if(!nombre || nombre.length<2) return null;  // si no hay nombre válido, saltear (no romper)
   // USD × cotización = costo → markup AmarangoElectro = precio de venta
-  const costoPesos=det.valor*cotiz;
+  const costoPesos=precioUSD*cotiz;
   const venta=markupVenta(costoPesos);
-  return { nombre, venta, usd:det.valor };
+  if(!venta || isNaN(venta)) return null;
+  return { nombre, venta, usd:precioUSD };
 }
 function previewCargarCelus(){
   const out=document.getElementById('cc_preview'); if(!out) return;
@@ -3198,12 +3211,16 @@ async function guardarListaDesdePlacas(btn){
     DB.productos=DB.productos.filter(x=>x.id!==v.id);
     if(typeof DB.delProducto==='function') await DB.delProducto(v.id);
   }
+  let guardados=0, fallaron=0;
   for(const n of nuevos){
-    const prod={ id:'cel'+Date.now()+Math.floor(Math.random()*9999), nombre:n.nombre, memoria:'', venta:n.venta, costo:0, usd:n.usd, mayorista:'Stagliano', categoria:'celular' };
-    DB.productos.push(prod);
-    if(typeof DB.upsertProducto==='function') await DB.upsertProducto(prod);
+    try{
+      const prod={ id:'cel'+Date.now()+Math.floor(Math.random()*99999), nombre:String(n.nombre||'').slice(0,120), memoria:'', venta:Number(n.venta)||0, costo:0, usd:Number(n.usd)||0, mayorista:'Stagliano', categoria:'celular' };
+      DB.productos.push(prod);
+      if(typeof DB.upsertProducto==='function') await DB.upsertProducto(prod);
+      guardados++;
+    }catch(e){ fallaron++; }
   }
-  toast(`✅ ${nuevos.length} celulares guardados en el catálogo`);
+  toast(`✅ ${guardados} celulares guardados${fallaron?` (${fallaron} con error)`:''}`);
 }
 function vaciarUno(){
   const ta=document.getElementById('pl_texto'); if(ta){ ta.value=''; ta.focus(); }
