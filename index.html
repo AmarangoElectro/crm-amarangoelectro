@@ -2531,60 +2531,234 @@ function renderPlacas(){
   const cont=document.getElementById('placasContent'); if(!cont) return;
   const prods=DB.productos||[];
   cont.innerHTML=`
-    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#fff4e6;border-left:4px solid var(--orange);">
-      <div style="font-size:12px;color:var(--blue);font-weight:700;">✨ Pegá el <b>COSTO</b> del producto y el CRM hace toda la cuenta de AmarangoElectro (precio + cuotas). Después copiás o mandás directo a WhatsApp. 🐝</div>
+    <div class="seg" style="margin-bottom:12px;">
+      <button class="seg-btn active" id="plModoUnoBtn" onclick="setPlacaModo('uno')">1️⃣ Uno</button>
+      <button class="seg-btn" id="plModoVariosBtn" onclick="setPlacaModo('varios')">📋 Varios a la vez</button>
     </div>
-    ${prods.length?`<div class="field"><label>Traer del catálogo (opcional)</label>
-      <select id="pl_prod" onchange="placaDesdeCatalogo()">
-        <option value="">— Elegir producto —</option>
-        ${prods.map((p,i)=>`<option value="${i}">${(p.nombre||'?')}</option>`).join('')}
-      </select></div>`:''}
-    <div class="field"><label>Producto *</label><input id="pl_nombre" placeholder="Ej: Lavarropas Candy 7kg" oninput="armarTextoPlaca()"></div>
-    <div class="field"><label>💰 COSTO ($) — pegá acá *</label><input id="pl_costo" type="number" inputmode="numeric" placeholder="Pegá el costo y listo" oninput="armarTextoPlaca()" style="font-size:18px;font-weight:700;"></div>
+    <div id="placaUno">
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#fff4e6;border-left:4px solid var(--orange);">
+      <div style="font-size:12px;color:var(--blue);font-weight:700;">✨ Pegá el <b>texto completo</b> del producto (con sus características). El precio tiene que tener <b>$</b> adelante o atrás (ej: $2.000 o 2.000$). Elegí si ese precio es costo, venta o dólar, y el CRM arma todo. 🐝</div>
+    </div>
+    <div class="field"><label>Pegá el texto del producto *</label>
+      <textarea id="pl_texto" rows="6" placeholder="Lavarropas Candy 7kg&#10;1200 RPM · Inverter · WiFi&#10;Precio: $250.000" oninput="armarTextoPlaca()" style="width:100%;resize:vertical;font-size:14px;"></textarea>
+    </div>
+    <div class="field"><label>Ese precio que pegaste, ¿qué es?</label>
+      <div class="seg" style="margin-top:4px;">
+        <button class="seg-btn active" id="plTipoCosto" onclick="setPlacaTipo('costo')">💰 Costo</button>
+        <button class="seg-btn" id="plTipoVenta" onclick="setPlacaTipo('venta')">🏷️ Venta</button>
+        <button class="seg-btn" id="plTipoDolar" onclick="setPlacaTipo('dolar')">💵 Dólar</button>
+      </div>
+    </div>
+    <div class="field" id="plDolarBox" style="display:none;">
+      <label>Cotización del dólar (se guarda)</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input id="pl_cotiz" type="number" inputmode="numeric" placeholder="1520" oninput="guardarCotiz()" style="flex:1;min-width:0;">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">$ x USD</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Si pegás un precio en dólares, lo paso a pesos con esta cotización y después aplico la cuenta.</div>
+    </div>
     <div class="field"><label>¿Qué cuotas mostrar?</label>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         ${[2,3,4,6,12].map(n=>`<label style="display:flex;align-items:center;gap:5px;font-size:14px;background:#f0f6ff;padding:6px 12px;border-radius:20px;cursor:pointer;"><input type="checkbox" class="plCuota" value="${n}" ${(n===2||n===4||n===6)?'checked':''} onchange="armarTextoPlaca()" style="width:18px;height:18px;"> ${n}c</label>`).join('')}
       </div>
     </div>
-    <div class="field"><label>Specs (una por línea, opcional)</label><textarea id="pl_specs" rows="3" placeholder="7kg de capacidad&#10;1200 RPM&#10;Motor Inverter" oninput="armarTextoPlaca()" style="width:100%;resize:vertical;"></textarea></div>
-    <div id="placaTextoOut"></div>`;
-  setTimeout(armarTextoPlaca, 80);
+    <div id="placaTextoOut"></div>
+    </div>
+    <div id="placaVarios" style="display:none;">
+      <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#fff4e6;border-left:4px solid var(--orange);">
+        <div style="font-size:12px;color:var(--blue);font-weight:700;">📋 Pegá la <b>lista entera</b> tal cual (con emojis, títulos, todo). El CRM detecta cada precio en USD, lo pasa a pesos con tu cotización y lo reemplaza. El resto queda igual. 🐝</div>
+      </div>
+      <div class="field"><label>💵 Cotización del dólar (se guarda)</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input id="pl_cotizM" type="number" inputmode="numeric" placeholder="1520" oninput="guardarCotizM()" style="flex:1;min-width:0;font-size:18px;font-weight:700;">
+          <span style="font-size:12px;color:var(--muted);white-space:nowrap;">$ x USD</span>
+        </div>
+      </div>
+      <div id="listasMasivas"></div>
+      <button class="btn btn-ghost" style="margin-top:8px;color:var(--blue);border:1.5px dashed var(--blue);" onclick="agregarListaMasiva()">➕ Agregar otra lista</button>
+    </div>`;
+  setTimeout(()=>{ initListasMasivas(); armarTextoPlaca(); }, 80);
+}
+let _nListas=0;
+function initListasMasivas(){
+  const cot=document.getElementById('pl_cotizM'); if(cot && !cot.value) cot.value=localStorage.getItem('ae_cotizdolar')||'';
+  _nListas=0;
+  document.getElementById('listasMasivas').innerHTML='';
+  agregarListaMasiva();
+}
+function agregarListaMasiva(){
+  _nListas++;
+  const id=_nListas;
+  const cont=document.getElementById('listasMasivas'); if(!cont) return;
+  const div=document.createElement('div');
+  div.className='card';
+  div.style.cssText='padding:12px;margin-bottom:12px;';
+  div.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="font-weight:800;color:var(--blue);font-size:13px;">📝 Lista ${id}</span>
+      ${id>1?`<span onclick="this.closest('.card').remove()" style="cursor:pointer;color:var(--red);font-size:13px;">🗑️ Quitar</span>`:''}
+    </div>
+    <textarea class="plListaMasiva" rows="6" placeholder="Pegá acá tu lista de celulares con precios en USD..." oninput="convertirListaMasiva(this)" style="width:100%;resize:vertical;font-size:13px;"></textarea>
+    <div class="listaMasivaOut" style="margin-top:10px;"></div>`;
+  cont.appendChild(div);
+}
+function guardarCotizM(){
+  const v=+document.getElementById('pl_cotizM').value||0;
+  if(v>0) localStorage.setItem('ae_cotizdolar', String(v));
+  // recalcular todas las listas
+  document.querySelectorAll('.plListaMasiva').forEach(ta=>convertirListaMasiva(ta));
+}
+function convertirListaMasiva(ta){
+  const out=ta.parentElement.querySelector('.listaMasivaOut'); if(!out) return;
+  const texto=ta.value||'';
+  const cotiz=+document.getElementById('pl_cotizM')?.value||+localStorage.getItem('ae_cotizdolar')||0;
+  if(!texto.trim()){ out.innerHTML=''; return; }
+  if(!cotiz){ out.innerHTML=`<div style="font-size:12px;color:var(--orange);">💵 Poné la cotización del dólar arriba.</div>`; return; }
+  let convertidos=0;
+  // procesar línea por línea
+  const lineas=texto.split('\n').map(linea=>{
+    // detectar precio en USD en la línea: 110usd, $195, 450 usd, etc.
+    const det=detectarPrecioPlaca(linea);
+    if(det.valor && det.esDolar){
+      const pesos=round500(det.valor*cotiz);
+      convertidos++;
+      // reemplazar el número+usd (y opcional $) por el precio en pesos
+      let nueva=linea
+        .replace(/(?:usd|u\$s|us\$|d[oó]lares?)\s*\$?\s*[\d][\d.,]*/i, ' $'+fmt(pesos))
+        .replace(/\$?\s*[\d][\d.,]*\s*(?:usd|u\$s|us\$|d[oó]lares?)/i, ' $'+fmt(pesos))
+        .replace(/\s{2,}/g,' ');
+      return nueva;
+    }
+    // si tiene $ pero NO es dólar (ej "$195" que en tu lista igual es USD)... 
+    // en estas listas el $ suelto también es USD, así que lo tomamos
+    if(det.valor && !det.esDolar){
+      // ¿la línea tiene un producto (texto) y un precio chico tipo USD? Si el número es < 3000 asumimos USD
+      if(det.valor < 3000){
+        const pesos=round500(det.valor*cotiz);
+        convertidos++;
+        return linea.replace(/\$\s*[\d][\d.,]*/, '$'+fmt(pesos)).replace(/[\d][\d.,]*\s*\$/, '$'+fmt(pesos));
+      }
+    }
+    return linea;
+  });
+  const resultado=lineas.join('\n');
+  out.innerHTML=`
+    <div class="card" style="background:#f7faff;padding:10px;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-weight:700;color:var(--green);font-size:12px;">✅ ${convertidos} precio(s) convertido(s)</span>
+        <button class="btn btn-ghost btn-sm" style="color:var(--orange);padding:4px 10px;margin:0;width:auto;" onclick="copiarTexto(\`${resultado.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`,this)">📋 Copiar</button>
+      </div>
+      <pre style="white-space:pre-wrap;font-family:inherit;font-size:12px;color:var(--text);margin:0;max-height:280px;overflow-y:auto;">${resultado.replace(/</g,'&lt;')}</pre>
+    </div>
+    <button class="btn btn-green btn-sm" style="margin:0;" onclick="enviarPlacaWa(\`${resultado.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`)">📲 Enviar a WhatsApp</button>`;
+}
+function setPlacaModo(m){
+  document.getElementById('plModoUnoBtn').classList.toggle('active', m==='uno');
+  document.getElementById('plModoVariosBtn').classList.toggle('active', m==='varios');
+  document.getElementById('placaUno').style.display = m==='uno'?'block':'none';
+  document.getElementById('placaVarios').style.display = m==='varios'?'block':'none';
+  if(m==='varios' && !document.querySelector('.plListaMasiva')) initListasMasivas();
 }
 function placaDesdeCatalogo(){
-  const i=+document.getElementById('pl_prod').value;
+  const sel=document.getElementById('pl_prod'); if(!sel) return;
+  const i=+sel.value;
   if(isNaN(i)) return;
   const p=DB.productos[i]; if(!p) return;
-  document.getElementById('pl_nombre').value=p.nombre||'';
-  if(p.costo) document.getElementById('pl_costo').value=p.costo;
-  if(p.specs) document.getElementById('pl_specs').value=Array.isArray(p.specs)?p.specs.join('\n'):p.specs;
+  // armar un texto base con lo que tenga el producto
+  let t=(p.nombre||'')+'\n';
+  if(p.specs){ t+=(Array.isArray(p.specs)?p.specs.join('\n'):p.specs)+'\n'; }
+  if(p.costo){ t+='$'+fmt(p.costo); setPlacaTipo('costo'); }
+  const ta=document.getElementById('pl_texto'); if(ta){ ta.value=t.trim(); }
   armarTextoPlaca();
+}
+let placaTipo='costo'; // costo | venta | dolar
+function setPlacaTipo(t){
+  placaTipo=t;
+  document.getElementById('plTipoCosto').classList.toggle('active', t==='costo');
+  document.getElementById('plTipoVenta').classList.toggle('active', t==='venta');
+  document.getElementById('plTipoDolar').classList.toggle('active', t==='dolar');
+  document.getElementById('plDolarBox').style.display = t==='dolar'?'block':'none';
+  if(t==='dolar'){ const c=document.getElementById('pl_cotiz'); if(c && !c.value) c.value=localStorage.getItem('ae_cotizdolar')||''; }
+  armarTextoPlaca();
+}
+function guardarCotiz(){
+  const v=+document.getElementById('pl_cotiz').value||0;
+  if(v>0) localStorage.setItem('ae_cotizdolar', String(v));
+  armarTextoPlaca();
+}
+// detecta un precio con $ adelante o atrás: $2.000  ó  2.000$  ó  USD 620
+function detectarPrecioPlaca(txt){
+  // ¿es dólar? si menciona usd/u$s/us$ en cualquier parte (pegado o con espacio)
+  const esDolar=/usd|u\$s|us\$|d[oó]lar/i.test(txt);
+  // buscar patrón con $ adelante: $2.000 ó $ 2000
+  let m=txt.match(/\$\s*([\d][\d.,]*)/);
+  if(m) return {valor:parseFloat(m[1].replace(/\./g,'').replace(/,/g,'.')), esDolar};
+  // $ atrás: 2.000$
+  m=txt.match(/([\d][\d.,]*)\s*\$/);
+  if(m) return {valor:parseFloat(m[1].replace(/\./g,'').replace(/,/g,'.')), esDolar};
+  // USD/u$s/dólar adelante: usd620, usd 620, u$s620
+  m=txt.match(/(?:usd|u\$s|us\$|d[oó]lares?)\s*([\d][\d.,]*)/i);
+  if(m) return {valor:parseFloat(m[1].replace(/\./g,'').replace(/,/g,'.')), esDolar:true};
+  // número pegado o con espacio antes de usd: 620usd, 620 usd, 620u$s, 620 dólares
+  m=txt.match(/([\d][\d.,]*)\s*(?:usd|u\$s|us\$|d[oó]lares?)/i);
+  if(m) return {valor:parseFloat(m[1].replace(/\./g,'').replace(/,/g,'.')), esDolar:true};
+  return {valor:0, esDolar:false};
 }
 function armarTextoPlaca(){
   const out=document.getElementById('placaTextoOut'); if(!out) return;
-  const nombre=(document.getElementById('pl_nombre')?.value||'').trim();
-  const costo=+document.getElementById('pl_costo')?.value||0;
-  const specs=(document.getElementById('pl_specs')?.value||'').split('\n').filter(s=>s.trim());
-  if(!nombre && !costo){ out.innerHTML=`<div style="text-align:center;color:var(--muted);padding:24px 12px;font-size:13px;">Pegá el costo del producto para ver los precios 👆</div>`; return; }
-  // CUENTA DE AMARANGOELECTRO: costo -> precio de venta con markup
-  const precio = costo>0 ? markupVenta(costo) : 0;
-  // cuotas elegidas
+  const textoOrig=(document.getElementById('pl_texto')?.value||'').trim();
+  if(!textoOrig){ out.innerHTML=`<div style="text-align:center;color:var(--muted);padding:24px 12px;font-size:13px;">Pegá el texto del producto 👆 (con el precio marcado con $)</div>`; return; }
+  // detectar el precio dentro del texto
+  const det=detectarPrecioPlaca(textoOrig);
+  const precioDetectado=det.valor;
+  if(!precioDetectado){ out.innerHTML=`<div class="card" style="border-left:4px solid var(--orange);"><div style="font-size:13px;color:var(--orange);">⚠️ No encontré el precio. Asegurate de que tenga <b>$</b> adelante o atrás (ej: $250.000 o 250.000$), o USD (ej: 620usd).</div></div>`; return; }
+  // si el texto dice USD/dólar y el usuario no eligió dólar, lo cambio solo
+  if(det.esDolar && placaTipo!=='dolar'){ setPlacaTipo('dolar'); return; }
+  // calcular el COSTO base según el tipo elegido
+  let costoBase=0, precioVenta=0, detalleCuenta='';
+  if(placaTipo==='dolar'){
+    const cotiz=+document.getElementById('pl_cotiz')?.value||+localStorage.getItem('ae_cotizdolar')||0;
+    if(!cotiz){ out.innerHTML=`<div class="card" style="border-left:4px solid var(--orange);"><div style="font-size:13px;color:var(--orange);">💵 Poné la cotización del dólar arriba para hacer la cuenta.</div></div>`; return; }
+    costoBase = Math.round(precioDetectado * cotiz);
+    precioVenta = markupVenta(costoBase);
+    detalleCuenta = `USD ${fmt(precioDetectado)} × $${fmt(cotiz)} = $${fmt(costoBase)} (costo) → venta`;
+  } else if(placaTipo==='venta'){
+    precioVenta = round500(precioDetectado);
+    detalleCuenta = `Precio de venta (ya con ganancia)`;
+  } else { // costo
+    costoBase = precioDetectado;
+    precioVenta = markupVenta(costoBase);
+    detalleCuenta = `Costo $${fmt(costoBase)} → precio de venta`;
+  }
   const cuotasSel=[...document.querySelectorAll('.plCuota:checked')].map(c=>+c.value).sort((a,b)=>a-b);
-  // armar líneas de cuotas
-  const lineasCuotas = cuotasSel.map(n=>{
-    const plan=planCuotas(precio,n);
-    return `💳 ${n} cuotas de $${fmt(plan[0]||0)}`;
-  }).join('\n');
-  const specsTxt=specs.map(s=>'• '+s.trim()).join('\n');
-  // CIERRE DE PROMOCIÓN (fijo de AmarangoElectro)
+  const lineasCuotas = cuotasSel.map(n=>`💳 ${n} cuotas de $${fmt(planCuotas(precioVenta,n)[0]||0)}`).join('\n');
   const cierre=`✨ _RETIRALA CON TU PRIMER CUOTA_ 🔥💣\n\n😃 Conocé nuestros planes de hasta 6 cuotas fijas\n\n📢 _Seguinos en nuestro canal de AMARANGO ELECTRO_`;
-  // texto completo
-  const completo=`🐝 *${nombre.toUpperCase()}*\n\n${specsTxt}${specsTxt?'\n\n':''}💵 *CONTADO: $${fmt(precio)}*\n\n${lineasCuotas}\n\n${cierre}`;
-  // preview de la cuenta
+  // QUITAR el precio viejo del texto pegado (el que se reemplazó) para que solo quede el nuevo
+  const valStr=String(precioDetectado); // ej "620" o "250000"
+  // arma variantes del número como pudo haber sido escrito (con puntos de miles)
+  const conPuntos = precioDetectado.toLocaleString('es-AR'); // 250.000
+  const numPat = `(?:\\$\\s*)?(?:${valStr.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}|${conPuntos.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})(?:\\s*\\$|\\s*usd|\\s*u\\$s|\\s*us\\$|\\s*d[oó]lares?)?`;
+  let textoLimpio=textoOrig
+    // línea entera que diga "Precio/Valor/Contado: $X" (con o sin usd)
+    .replace(/^\s*(?:precio|valor|contado|efectivo)[:\s]*(?:usd|u\$s|us\$)?\s*\$?\s*[\d.,]+\s*(?:\$|usd|u\$s|us\$|d[oó]lares?)?\s*$/gim,'')
+    // "USD 620" / "620 usd" / "u$s 620" juntos (label + número)
+    .replace(/(?:usd|u\$s|us\$|d[oó]lares?)\s*\$?\s*[\d][\d.,]*/gi,'')
+    .replace(/\$?\s*[\d][\d.,]*\s*(?:usd|u\$s|us\$|d[oó]lares?)/gi,'')
+    // el número detectado suelto en cualquier parte (con $ adelante/atrás)
+    .replace(new RegExp(numPat,'gi'),'')
+    // limpiar restos: "precio:" o "usd" que quedaron solos
+    .replace(/^\s*(?:precio|valor|contado|usd|u\$s|d[oó]lares?)\s*[:.]?\s*$/gim,'')
+    .replace(/[ \t]{2,}/g,' ')
+    .replace(/^\s+$/gm,'')      // líneas que quedaron con solo espacios
+    .replace(/\n{3,}/g,'\n\n')  // máximo una línea en blanco seguida
+    .trim();
+  // texto final: descripción entera arriba (sin el precio viejo) + precio venta y cuotas abajo
+  const completo=`${textoLimpio}\n\n💵 *CONTADO: $${fmt(precioVenta)}*\n\n${lineasCuotas}\n\n${cierre}`;
   out.innerHTML=`
     <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);margin-bottom:12px;">
-      <div style="color:rgba(255,255,255,.75);font-size:11px;">Costo $${fmt(costo)} → precio de venta</div>
-      <div style="color:#fff;font-size:26px;font-weight:900;">$${fmt(precio)}</div>
-      <div style="color:rgba(255,255,255,.9);font-size:12px;margin-top:4px;">${cuotasSel.map(n=>{const p=planCuotas(precio,n);return n+'c × $'+fmt(p[0]||0);}).join('  ·  ')}</div>
+      <div style="color:rgba(255,255,255,.75);font-size:11px;">${detalleCuenta}</div>
+      <div style="color:#fff;font-size:26px;font-weight:900;">$${fmt(precioVenta)}</div>
+      <div style="color:rgba(255,255,255,.9);font-size:12px;margin-top:4px;">${cuotasSel.map(n=>n+'c × $'+fmt(planCuotas(precioVenta,n)[0]||0)).join('  ·  ')}</div>
     </div>
     <div class="card" style="margin-bottom:10px;padding:12px 14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -2594,7 +2768,7 @@ function armarTextoPlaca(){
       <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--text);margin:0;background:#f7faff;padding:10px;border-radius:8px;">${completo.replace(/</g,'&lt;')}</pre>
     </div>
     <button class="btn btn-green" onclick="enviarPlacaWa(\`${completo.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`)">📲 Enviar a WhatsApp</button>
-    <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">💡 El precio sale de tu costo con la cuenta de AmarangoElectro. Las cuotas se calculan solas.</div>`;
+    <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">💡 Tu texto va entero arriba; abajo le agrego el precio de venta y las cuotas.</div>`;
 }
 function enviarPlacaWa(txt){
   const limpio=txt.replace(/&quot;/g,'"');
