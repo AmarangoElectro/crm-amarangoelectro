@@ -1979,7 +1979,10 @@ function amaraResponder(txt){
   }
 
   // ===== no entendió =====
-  amaraBot(`Mmm, eso no lo tengo todavía 🤔 pero soy tu asistente del CRM. Mirá lo que sé hacer:`);
+  const apoNoEnt=apodoDe(usuarioActual()||'');
+  const expertos=['Angie','Sele','Maxi'].filter(e=>e.toLowerCase()!==(apoNoEnt||'').toLowerCase());
+  const listaExp = expertos.length>=3 ? `${expertos[0]}, ${expertos[1]} o ${expertos[2]}` : expertos.join(' o ');
+  amaraBot(`Uy, eso no lo sé 🙈 ¡Me mataste${apoNoEnt?' '+apoNoEnt:''}! 😅<br><br>La verdad, preguntale a <b>${listaExp}</b> que seguro lo saben. 🐝<br><br>Mientras tanto, en lo del CRM sí te puedo ayudar 👇`);
   amaraChips(['➕ Cargar un cliente','💰 Cargar una venta','💲 Armar un precio','📅 Cómo cobrar','❓ ¿Qué podés hacer?']);
 }
 
