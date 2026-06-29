@@ -469,6 +469,7 @@
     <button class="seg-btn" id="modoInvBtn" onclick="setModoFin('inv')">💼 Inversores</button>
     <button class="seg-btn" id="modoPersBtn" onclick="setModoFin('persona')">👤 Por persona</button>
     <button class="seg-btn" id="modoCatBtn" onclick="setModoFin('catalogo')">📦 Catálogo</button>
+    <button class="seg-btn" id="modoPlacaBtn" onclick="setModoFin('placas')">🎨 Placas</button>
     <button class="seg-btn" id="modoPanelBtn" onclick="setModoFin('panel')">📊 Panel</button>
   </div>
 
@@ -533,6 +534,9 @@
 
   <div id="bloquePanel" style="display:none;">
     <div id="panelContent"></div>
+  </div>
+  <div id="bloquePlacas" style="display:none;">
+    <div id="placasContent"></div>
   </div>
 </div>
 
@@ -2269,17 +2273,20 @@ function setModoFin(m){
   const pb=document.getElementById('modoPersBtn'); if(pb) pb.classList.toggle('active', m==='persona');
   const cb=document.getElementById('modoCatBtn'); if(cb) cb.classList.toggle('active', m==='catalogo');
   const pnb=document.getElementById('modoPanelBtn'); if(pnb) pnb.classList.toggle('active', m==='panel');
+  const plb=document.getElementById('modoPlacaBtn'); if(plb) plb.classList.toggle('active', m==='placas');
   document.getElementById('bloqueFinanzas').style.display = m==='finanzas'?'block':'none';
   document.getElementById('bloqueCalc').style.display = m==='calc'?'block':'none';
   document.getElementById('bloqueInv').style.display = m==='inv'?'block':'none';
   const bp=document.getElementById('bloquePers'); if(bp) bp.style.display = m==='persona'?'block':'none';
   const bc=document.getElementById('bloqueCatalogo'); if(bc) bc.style.display = m==='catalogo'?'block':'none';
   const bpn=document.getElementById('bloquePanel'); if(bpn) bpn.style.display = m==='panel'?'block':'none';
+  const bpl=document.getElementById('bloquePlacas'); if(bpl) bpl.style.display = m==='placas'?'block':'none';
   if(m==='calc') renderCalc();
   if(m==='inv') renderInversores();
   if(m==='persona') renderPorPersona();
   if(m==='catalogo') renderCatalogo();
   if(m==='panel') renderPanel();
+  if(m==='placas') renderPlacas();
 }
 let persSel=null;
 function renderPorPersona(){
@@ -2519,6 +2526,83 @@ function enviarListaWA(){
 }
 
 /* ============ PANEL DE INTELIGENCIA ============ */
+/* ============ ARMADOR DE TEXTOS PARA PLACAS (para copiar a Canva) ============ */
+function renderPlacas(){
+  const cont=document.getElementById('placasContent'); if(!cont) return;
+  const prods=DB.productos||[];
+  cont.innerHTML=`
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#f0f6ff;">
+      <div style="font-size:12px;color:var(--blue);font-weight:700;">📝 Armá el texto y los precios para tu placa. Después tocá "Copiar" y pegalo en tu plantilla de Canva. ¡El CRM hace los números, vos hacés la placa hermosa! 🐝</div>
+    </div>
+    ${prods.length?`<div class="field"><label>Traer del catálogo (opcional)</label>
+      <select id="pl_prod" onchange="placaDesdeCatalogo()">
+        <option value="">— Elegir producto —</option>
+        ${prods.map((p,i)=>`<option value="${i}">${(p.nombre||'?')} · $${fmt(p.precio||p.venta||0)}</option>`).join('')}
+      </select></div>`:''}
+    <div class="field"><label>Producto *</label><input id="pl_nombre" placeholder="Ej: Lavarropas Candy 7kg" oninput="armarTextoPlaca()"></div>
+    <div class="field-row">
+      <div class="field"><label>Precio contado ($) *</label><input id="pl_precio" type="number" inputmode="numeric" placeholder="0" oninput="armarTextoPlaca()"></div>
+      <div class="field"><label>Cuotas</label><select id="pl_cuotas" onchange="armarTextoPlaca()"><option value="6">6 cuotas</option><option value="3">3 cuotas</option><option value="2">2 cuotas</option><option value="4">4 cuotas</option><option value="12">12 cuotas</option></select></div>
+    </div>
+    <div class="field"><label>Specs (una por línea)</label><textarea id="pl_specs" rows="4" placeholder="Pantalla 6.7&quot;&#10;Cámara 50MP&#10;Batería 5000mAh&#10;256GB" oninput="armarTextoPlaca()" style="width:100%;resize:vertical;"></textarea></div>
+    <div id="placaTextoOut"></div>`;
+  setTimeout(armarTextoPlaca, 80);
+}
+function placaDesdeCatalogo(){
+  const i=+document.getElementById('pl_prod').value;
+  if(isNaN(i)) return;
+  const p=DB.productos[i]; if(!p) return;
+  document.getElementById('pl_nombre').value=p.nombre||'';
+  document.getElementById('pl_precio').value=p.precio||p.venta||0;
+  if(p.specs) document.getElementById('pl_specs').value=Array.isArray(p.specs)?p.specs.join('\n'):p.specs;
+  armarTextoPlaca();
+}
+function armarTextoPlaca(){
+  const out=document.getElementById('placaTextoOut'); if(!out) return;
+  const nombre=(document.getElementById('pl_nombre')?.value||'').trim();
+  const precio=+document.getElementById('pl_precio')?.value||0;
+  const nCuotas=+document.getElementById('pl_cuotas')?.value||6;
+  const specs=(document.getElementById('pl_specs')?.value||'').split('\n').filter(s=>s.trim());
+  if(!nombre && !precio){ out.innerHTML=`<div style="text-align:center;color:var(--muted);padding:24px 12px;font-size:13px;">Completá el producto y el precio para ver los textos 👆</div>`; return; }
+  const planM=planCuotas(precio, nCuotas);
+  const cuotaVal=planM[0]||0;
+  // bloque 1: título producto
+  // bloque 2: specs formateadas
+  const specsTxt=specs.map(s=>'• '+s.trim()).join('\n');
+  // bloque 3: precio + cuotas
+  const precioTxt=`💵 CONTADO: $${fmt(precio)}`;
+  const cuotaTxt=`💳 ${nCuotas} CUOTAS FIJAS de $${fmt(cuotaVal)}`;
+  // texto completo para WhatsApp/grupo
+  const completo=`🐝 *${nombre.toUpperCase()}*\n\n${specsTxt}${specsTxt?'\n\n':''}${precioTxt}\n${cuotaTxt}\n\n📲 *AmarangoElectro* · @amarangoelectro`;
+  const card=(titulo,contenido,id)=>`
+    <div class="card" style="margin-bottom:10px;padding:12px 14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-weight:800;color:var(--blue);font-size:13px;">${titulo}</span>
+        <button class="btn btn-ghost btn-sm" style="color:var(--orange);padding:4px 10px;margin:0;width:auto;" onclick="copiarTexto(\`${contenido.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`,this)">📋 Copiar</button>
+      </div>
+      <pre style="white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--text);margin:0;background:#f7faff;padding:8px 10px;border-radius:8px;">${contenido.replace(/</g,'&lt;')}</pre>
+    </div>`;
+  out.innerHTML=`
+    <div class="sec-title" style="font-size:13px;">📋 Textos listos para copiar</div>
+    ${card('🏷️ Título', nombre.toUpperCase(), 'tit')}
+    ${specsTxt?card('📝 Specs', specsTxt, 'spc'):''}
+    ${card('💵 Precio', precioTxt, 'pre')}
+    ${card('💳 Cuotas', cuotaTxt, 'cuo')}
+    ${card('📲 Texto completo (para el grupo)', completo, 'full')}
+    <button class="btn btn-green" style="margin-top:6px;" onclick="copiarTexto(\`${completo.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`,this)">📲 Copiar todo para WhatsApp</button>
+    <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">💡 Copiá lo que necesites y pegalo en tu plantilla de Canva. La cuota se calcula sola con tu sistema.</div>`;
+}
+function copiarTexto(txt, btn){
+  const limpio=txt.replace(/&quot;/g,'"');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(limpio).then(()=>{ if(btn){ const o=btn.innerHTML; btn.innerHTML='✅ Copiado'; setTimeout(()=>btn.innerHTML=o,1500); } toast('Copiado 📋'); });
+  } else {
+    const ta=document.createElement('textarea'); ta.value=limpio; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); toast('Copiado 📋'); }catch(e){ toast('No se pudo copiar'); }
+    document.body.removeChild(ta);
+  }
+}
+
 function renderPanel(){
   const cont=document.getElementById('panelContent'); if(!cont) return;
   const V=DB.ventas;
