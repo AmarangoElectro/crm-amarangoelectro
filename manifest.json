@@ -1,0 +1,15 @@
+{
+  "name": "AmarangoElectro CRM",
+  "short_name": "AmarangoCRM",
+  "description": "CRM de gestión de AmarangoElectro",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B2D6B",
+  "theme_color": "#0B2D6B",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

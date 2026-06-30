@@ -1,40 +1,20 @@
-/* Service Worker - Amarango / AmarangoElectro
-   Permite que el CRM se instale como app y muestre notificaciones. */
+// Service Worker - AmarangoElectro CRM
+var CACHE='amarango-crm-v1';
+var ARCHIVOS=['./index.html','./manifest.json','./icon.png','./icon-192.png'];
 
-const CACHE = 'amarango-v1';
-
-// Instalación: activar de inmediato
-self.addEventListener('install', (e) => {
+self.addEventListener('install', function(e){
   self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll(ARCHIVOS).catch(function(){});}));
 });
-
-// Activación: tomar control de las pestañas abiertas
-self.addEventListener('activate', (e) => {
-  e.waitUntil(self.clients.claim());
+self.addEventListener('activate', function(e){
+  e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){if(k!==CACHE)return caches.delete(k);}));}));
+  self.clients.claim();
 });
-
-// Al tocar una notificación, abrir / enfocar el CRM
-self.addEventListener('notificationclick', (e) => {
-  e.notification.close();
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((cs) => {
-      for (const c of cs) {
-        if ('focus' in c) return c.focus();
-      }
-      if (self.clients.openWindow) return self.clients.openWindow('.');
-    })
-  );
-});
-
-// Soporte para notificaciones push (si en el futuro se usan)
-self.addEventListener('push', (e) => {
-  let data = { title: 'Amarango 🐝', body: 'Tenés una novedad' };
-  try { if (e.data) data = e.data.json(); } catch (err) {}
-  e.waitUntil(
-    self.registration.showNotification(data.title || 'Amarango 🐝', {
-      body: data.body || '',
-      tag: 'ae-msg',
-      renotify: true
-    })
+self.addEventListener('fetch', function(e){
+  // Para el CRM: red primero (datos frescos), caché como respaldo si no hay internet
+  e.respondWith(
+    fetch(e.request).then(function(r){
+      return caches.open(CACHE).then(function(c){try{c.put(e.request,r.clone());}catch(err){}return r;});
+    }).catch(function(){ return caches.match(e.request); })
   );
 });

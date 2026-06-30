@@ -6,9 +6,12 @@
 <title>AmarangoElectro</title>
 <meta name="theme-color" content="#0B2D6B">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="AmarangoElectro">
-<link rel="manifest" id="manifestLink">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -323,6 +326,12 @@
 
   .seg{display:flex;background:#eef3fb;border-radius:11px;padding:3px;margin-bottom:14px;}
   .seg-btn{flex:1;padding:9px;text-align:center;font-size:12px;font-weight:700;color:var(--muted);border-radius:9px;cursor:pointer;border:none;background:none;}
+  .fin-menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;}
+  .fin-menu-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--card,#fff);border:2px solid var(--border);border-radius:18px;padding:20px 12px;cursor:pointer;font-family:inherit;transition:all .15s;min-height:120px;}
+  .fin-menu-btn:active{transform:scale(.97);border-color:var(--orange);}
+  .fin-menu-btn .fmb-ico{font-size:38px;line-height:1;}
+  .fin-menu-btn .fmb-txt{font-size:14px;font-weight:800;color:var(--blue);text-align:center;line-height:1.3;}
+  .fin-menu-btn .fmb-txt small{font-size:11px;font-weight:600;color:var(--muted);}
   .seg-btn.active{background:var(--orange);color:#fff;box-shadow:0 1px 4px rgba(255,122,0,.3);}
 
   .chip{display:inline-block;background:#eef3fb;color:var(--blue);font-size:11px;font-weight:700;padding:5px 11px;border-radius:20px;margin:0 5px 5px 0;cursor:pointer;border:1.5px solid transparent;}
@@ -461,10 +470,27 @@
 <!-- FINANZAS -->
 <div class="view" id="view-finanzas">
   <div class="view-title">Finanzas</div>
-  <div class="view-desc">Resumen económico y calculadora</div>
+  <div class="view-desc">Elegí qué querés hacer</div>
+
+  <!-- MENÚ DE INICIO (botones grandes, simple) -->
+  <div id="finMenu">
+    <div class="fin-menu-grid">
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('placas')"><span class="fmb-ico">🎨</span><span class="fmb-txt">Armar precios<br><small>y placas</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('catalogo')"><span class="fmb-ico">📦</span><span class="fmb-txt">Catálogo<br><small>productos y celus</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('calc')"><span class="fmb-ico">🧮</span><span class="fmb-txt">Calculadora<br><small>cuotas y costos</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('respuestas')"><span class="fmb-ico">💬</span><span class="fmb-txt">Respuestas<br><small>listas para WhatsApp</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('finanzas')"><span class="fmb-ico">📊</span><span class="fmb-txt">Resumen<br><small>del negocio</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('persona')"><span class="fmb-ico">👤</span><span class="fmb-txt">Por persona<br><small>ventas de cada uno</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('inv')"><span class="fmb-ico">💼</span><span class="fmb-txt">Inversores<br><small>reparto</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('panel')"><span class="fmb-ico">📈</span><span class="fmb-txt">Panel<br><small>estadísticas</small></span></button>
+    </div>
+  </div>
+
+  <!-- Botón volver (aparece dentro de una sección) -->
+  <button id="finVolver" class="btn btn-ghost" style="display:none;margin-bottom:10px;color:var(--blue);font-weight:700;" onclick="volverMenuFin()">← Volver al menú</button>
 
   <!-- Switch principal: Finanzas / Calculadora / Inversores -->
-  <div class="seg" style="margin-bottom:14px;flex-wrap:wrap;">
+  <div class="seg" id="finTabs" style="margin-bottom:14px;flex-wrap:wrap;display:none;">
     <button class="seg-btn active" id="modoFinBtn" onclick="setModoFin('finanzas')">📊 Finanzas</button>
     <button class="seg-btn" id="modoCalcBtn" onclick="setModoFin('calc')">🧮 Calculadora</button>
     <button class="seg-btn" id="modoInvBtn" onclick="setModoFin('inv')">💼 Inversores</button>
@@ -1279,6 +1305,9 @@ function go(v){
   document.getElementById('view-'+v).classList.add('active');
   document.querySelectorAll('.nav-item').forEach(x=>x.classList.toggle('active',x.dataset.nav===v));
   window.scrollTo(0,0); render();
+  // al entrar a Finanzas desde la barra, mostrar el menú de inicio (no una pestaña suelta)
+  if(v==='finanzas' && !window._finAbrirSeccion){ if(typeof volverMenuFin==='function') volverMenuFin(); }
+  window._finAbrirSeccion=false;
 }
 function fabAction(){ if(currentView==='ventas'||currentView==='cobranzas') formVenta(); else formCliente(); }
 function toggleFabMenu(){
@@ -1490,7 +1519,7 @@ function amaraResponder(txt){
   // CUOTAS / PLANES
   if(tiene('cuotas','hacen cuotas','cuantas cuotas','en cuotas','plan','planes','financia','financiacion','pagar en partes','tarjeta')){
     amaraBot(`💳 <b>Planes de cuotas:</b> Tenemos hasta <b>6 cuotas fijas</b> 🔥<br><br>Las cuotas son fijas (no cambian mes a mes). Decime qué producto te interesa y te paso el precio con las cuotas exactas. 🐝`);
-    amaraAccion('💲 Armar un precio', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+    amaraAccion('💲 Armar un precio', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
     return;
   }
   // MEDIOS DE PAGO
@@ -1623,7 +1652,7 @@ function amaraResponder(txt){
   // si tocó "🔌 Electrodoméstico"
   if(tiene('electrodomestico','electro','🔌 electro') && !dicemarcaCelu && !det_e.valor){
     amaraBot(`🔌 ¡Bien! Para los electrodomésticos, lo mejor es armar el precio directo.<br><br>📲 <b>Pasame el costo</b> y te saco precio + cuotas. Ej: <i>"cuesta 250000"</i>. O andá a <b>Finanzas → 🎨 Placas</b> para armar la placa completa. 🐝`);
-    amaraAccion('🎨 Ir a armar precio', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+    amaraAccion('🎨 Ir a armar precio', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
     return;
   }
 
@@ -1771,7 +1800,7 @@ function amaraResponder(txt){
         const cotiz=+localStorage.getItem('ae_cotizdolar')||0;
         if(!cotiz){
           amaraBot(`💵 Para calcular en dólares necesito la cotización. Andá a <b>Finanzas → 🎨 Placas</b>, elegí <b>Dólar</b> y poné la cotización una vez (se guarda). Después preguntame de nuevo. 🐝`);
-          amaraAccion('🎨 Ir a poner la cotización', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+          amaraAccion('🎨 Ir a poner la cotización', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
           return;
         }
         const costoPesos=Math.round(det.valor*cotiz);
@@ -1788,7 +1817,7 @@ function amaraResponder(txt){
       amaraBot(`💰 <b>Precio de venta: $${fmt(precioVenta)}</b><br><span style="font-size:11px;color:var(--muted);">${detalle}</span><br><br>💳 2 cuotas de $${fmt(c2)}<br>💳 4 cuotas de $${fmt(c4)}<br>💳 6 cuotas de $${fmt(c6)}`);
       const msg=`💵 *CONTADO: $${fmt(precioVenta)}*\n\n💳 2 cuotas de $${fmt(c2)}\n💳 4 cuotas de $${fmt(c4)}\n💳 6 cuotas de $${fmt(c6)}`;
       amaraAccion('📲 Mandar este precio', ()=>window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank'));
-      amaraAccion('🎨 Armar placa completa', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+      amaraAccion('🎨 Armar placa completa', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
       return;
     }
   }
@@ -1800,7 +1829,7 @@ function amaraResponder(txt){
   // CÓMO ARMAR UN PRECIO (con cuotas)
   if(tiene('armar precio','hacer precio','sacar precio','calcular precio','poner precio','un precio','el precio','precio con cuota','precio en cuota','cuanto sale','cuanto cobrar por') || (preguntaComo && tiene('precio','cuota'))){
     amaraBot(`📲 <b>Armar un precio con cuotas — fácil:</b><br><br>1️⃣ Abajo tocá <b>Finanzas</b> 💰<br>2️⃣ Arriba tocá <b>🎨 Placas</b><br>3️⃣ Pegá o escribí el producto con el costo (ej: <i>Lavarropas $100.000</i>)<br>4️⃣ Elegí si es <b>Costo</b>, <b>Venta</b> o <b>Dólar</b><br>5️⃣ ¡Listo! Te muestra el precio y las cuotas solas 🎉<br><br>Después tocás <b>📲 Enviar a WhatsApp</b> y lo mandás.`);
-    amaraAccion('🎨 Llevame a armar el precio', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+    amaraAccion('🎨 Llevame a armar el precio', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
     return;
   }
 
@@ -1821,14 +1850,14 @@ function amaraResponder(txt){
   // CÓMO MANDAR PRECIOS POR WHATSAPP
   if(tiene('mandar precio','enviar precio','pasar precio','mandar por whatsapp','enviar whatsapp','precios por whatsapp','mandar lista') || (preguntaComo && tiene('whatsapp'))){
     amaraBot(`📲 <b>Mandar precios por WhatsApp — fácil:</b><br><br><b>Para un producto:</b><br>1️⃣ <b>Finanzas</b> → <b>🎨 Placas</b><br>2️⃣ Pegá el producto con su precio<br>3️⃣ Tocá <b>📲 Enviar a WhatsApp</b><br><br><b>Para una lista (varios):</b><br>1️⃣ En Placas tocá <b>📋 Varios a la vez</b><br>2️⃣ Poné la cotización del dólar<br>3️⃣ Pegá toda la lista<br>4️⃣ Tocá <b>📋 Copiar</b> y pegá en el grupo`);
-    amaraAccion('🎨 Llevame a Placas', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+    amaraAccion('🎨 Llevame a Placas', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
     return;
   }
 
   // CÓMO ARMAR PLACAS / LISTAS
   if(tiene('armar placa','hacer placa','placa','lista de precio','convertir lista','pasar dolar','dolar a peso','lista de celular') || (preguntaComo && tiene('placa','lista'))){
     amaraBot(`🎨 <b>Armar placas y listas — fácil:</b><br><br>1️⃣ <b>Finanzas</b> 💰 → <b>🎨 Placas</b><br><br><b>Un producto:</b> pegá el producto y su precio, elegí costo/venta/dólar, y te arma todo.<br><br><b>Lista de celulares (varios):</b> tocá <b>📋 Varios a la vez</b>, poné el dólar (ej: 1520), pegá la lista entera y te pasa todos los precios a pesos solos. 🎉`);
-    amaraAccion('🎨 Llevame a Placas', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
+    amaraAccion('🎨 Llevame a Placas', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
     return;
   }
 
@@ -1842,28 +1871,28 @@ function amaraResponder(txt){
   // CÓMO GUARDAR / CARGAR CELULARES (lista que reemplaza)
   if(tiene('cargar celular','cargar celulares','guardar celular','lista de celulares','actualizar celulares','reemplazar celulares','subir celulares','cargar lista') || (preguntaComo && tiene('celular') && tiene('cargar','guardar','subir','actualizar'))){
     amaraBot(`📱 <b>Cargar/actualizar la lista de celulares — fácil:</b><br><br>1️⃣ <b>Finanzas</b> 💰 → <b>📦 Catálogo</b><br>2️⃣ Tocá <b>"📱 Cargar lista de celulares (reemplaza)"</b><br>3️⃣ Poné la cotización del dólar<br>4️⃣ Pegá la lista entera (con precios en USD)<br>5️⃣ Tocá <b>"✅ Reemplazar celulares"</b><br><br>💡 Los celulares viejos se borran y quedan los nuevos. Los electrodomésticos NO se tocan. También podés guardarlos desde <b>Placas → Varios a la vez</b>.`);
-    amaraAccion('📦 Llevame al Catálogo', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('catalogo'); },250); });
+    amaraAccion('📦 Llevame al Catálogo', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('catalogo'); },250); });
     return;
   }
 
   // CÓMO USAR LA CALCULADORA
   if(tiene('calculadora','calcular cuota','calcular comision','calcular capital','cuanto invierto','cuanto gano','calcular ganancia') || (preguntaComo && tiene('calcular','calculadora'))){
     amaraBot(`🧮 <b>Usar la calculadora — fácil:</b><br><br>1️⃣ <b>Finanzas</b> 💰 → <b>🧮 Calculadora</b><br>2️⃣ Poné el costo o el precio de venta<br>3️⃣ Te calcula las cuotas, la comisión y el capital a invertir solo<br><br>💡 También podés preguntarme acá directo: <i>"precio 425 usd"</i> o <i>"cuesta 250000"</i> y te lo calculo al toque.`);
-    amaraAccion('🧮 Llevame a la Calculadora', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('calc'); },250); });
+    amaraAccion('🧮 Llevame a la Calculadora', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('calc'); },250); });
     return;
   }
 
   // CÓMO VER REPORTES / FINANZAS
   if(tiene('reporte','reportes','resumen del mes','cuanto factur','cuanto gane el mes','balance','reporte mensual','informe','ganancias del mes') || (preguntaComo && tiene('reporte','finanzas','balance'))){
     amaraBot(`📊 <b>Ver el reporte del negocio — fácil:</b><br><br>1️⃣ <b>Finanzas</b> 💰 → <b>📊 Finanzas</b><br>2️⃣ Tocá <b>"Reporte mensual"</b><br><br>Ahí ves lo facturado, el costo, la ganancia, lo cobrado y lo pendiente del mes. 📈<br><br>💡 También podés preguntarme: <i>"cuánto facturé este mes"</i>.`);
-    amaraAccion('📊 Llevame a Finanzas', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('finanzas'); },250); });
+    amaraAccion('📊 Llevame a Finanzas', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('finanzas'); },250); });
     return;
   }
 
   // CÓMO USAR INVERSORES / REPARTO
   if(tiene('inversor','inversores','reparto','dividir ganancia','repartir','quien puso','socios','quien invirtio') || (preguntaComo && tiene('inversor','reparto','socio'))){
     amaraBot(`🤝 <b>Inversores y reparto — fácil:</b><br><br>1️⃣ Cuando cargás una venta, podés poner quién <b>invirtió</b> y su <b>%</b><br>2️⃣ El sistema reparte solo: cuánto <b>puso</b> cada uno y cuánto <b>gana</b><br>3️⃣ Para ver el resumen general: <b>Finanzas → 💼 Inversores</b><br><br>💡 El "puso" usa tu fórmula real: costo + 1ra parte comisión + envío − 1ra cuota.`);
-    amaraAccion('💼 Llevame a Inversores', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('inv'); },250); });
+    amaraAccion('💼 Llevame a Inversores', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('inv'); },250); });
     return;
   }
 
@@ -1877,7 +1906,7 @@ function amaraResponder(txt){
   // ¿DÓNDE ESTÁN LOS MENSAJES / RESPUESTAS RÁPIDAS?
   if(tiene('mensajes','respuestas rapidas','respuestas listas','donde estan los mensajes','plantillas','mensajes guardados','respuestas guardadas') || (preguntaComo && tiene('respuesta','mensaje'))){
     amaraBot(`💬 <b>Respuestas rápidas — dónde están:</b><br><br>1️⃣ <b>Finanzas</b> 💰 → <b>💬 Respuestas</b><br>2️⃣ Ahí tenés las respuestas listas (stock, envío, transferir, etc.)<br>3️⃣ Tocá <b>Copiar</b> y pegá en WhatsApp<br><br>💡 La de <b>"Sí hay stock"</b> arma el precio sola: pegás el producto y elegís costo/venta/dólar.`);
-    amaraAccion('💬 Llevame a Respuestas', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('respuestas'); },250); });
+    amaraAccion('💬 Llevame a Respuestas', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('respuestas'); },250); });
     return;
   }
 
@@ -1901,7 +1930,7 @@ function amaraResponder(txt){
     const fact=vm.reduce((s,v)=>s+(v.precioVenta||0),0);
     const gan=vm.reduce((s,v)=>s+((v.precioVenta||0)-(v.precioCosto||0)-(v.envio||0)),0);
     amaraBot(`Este mes${AMBITO==='general'?' (todo el negocio)':''}:<br><br>💰 Facturado: <b>$${fmt(fact)}</b><br>📈 Ganancia: <b>$${fmt(gan)}</b><br>📦 Ventas cargadas: <b>${vm.length}</b><br><br>${AMBITO!=='general'?'💡 Tu ganancia personal con detalle está protegida en tu panel de Inicio.':''}`);
-    amaraAccion('📊 Ver reporte del mes', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof abrirReporteMensual==='function') abrirReporteMensual(); },300); });
+    amaraAccion('📊 Ver reporte del mes', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof abrirReporteMensual==='function') abrirReporteMensual(); },300); });
     return;
   }
 
@@ -1944,7 +1973,7 @@ function amaraResponder(txt){
   // Fórmulas: cómo se calcula la comisión / capital
   if(tiene('como se calcula','formula','como saco la comision','como calculo','cuanto es la comision','capital a invertir','cuanto invierto')){
     amaraBot(`📐 <b>Fórmulas del sistema AmarangoElectro:</b><br><br>🤝 <b>Comisión revendedor:</b> 10% al contado / 15% en cuotas, repartida en partes (2 o 3 según el plan).<br><br>💰 <b>Capital a invertir:</b> costo del producto + 1ra parte de la comisión + envío − 1ra cuota del cliente.<br><br>🧮 La calculadora hace todo esto sola. Te llevo:`);
-    amaraAccion('🧮 Abrir Calculadora', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('calc'); },200); });
+    amaraAccion('🧮 Abrir Calculadora', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('calc'); },200); });
     return;
   }
 
@@ -1960,14 +1989,14 @@ function amaraResponder(txt){
   // ===== GUÍA: lista de precios / catálogo =====
   if(tiene('lista de precio','catalogo','precios','productos','agregar producto','precio publico')){
     amaraBot(`Los productos y precios están en <b>Finanzas → Catálogo</b>. Ahí podés agregar productos, ver la <b>lista pública de precios</b> para mandar a clientes, o importar desde Excel.<br><br>Te llevo:`);
-    amaraAccion('📦 Ir al Catálogo', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('catalogo'); },200); });
+    amaraAccion('📦 Ir al Catálogo', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('catalogo'); },200); });
     return;
   }
 
   // ===== GUÍA: calculadora =====
   if(tiene('calculadora','calcular precio','sacar cuota','cuanto sale','markup','cuanto cobro')){
     amaraBot(`La <b>Calculadora Amarango</b> (en Finanzas) saca el precio de venta desde el costo, las cuotas, comisiones y la parte de cada inversionista. Es tu mano derecha para no equivocarte con los números.<br><br>Te llevo:`);
-    amaraAccion('🧮 Abrir Calculadora', ()=>{ go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('calc'); },200); });
+    amaraAccion('🧮 Abrir Calculadora', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('calc'); },200); });
     return;
   }
 
@@ -2738,8 +2767,28 @@ function emptyState(i,t,x){ return `<div class="empty"><div class="empty-ico">${
    Usa las fórmulas del negocio: markupVenta() y planCuotas()
    ============================================================ */
 let modoFin='finanzas', calcTab='inversion';
+// Muestra el menú de inicio de Finanzas (botones grandes)
+function volverMenuFin(){
+  const menu=document.getElementById('finMenu'); if(menu) menu.style.display='block';
+  const tabs=document.getElementById('finTabs'); if(tabs) tabs.style.display='none';
+  const volver=document.getElementById('finVolver'); if(volver) volver.style.display='none';
+  const desc=document.querySelector('#view-finanzas .view-desc'); if(desc) desc.textContent='Elegí qué querés hacer';
+  // ocultar todos los bloques
+  ['bloqueFinanzas','bloqueCalc','bloqueInv','bloquePers','bloqueCatalogo','bloquePanel','bloquePlacas','bloqueRespuestas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+}
+// Abre una sección concreta desde el menú (oculta el menú, muestra la sección + botón volver)
+function abrirSeccionFin(m){
+  const menu=document.getElementById('finMenu'); if(menu) menu.style.display='none';
+  const tabs=document.getElementById('finTabs'); if(tabs) tabs.style.display='flex';
+  const volver=document.getElementById('finVolver'); if(volver) volver.style.display='block';
+  setModoFin(m);
+}
 function setModoFin(m){
   modoFin=m;
+  // si se llama directo (ej: atajo de Amara), asegurar que se vea la sección y no el menú
+  const menu=document.getElementById('finMenu'); if(menu) menu.style.display='none';
+  const tabs=document.getElementById('finTabs'); if(tabs) tabs.style.display='flex';
+  const volver=document.getElementById('finVolver'); if(volver) volver.style.display='block';
   document.getElementById('modoFinBtn').classList.toggle('active', m==='finanzas');
   document.getElementById('modoCalcBtn').classList.toggle('active', m==='calc');
   document.getElementById('modoInvBtn').classList.toggle('active', m==='inv');
@@ -6212,35 +6261,13 @@ function actualizarBadge(){
 
 /* ============ PWA: APP INSTALABLE + NOTIFICACIONES ============ */
 const APP_NOMBRE = "AmarangoElectro";
-// Arma el manifest dinámicamente usando el logo embebido como ícono
-(function montarManifest(){
-  try{
-    const icon = (typeof LOGO_AE==='string' && LOGO_AE) ? LOGO_AE : '';
-    const manifest = {
-      name: APP_NOMBRE,
-      short_name: APP_NOMBRE,
-      start_url: ".",
-      display: "standalone",
-      background_color: "#ffffff",
-      theme_color: "#0B2D6B",
-      icons: icon ? [
-        { src: icon, sizes: "256x256", type: "image/png", purpose: "any maskable" },
-        { src: icon, sizes: "512x512", type: "image/png", purpose: "any maskable" }
-      ] : []
-    };
-    const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-    const url = URL.createObjectURL(blob);
-    const link = document.getElementById('manifestLink');
-    if(link) link.setAttribute('href', url);
-  }catch(e){ console.warn('manifest', e); }
-})();
+// El manifest ahora es un archivo real (manifest.json) junto a este index.html.
+// Esto hace que la instalación sea SÓLIDA y no se borre sola.
 
-// Service worker mínimo (embebido) para que sea instalable y muestre notificaciones
+// Service worker real (sw.js) para que sea instalable como app de verdad
 (function registrarSW(){
   if(!('serviceWorker' in navigator)) return;
-  // El service worker solo funciona servido por http(s). En vista previa (file://) se omite sin avisar.
   if(location.protocol!=='https:' && location.protocol!=='http:') return;
-  // Registra el archivo sw.js que está junto a este index.html
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 
