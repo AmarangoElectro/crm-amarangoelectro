@@ -150,6 +150,20 @@
   .cli-det-est{font-weight:800;padding:1px 6px;border-radius:10px;margin-left:4px;}
   .cli-det-est.rojo{background:#ffebee;color:#c62828;}
   .cli-det-est.verde{background:#e8f5e9;color:#2e7d32;}
+  /* símbolos en tarjeta cerrada: responsable + inversionista + revendedor */
+  .cli-simbolos{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;align-items:center;}
+  .cli-simb{font-size:10.5px;font-weight:800;color:var(--blue);background:#eef3fb;padding:2px 7px;border-radius:20px;white-space:nowrap;}
+  .cli-simb.resp{background:#e8eefc;color:#0B2D6B;}
+  /* chips de personas en el cajón */
+  .cli-personas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(11,45,107,.08);}
+  .cli-pers-chip{font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .cli-pers-chip.resp{background:#e8eefc;color:#0B2D6B;}
+  .cli-pers-chip.inv{background:#fff3e0;color:#e65100;}
+  .cli-pers-chip.rev{background:#e0f2f1;color:#00695c;}
+  /* fila de producto en cajón con tachito */
+  .cli-det-linea{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+  .cli-del-btn{background:none;border:none;font-size:16px;cursor:pointer;padding:2px 6px;border-radius:8px;-webkit-tap-highlight-color:transparent;flex-shrink:0;}
+  .cli-del-btn:active{background:#ffebee;transform:scale(.9);}
   .avatar{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:16px;background:var(--blue);overflow:hidden;text-transform:uppercase;letter-spacing:.5px;}
   .li-info{flex:1;min-width:0;}
   .li-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -2662,17 +2676,32 @@ function detalleVentasCliente(cliId){
   const vs=DB.ventas.filter(v=>v.clienteId===cliId);
   return vs.map(v=>{
     const px=proxVencimiento(v);
-    let estado, cls;
+    let estado, cls, debe=false;
     if(!px){ estado='✅ Pagado'; cls='verde'; }
     else {
       const venc=parseD(px.vence), hoy=today();
-      if(venc<hoy){ estado='🔴 Debe'; cls='rojo'; }
-      else { estado='🟢 Al día'; cls='verde'; }
+      if(venc<hoy){ estado='🔴 Debe'; cls='rojo'; debe=true; }
+      else { estado='🟢 Al día'; cls='verde'; debe=true; }
     }
     const cuotasTxt = v.cuotas>1 ? `${v.cuotas} cuotas` : 'Contado';
     const fechaTxt = px ? dispDate(px.vence) : (v.fecha?dispDate(v.fecha):'');
-    return { producto:v.producto||'Producto', cuotasTxt, fechaTxt, estado, cls };
+    return { id:v.id, producto:v.producto||'Producto', cuotasTxt, fechaTxt, estado, cls, debe };
   });
+}
+// Datos de responsable/inversionista/revendedor del cliente (mira el cliente y sus ventas)
+function personasCliente(c){
+  const resp = normPersona(c.responsable)||'';
+  let inv = (c.inversionista||'').trim();
+  let rev = (c.revendedor||'').trim();
+  // si no están en el cliente, buscar en las ventas
+  if(!inv || !rev){
+    const vs=DB.ventas.filter(v=>v.clienteId===c.id);
+    for(const v of vs){
+      if(!rev && v.revendedor) rev=v.revendedor;
+      if(!inv){ try{ const li=listaInversoresVenta(v).map(x=>x.nombre).filter(Boolean); if(li.length) inv=li.join('/'); }catch(e){} }
+    }
+  }
+  return { resp, inv, rev };
 }
 
 function renderClientes(){
@@ -2688,13 +2717,25 @@ function renderClientes(){
     const prodVenc=productoAVencer(c.id);
     const debe=deudaCliente(c.id);
     const vip=nivelVIP(c.id);
+    const pers=personasCliente(c);
     // color de la franja según estado
     const colorFranja = est.cls==='rojo'?'#e53935' : est.cls==='amarillo'?'#f5a623' : est.cls==='verde'?'#43a047' : '#94a3b8';
-    // detalle para el cajón
+    // detalle para el cajón (con tachito por producto)
     const dets=detalleVentasCliente(c.id);
-    const cajonHtml = dets.length ? dets.map(d=>
+    let cajonHtml='';
+    // arriba del cajón: responsable + inversionista + revendedor completos
+    let personasHtml='<div class="cli-personas">';
+    if(pers.resp) personasHtml+=`<span class="cli-pers-chip resp">👤 ${pers.resp}</span>`;
+    if(pers.inv) personasHtml+=`<span class="cli-pers-chip inv">💰 ${pers.inv}</span>`;
+    if(pers.rev) personasHtml+=`<span class="cli-pers-chip rev">🤝 ${pers.rev}</span>`;
+    personasHtml+='</div>';
+    cajonHtml += personasHtml;
+    cajonHtml += dets.length ? dets.map(d=>
       `<div class="cli-det-row">
-        <div class="cli-det-prod">📦 ${d.producto}</div>
+        <div class="cli-det-linea">
+          <div class="cli-det-prod">📦 ${d.producto}</div>
+          <button class="cli-del-btn" onclick="borrarVentaCajon('${d.id}','${c.id}',${d.debe},event)" title="Borrar">🗑️</button>
+        </div>
         <div class="cli-det-info">${d.cuotasTxt}${d.fechaTxt?' · '+d.fechaTxt:''} <span class="cli-det-est ${d.cls}">${d.estado}</span></div>
       </div>`
     ).join('') : '<div class="cli-det-row" style="color:var(--muted);">Sin ventas cargadas</div>';
@@ -2704,6 +2745,12 @@ function renderClientes(){
     else if(est.cls==='amarillo') alertaTxt=(est.dias===0?'🟡 Vence hoy':'🟡 Vence '+est.dias+'d');
     else if(est.label==='Pagado') alertaTxt='✅ Pagado';
     else if(est.cls==='verde') alertaTxt='🟢 Al día';
+    // símbolos en la tarjeta cerrada (responsable siempre; 💰 si inv, 🤝 si rev)
+    let simbolos='<div class="cli-simbolos">';
+    if(pers.resp) simbolos+=`<span class="cli-simb resp">👤 ${pers.resp}</span>`;
+    if(pers.inv) simbolos+=`<span class="cli-simb" title="Tiene inversionista">💰</span>`;
+    if(pers.rev) simbolos+=`<span class="cli-simb" title="Tiene revendedor">🤝</span>`;
+    simbolos+='</div>';
     return `<div class="cli-card2">
       <div class="cli-franja" style="background:${colorFranja};" onclick="detalleCliente('${c.id}')">
         <span class="cli-franja-nom">${c.nombre} ${vip?vip.ico:''}</span>
@@ -2712,6 +2759,7 @@ function renderClientes(){
       <div class="cli-body" onclick="detalleCliente('${c.id}')">
         <div class="cli-body-prod">📦 ${prodVenc}${nv>1?` <span style="color:var(--muted);">+${nv-1} más</span>`:''}</div>
         ${debe>0?`<div class="cli-body-debe">Debe: $${fmt(debe)}</div>`:`<div class="cli-body-debe ok">Sin deuda</div>`}
+        ${simbolos}
       </div>
       <div class="cli-cajon-btn" onclick="toggleCajon('${c.id}',event)">
         <span id="cajflecha-${c.id}">▾</span> Ver detalle
@@ -2719,6 +2767,26 @@ function renderClientes(){
       <div class="cli-cajon" id="cajon-${c.id}" style="display:none;">${cajonHtml}</div>
     </div>`;
   }).join('')+'</div>';
+}
+// borrar una venta desde el cajón (a papelera + deshacer), avisa si aún debe
+async function borrarVentaCajon(ventaId, cliId, debe, ev){
+  if(ev) ev.stopPropagation();
+  const v=DB.ventas.find(x=>x.id===ventaId); if(!v) return;
+  if(!puedeEditarVenta(v)){
+    const cli=DB.clientes.find(c=>c.id===v.clienteId);
+    toast(`🔒 Solo ${cli?cli.responsable:'el responsable'} o un admin puede borrar`);
+    return;
+  }
+  let msg=`¿Borrar "${v.producto}"?`;
+  if(debe) msg+=`\n\n⚠️ Ojo: este producto TODAVÍA DEBE cuotas.`;
+  msg+=`\n\nVa a la papelera, lo podés recuperar.`;
+  if(!confirm(msg)) return;
+  PAPELERA.agregar('venta', v);
+  ultimoBorrado={tipo:'venta', dato:v};
+  DB.ventas=DB.ventas.filter(x=>x.id!==ventaId);
+  await DB.delVenta(ventaId);
+  toastUndo('Producto movido a papelera');
+  renderClientes();
 }
 // abre/cierra el cajón de una tarjeta sin entrar al cliente
 function toggleCajon(cliId, ev){
