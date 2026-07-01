@@ -1529,6 +1529,41 @@ function amaraNorm(s){
   return t.trim();
 }
 
+// Muestra UN celular con sus specs + botones Enviar/Copiar (para mandar al cliente)
+function mostrarCeluAmara(p, otros){
+  const c6=planCuotas(p.venta,6)[0];
+  const c2=planCuotas(p.venta,2)[0];
+  const c4=planCuotas(p.venta,4)[0];
+  const sp=specsDeCelu(p.nombre);
+  let html=`📱 <b>${p.nombre}</b><br><br>`;
+  html+=`💵 <b>Contado: $${fmt(p.venta)}</b><br><br>`;
+  html+=`💳 2 cuotas de $${fmt(c2)}<br>💳 4 cuotas de $${fmt(c4)}<br>💳 6 cuotas de $${fmt(c6)}<br>`;
+  if(sp && sp.specs && sp.specs.length){
+    html+=`<br><span style="font-size:12px;color:#0B2D6B;">`+sp.specs.slice(0,5).map(s=>'• '+s).join('<br>')+`</span>`;
+  }
+  amaraBot(html);
+  // armar el mensaje para WhatsApp (nombre + precio + cuotas + 5 specs)
+  let msg=`*${p.nombre.toUpperCase()}*\n\n`;
+  msg+=`💳💵 2 cuotas fijas de $${fmt(c2)}\n💳💵 4 cuotas fijas de $${fmt(c4)}\n💳💵 6 cuotas fijas de $${fmt(c6)}\n\n`;
+  msg+=`➡️ Contado: $${fmt(p.venta)}\n`;
+  if(sp && sp.specs && sp.specs.length){
+    msg+=`\n📋 Características:\n`+sp.specs.slice(0,5).map(s=>'• '+s).join('\n')+`\n`;
+  }
+  msg+=`\n@AmarangoElectro 🐝`;
+  window._amaraCeluMsg=msg;
+  // botones Enviar y Copiar
+  amaraAccion('📲 Enviar por WhatsApp', ()=>{ window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank'); });
+  amaraAccion('📋 Copiar mensaje', ()=>{ 
+    if(navigator.clipboard){ navigator.clipboard.writeText(msg).then(()=>toast('✅ Copiado')).catch(()=>toast('No se pudo copiar')); }
+    else toast('No se pudo copiar');
+  });
+  // si hay otros parecidos, ofrecerlos
+  if(otros && otros.length){
+    let sug='¿Buscabas otro? También tengo: '+otros.map(o=>o.nombre).join(', ');
+    amaraBot(sug);
+  }
+}
+
 function amaraResponder(txt){
   const t=amaraNorm(txt);
   const tiene=(...palabras)=>palabras.some(p=>t.includes(p));
@@ -1698,6 +1733,35 @@ function amaraResponder(txt){
     amaraBot(`🔌 ¡Bien! Para los electrodomésticos, lo mejor es armar el precio directo.<br><br>📲 <b>Pasame el costo</b> y te saco precio + cuotas. Ej: <i>"cuesta 250000"</i>. O andá a <b>Finanzas → 🎨 Placas</b> para armar la placa completa. 🐝`);
     amaraAccion('🎨 Ir a armar precio', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('placas'); },250); });
     return;
+  }
+
+  // ========== CELULAR ESPECÍFICO POR NOMBRE (ej "A56", "Moto G15", "note 14") ==========
+  // si menciona un modelo puntual, mostrar SOLO ese con specs + botones Enviar/Copiar
+  {
+    const celusAll=(DB.productos||[]).filter(p=>p.categoria==='celular' && (p.venta||p.usd));
+    if(celusAll.length && !det_e.valor){
+      // normalizar la búsqueda del usuario
+      const q=amaraNorm(txt).replace(/tenes|tienen|tenés|hay|stock|precio|cuanto|cuánto|sale|vale|de|el|la|un|una|quiero|busco|dame|pasame|mostrame|info|caracteristicas|características|\?/g,' ').replace(/\s+/g,' ').trim();
+      if(q.length>=2){
+        // buscar celu cuyo nombre contenga la búsqueda (o al revés), tolerante
+        const qc=q.replace(/\s+/g,'');
+        let match=celusAll.filter(p=>{
+          const n=amaraNorm(p.nombre).replace(/\s+/g,'');
+          return n.indexOf(qc)>=0 || qc.indexOf(n)>=0 || amaraNorm(p.nombre).split(' ').some(w=>w.length>=3 && q.split(' ').includes(w));
+        });
+        // priorizar coincidencia más exacta (nombre más corto que contiene la búsqueda)
+        if(match.length){
+          match.sort((a,b)=>a.nombre.length-b.nombre.length);
+          // si hay una coincidencia clara (el modelo aparece tal cual), mostrar ese
+          const elegido=match[0];
+          const soloModelo=/^[a-z]{0,10}\s*\d/i.test(q) || q.split(' ').length<=3;
+          if(soloModelo){
+            mostrarCeluAmara(elegido, match.length>1?match.slice(1,5):[]);
+            return;
+          }
+        }
+      }
+    }
   }
 
   // ========== GAMA BAJA / MEDIA / ALTA ==========
