@@ -1,0 +1,1036 @@
+=== SAMSUNG GALAXY A ===
+
+Samsung Galaxy A05
+Memorias:
+• 64 GB / 4 GB RAM
+• 128 GB / 4 GB RAM
+• 128 GB / 6 GB RAM
+Características principales:
+• Pantalla PLS LCD 6.7" HD+.
+• Procesador MediaTek Helio G85.
+• Cámara principal 50 MP.
+• Batería 5.000 mAh con carga rápida 25 W.
+• Dual SIM, USB-C y expansión por microSD.
+
+---
+
+Samsung Galaxy A05s
+Memorias:
+• 128 GB / 4 GB RAM
+• 128 GB / 6 GB RAM
+Características principales:
+• Pantalla 6.7" Full HD+ 90 Hz.
+• Procesador Snapdragon 680.
+• Cámara principal 50 MP.
+• Batería 5.000 mAh con carga rápida 25 W.
+• Lector de huellas lateral.
+
+---
+
+Samsung Galaxy A06
+Memorias:
+• 64 GB / 4 GB RAM
+• 128 GB / 4 GB RAM
+• 128 GB / 6 GB RAM
+Características principales:
+• Pantalla 6.7" HD+.
+• Procesador MediaTek Helio G85.
+• Cámara principal 50 MP.
+• Batería 5.000 mAh.
+• Lector de huellas lateral.
+
+---
+
+Samsung Galaxy A15 4G / 5G
+Memorias:
+• 128 GB / 4 GB RAM
+• 128 GB / 6 GB RAM
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla Super AMOLED 6.5" Full HD+ 90 Hz.
+• Procesador Helio G99 (4G) o Dimensity 6100+ (5G).
+• Cámara principal 50 MP.
+• Batería 5.000 mAh con carga 25 W.
+• NFC (según versión).
+
+---
+
+Samsung Galaxy A16
+Memorias:
+• 128 GB / 4 GB RAM
+• 128 GB / 6 GB RAM
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla Super AMOLED 6.7" Full HD+ 90 Hz.
+• Procesador Exynos o MediaTek según versión.
+• Cámara principal 50 MP.
+• Batería 5.000 mAh.
+• Disponible en versión 4G y 5G.
+
+---
+
+Samsung Galaxy A25 5G
+Memorias:
+• 128 GB / 6 GB RAM
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla Super AMOLED 120 Hz.
+• Procesador Exynos 1280.
+• Cámara 50 MP con estabilización óptica (OIS).
+• Batería 5.000 mAh con carga 25 W.
+• Parlantes estéreo.
+
+---
+
+Samsung Galaxy A26 5G
+Memorias:
+• 128 GB / 6 GB RAM
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla Super AMOLED 6.7" 120 Hz.
+• Procesador Exynos.
+• Cámara 50 MP con OIS.
+• Batería 5.000 mAh.
+• Galaxy AI y resistencia IP67.
+
+---
+
+Samsung Galaxy A35 5G
+Memorias:
+• 128 GB / 6 GB RAM
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla Super AMOLED 120 Hz.
+• Procesador Exynos 1380.
+• Cámara 50 MP con OIS.
+• Certificación IP67.
+• Batería 5.000 mAh.
+
+---
+
+Samsung Galaxy A36 5G
+Memorias:
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+Características principales:
+• Pantalla Super AMOLED 6.7" 120 Hz.
+• Procesador Snapdragon.
+• Cámara 50 MP con OIS.
+• Batería 5.000 mAh con carga 45 W.
+• Funciones Galaxy AI.
+
+---
+
+Samsung Galaxy A55 5G
+Memorias:
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+Características principales:
+• Pantalla Super AMOLED 120 Hz.
+• Procesador Exynos 1480.
+• Cámara 50 MP con OIS.
+• Marco de aluminio e IP67.
+• Batería 5.000 mAh.
+
+---
+
+Samsung Galaxy A56 5G
+Memorias:
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+Características principales:
+• Pantalla Super AMOLED 6.7" Full HD+ 120 Hz.
+• Procesador Exynos 1580.
+• Cámara 50 MP con OIS.
+• Batería 5.000 mAh con carga rápida 45 W.
+• Galaxy AI, resistencia IP67 y hasta 6 años de actualizaciones.
+
+=== SAMSUNG GALAXY S ===
+
+Samsung Galaxy S26
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla Dynamic AMOLED 2X de 6.3" con 120 Hz.
+• Procesador Snapdragon 8 Elite Gen 5 for Galaxy o Exynos 2600.
+• Cámara principal de 50 MP con IA.
+• Batería de 4.300 mAh con carga rápida e inalámbrica.
+• Galaxy AI, WiFi 7, NFC y resistencia IP68.
+
+---
+
+Samsung Galaxy S26+
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla Dynamic AMOLED 2X de 6.7" con 120 Hz.
+• Procesador Snapdragon 8 Elite Gen 5 for Galaxy o Exynos 2600.
+• Cámara principal de 50 MP.
+• Batería de 4.900 mAh con carga rápida e inalámbrica.
+• Galaxy AI, WiFi 7, UWB, NFC y resistencia IP68.
+
+---
+
+Samsung Galaxy S26 Ultra
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+• 1 TB / 16 GB RAM
+Características principales:
+• Pantalla Dynamic AMOLED 2X de 6.9" con 120 Hz.
+• Procesador Snapdragon 8 Elite Gen 5 for Galaxy.
+• Cámara principal de 200 MP con zoom óptico avanzado.
+• Batería de 5.000 mAh con carga rápida de hasta 60 W.
+• Galaxy AI, S Pen integrado, WiFi 7, NFC, UWB y resistencia IP68.
+
+=== MOTOROLA ===
+
+Moto E15
+Memorias:
+• 64 GB / 2 GB RAM
+• 64 GB / 4 GB RAM
+Características principales:
+• Pantalla HD+ de 6.7" con 90 Hz.
+• Procesador MediaTek Helio G81 Extreme.
+• Cámara principal de 32 MP con IA.
+• Batería de 5.200 mAh.
+• Parlantes estéreo con Dolby Atmos.
+
+---
+
+Moto G05
+Memorias:
+• 128 GB / 4 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla HD+ de 6.7" con 90 Hz.
+• Procesador MediaTek Helio G81 Extreme.
+• Cámara principal de 50 MP.
+• Batería de 5.200 mAh.
+• Dolby Atmos y expansión por microSD.
+
+---
+
+Moto G15
+Memorias:
+• 128 GB / 4 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla Full HD+ de 6.7".
+• Cámara principal de 50 MP + ultra gran angular.
+• Batería de 5.200 mAh con carga TurboPower.
+• Parlantes estéreo Dolby Atmos.
+• Diseño resistente al agua.
+
+---
+
+Moto G35 5G
+Memorias:
+• 128 GB / 4 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla Full HD+ de 6.7" a 120 Hz.
+• Procesador Unisoc T760 con 5G.
+• Cámara principal de 50 MP.
+• Batería de 5.000 mAh.
+• NFC (según versión).
+
+---
+
+Moto G55 5G
+Memorias:
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+Características principales:
+• Pantalla Full HD+ de 6.5" a 120 Hz.
+• Procesador MediaTek Dimensity 7025.
+• Cámara de 50 MP con OIS.
+• Batería de 5.000 mAh.
+• Sonido estéreo Dolby Atmos.
+
+---
+
+Moto G75 5G
+Memorias:
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla Full HD+ de 6.78" a 120 Hz.
+• Procesador Snapdragon 6 Gen 3.
+• Cámara de 50 MP con estabilización óptica.
+• Certificación militar MIL-STD-810H e IP68.
+• Batería de 5.000 mAh.
+
+---
+
+Motorola Edge 50 Fusion
+Memorias:
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+Características principales:
+• Pantalla pOLED de 6.7" a 144 Hz.
+• Procesador Snapdragon 7s Gen 2.
+• Cámara de 50 MP con OIS.
+• Batería de 5.000 mAh con carga TurboPower de 68 W.
+• Certificación IP68.
+
+---
+
+Motorola Edge 50 Pro
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla pOLED de 6.7" a 144 Hz.
+• Procesador Snapdragon 7 Gen 3.
+• Triple cámara con sensor principal de 50 MP.
+• Carga TurboPower de 125 W.
+• Carga inalámbrica.
+
+---
+
+Motorola Edge 50 Ultra
+Memorias:
+• 512 GB / 16 GB RAM
+• 1 TB / 16 GB RAM
+Características principales:
+• Pantalla pOLED de 6.7" a 144 Hz.
+• Procesador Snapdragon 8s Gen 3.
+• Cámara principal de 50 MP + teleobjetivo de 64 MP + ultra gran angular de 50 MP.
+• Carga rápida de 125 W e inalámbrica de 50 W.
+• Diseño premium con certificación IP68.
+
+---
+
+Motorola Edge 60 Fusion
+Memorias:
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+Características principales:
+• Pantalla pOLED curva de 6.67" Super HD+ a 120 Hz.
+• Procesador MediaTek Dimensity 7400.
+• Cámara principal Sony LYT-700C de 50 MP con OIS.
+• Batería de 5.200 mAh con carga TurboPower de 68 W.
+• Certificación IP68/IP69, MIL-STD-810H y Android 15.
+
+---
+
+Motorola Edge 60
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla pOLED de 6.67" a 120 Hz.
+• Procesador MediaTek Dimensity 7300.
+• Triple cámara: 50 MP + 50 MP + teleobjetivo 10 MP.
+• Batería de 5.200 mAh con carga TurboPower de 68 W.
+• IP68/IP69, WiFi 6, Dolby Atmos y Android 15.
+
+---
+
+Motorola Edge 60 Pro
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla pOLED de 6.7" Super HD+ a 120 Hz.
+• Procesador MediaTek Dimensity 8350 Extreme.
+• Triple cámara de 50 MP con teleobjetivo y zoom óptico 3x.
+• Batería de 6.000 mAh con carga TurboPower de 90 W e inalámbrica.
+• IP68/IP69, WiFi 7, Moto AI y Android 15.
+
+=== XIAOMI PREMIUM ===
+
+Xiaomi 14T
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED 6.67" 144 Hz.
+• Procesador MediaTek Dimensity 8300 Ultra.
+• Cámara Leica de 50 MP con OIS.
+• Batería de 5.000 mAh con carga rápida de 67 W.
+• HyperOS, 5G, NFC y parlantes estéreo.
+
+---
+
+Xiaomi 14T Pro
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+• 1 TB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED 144 Hz.
+• Procesador MediaTek Dimensity 9300+.
+• Cámara Leica de 50 MP.
+• Carga rápida de 120 W y carga inalámbrica de 50 W.
+• Certificación IP68 y HyperOS.
+
+---
+
+Xiaomi 15
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla LTPO AMOLED de 6.36" a 120 Hz.
+• Procesador Snapdragon 8 Elite.
+• Triple cámara Leica de 50 MP.
+• Batería de 5.240 mAh con carga rápida de 90 W.
+• WiFi 7, NFC, HyperOS e IP68.
+
+---
+
+Xiaomi 15 Ultra
+Memorias:
+• 512 GB / 16 GB RAM
+• 1 TB / 16 GB RAM
+Características principales:
+• Pantalla LTPO AMOLED 6.73" 2K a 120 Hz.
+• Procesador Snapdragon 8 Elite.
+• Cámara Leica de 200 MP con zoom periscópico.
+• Batería de 5.410 mAh con carga de 90 W e inalámbrica de 80 W.
+• IP68, WiFi 7, HyperOS y fotografía profesional.
+
+=== XIAOMI REDMI NOTE ===
+
+Redmi Note 13
+Memorias:
+• 128 GB / 6 GB RAM
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla AMOLED 6.67" Full HD+ 120 Hz.
+• Procesador Snapdragon 685.
+• Cámara principal de 108 MP.
+• Batería de 5.000 mAh con carga rápida de 33 W.
+• Lector de huellas en pantalla y parlantes estéreo.
+
+---
+
+Redmi Note 13 Pro
+Memorias:
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED 120 Hz con resolución 1.5K.
+• Procesador Snapdragon 7s Gen 2.
+• Cámara principal de 200 MP con OIS.
+• Batería de 5.100 mAh con carga rápida de 67 W.
+• NFC, Dolby Atmos y Gorilla Glass Victus.
+
+---
+
+Redmi Note 13 Pro+
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+• 512 GB / 16 GB RAM
+Características principales:
+• Pantalla AMOLED curva 1.5K de 120 Hz.
+• Procesador MediaTek Dimensity 7200 Ultra.
+• Cámara principal de 200 MP con OIS.
+• Batería de 5.000 mAh con carga ultrarrápida de 120 W.
+• Certificación IP68 y parlantes estéreo.
+
+---
+
+Redmi Note 14
+Memorias:
+• 128 GB / 6 GB RAM
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla AMOLED 120 Hz.
+• Procesador MediaTek Helio G99 Ultra.
+• Cámara principal de 108 MP.
+• Batería de 5.500 mAh con carga rápida de 33 W.
+• HyperOS y lector de huellas en pantalla.
+
+---
+
+Redmi Note 14 Pro
+Memorias:
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED 1.5K de 120 Hz.
+• Procesador MediaTek Dimensity 7300 Ultra.
+• Cámara principal de 200 MP con OIS.
+• Batería de 5.500 mAh con carga rápida de 45 W.
+• IP68, NFC y Dolby Atmos.
+
+---
+
+Redmi Note 14 Pro+
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+• 512 GB / 16 GB RAM
+Características principales:
+• Pantalla AMOLED curva 1.5K de 120 Hz.
+• Procesador Snapdragon 7s Gen 3.
+• Cámara principal de 200 MP con OIS.
+• Batería de 5.110 mAh con carga ultrarrápida de 120 W.
+• IP68, WiFi 6, NFC y Dolby Atmos.
+
+---
+
+Redmi Note 15
+Memorias:
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED 120 Hz.
+• Procesador de nueva generación.
+• Cámara principal de 50 MP con IA.
+• Batería de larga duración con carga rápida.
+• HyperOS, 5G y NFC.
+
+---
+
+Redmi Note 15 Pro
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED 1.5K de 120 Hz.
+• Procesador de gama media premium.
+• Cámara principal con estabilización óptica (OIS).
+• Batería de gran capacidad con carga rápida.
+• 5G, WiFi 6, NFC y parlantes estéreo.
+
+---
+
+Redmi Note 15 Pro+
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+• 1 TB / 16 GB RAM
+Características principales:
+• Pantalla AMOLED curva de 120 Hz.
+• Procesador Snapdragon de alto rendimiento.
+• Cámara principal de 200 MP con OIS.
+• Carga ultrarrápida de 120 W.
+• HyperOS, IP68, WiFi 7 y funciones de IA.
+
+=== XIAOMI POCO ===
+
+POCO C75
+Memorias:
+• 128 GB / 6 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla HD+ de 6.88" con 120 Hz.
+• Procesador MediaTek Helio G81 Ultra.
+• Cámara principal de 50 MP con IA.
+• Batería de 5.160 mAh con carga rápida de 18 W.
+• HyperOS, lector de huellas lateral y desbloqueo facial.
+
+---
+
+POCO M7 Pro 5G
+Memorias:
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED Full HD+ de 6.67" con 120 Hz.
+• Procesador MediaTek Dimensity 7025 Ultra.
+• Cámara principal de 50 MP con OIS.
+• Batería de 5.110 mAh con carga rápida de 45 W.
+• 5G, NFC y parlantes estéreo Dolby Atmos.
+
+---
+
+POCO X7
+Memorias:
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED 1.5K de 120 Hz.
+• Procesador MediaTek Dimensity 7300 Ultra.
+• Cámara principal de 50 MP con OIS.
+• Batería de 5.110 mAh con carga rápida de 45 W.
+• Certificación IP68, HyperOS y NFC.
+
+---
+
+POCO X7 Pro
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED 1.5K de 120 Hz.
+• Procesador MediaTek Dimensity 8400 Ultra.
+• Cámara principal de 50 MP con OIS.
+• Batería de 6.000 mAh con carga rápida de 90 W.
+• IP68, WiFi 6 y HyperOS.
+
+---
+
+POCO F7
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED 2K de 120 Hz.
+• Procesador Snapdragon 8s Gen 4.
+• Cámara principal de 50 MP con OIS.
+• Batería de 6.500 mAh con carga rápida de 90 W.
+• WiFi 7, NFC, HyperOS y parlantes estéreo.
+
+---
+
+POCO F7 Ultra
+Memorias:
+• 256 GB / 12 GB RAM
+• 512 GB / 16 GB RAM
+Características principales:
+• Pantalla AMOLED 2K LTPO de 120 Hz.
+• Procesador Snapdragon 8 Elite.
+• Triple cámara con sensor principal de 50 MP y teleobjetivo.
+• Batería de 5.300 mAh con carga rápida de 120 W e inalámbrica.
+• IP68, WiFi 7, HyperOS y funciones avanzadas de IA.
+
+=== XIAOMI REDMI A ===
+
+Redmi A5
+Memorias:
+• 64 GB / 3 GB RAM
+• 128 GB / 4 GB RAM
+• 128 GB / 6 GB RAM
+Características principales:
+• Pantalla HD+ de 6.88" con tasa de refresco de hasta 120 Hz.
+• Procesador Unisoc T7250.
+• Cámara principal de 32 MP con IA.
+• Batería de 5.200 mAh con carga rápida de 15 W.
+• HyperOS, lector de huellas lateral, desbloqueo facial y expansión por microSD.
+
+---
+
+Redmi A4 5G
+Memorias:
+• 64 GB / 4 GB RAM
+• 128 GB / 4 GB RAM
+Características principales:
+• Pantalla HD+ de 6.88" con 120 Hz.
+• Procesador Snapdragon 4s Gen 2.
+• Cámara principal de 50 MP con IA.
+• Batería de 5.160 mAh con carga rápida de 18 W.
+• Conectividad 5G, HyperOS y lector de huellas lateral.
+
+---
+
+Redmi A3
+Memorias:
+• 64 GB / 3 GB RAM
+• 128 GB / 4 GB RAM
+• 128 GB / 6 GB RAM
+Características principales:
+• Pantalla HD+ de 6.71" con 90 Hz.
+• Procesador MediaTek Helio G36.
+• Cámara principal con IA de 8 MP.
+• Batería de 5.000 mAh con carga de 10 W.
+• Diseño con acabado premium, desbloqueo facial y expansión por microSD.
+
+---
+
+Redmi A7
+Memorias:
+• 64 GB / 3 GB RAM
+• 128 GB / 4 GB RAM
+• 128 GB / 6 GB RAM
+Características principales:
+• Pantalla IPS LCD HD+ de 6.88" con tasa de refresco de hasta 120 Hz.
+• Procesador Unisoc T7250 de ocho núcleos.
+• Cámara principal dual de 13 MP con IA.
+• Batería de 5.200 mAh con carga rápida de 15 W.
+• HyperOS, lector de huellas lateral, desbloqueo facial y expansión mediante microSD.
+
+---
+
+Redmi A7 Pro
+Memorias:
+• 64 GB / 4 GB RAM
+• 128 GB / 4 GB RAM
+Características principales:
+• Pantalla IPS LCD HD+ de 6.9" con 120 Hz.
+• Procesador Unisoc T7250.
+• Cámara principal dual de 13 MP con IA.
+• Batería de 6.000 mAh con carga rápida de 15 W.
+• HyperOS 3, Google Gemini, Circle to Search, lector de huellas lateral y expansión por microSD.
+
+=== APPLE IPHONE ===
+
+iPhone 13
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+Características principales:
+• Pantalla Super Retina XDR OLED de 6.1".
+• Chip A15 Bionic.
+• Doble cámara de 12 MP.
+• Face ID y resistencia IP68.
+• Compatible con carga MagSafe y 5G.
+
+---
+
+iPhone 13 Pro
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+• 1 TB
+Características principales:
+• Pantalla ProMotion 120 Hz.
+• Chip A15 Bionic.
+• Triple cámara de 12 MP con teleobjetivo.
+• Escáner LiDAR.
+• Grabación de video ProRes.
+
+---
+
+iPhone 13 Pro Max
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+• 1 TB
+Características principales:
+• Pantalla OLED de 6.7" ProMotion 120 Hz.
+• Chip A15 Bionic.
+• Triple cámara de 12 MP con LiDAR.
+• Excelente autonomía.
+• MagSafe y 5G.
+
+---
+
+iPhone 14
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+Características principales:
+• Pantalla OLED Super Retina XDR.
+• Chip A15 Bionic.
+• Cámara principal de 12 MP mejorada.
+• Detección de accidentes.
+• MagSafe y 5G.
+
+---
+
+iPhone 14 Plus
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+Características principales:
+• Pantalla OLED de 6.7".
+• Chip A15 Bionic.
+• Excelente duración de batería.
+• Cámara dual de 12 MP.
+• Face ID.
+
+---
+
+iPhone 14 Pro
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+• 1 TB
+Características principales:
+• Dynamic Island.
+• Pantalla ProMotion 120 Hz.
+• Chip A16 Bionic.
+• Cámara principal de 48 MP.
+• LiDAR y Always-On Display.
+
+---
+
+iPhone 14 Pro Max
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+• 1 TB
+Características principales:
+• Pantalla OLED de 6.7".
+• Chip A16 Bionic.
+• Cámara de 48 MP.
+• Dynamic Island.
+• Gran autonomía.
+
+---
+
+iPhone 15
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+Características principales:
+• Pantalla OLED Super Retina XDR.
+• Chip A16 Bionic.
+• Cámara principal de 48 MP.
+• Puerto USB-C.
+• Dynamic Island.
+
+---
+
+iPhone 15 Plus
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+Características principales:
+• Pantalla OLED de 6.7".
+• Chip A16 Bionic.
+• Cámara de 48 MP.
+• USB-C.
+• Excelente batería.
+
+---
+
+iPhone 15 Pro
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+• 1 TB
+Características principales:
+• Estructura de titanio.
+• Chip A17 Pro.
+• Triple cámara profesional de 48 MP.
+• Botón Acción.
+• USB-C con alta velocidad.
+
+---
+
+iPhone 15 Pro Max
+Memorias:
+• 256 GB
+• 512 GB
+• 1 TB
+Características principales:
+• Pantalla OLED de 6.7" ProMotion.
+• Chip A17 Pro.
+• Cámara con zoom óptico 5x.
+• Titanio.
+• Gran autonomía.
+
+---
+
+iPhone 16
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+Características principales:
+• Pantalla Super Retina XDR.
+• Chip A18.
+• Cámara Fusion de 48 MP.
+• Apple Intelligence.
+• USB-C, MagSafe y 5G.
+
+---
+
+iPhone 16 Plus
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+Características principales:
+• Pantalla OLED de 6.7".
+• Chip A18.
+• Cámara Fusion de 48 MP.
+• Apple Intelligence.
+• Excelente autonomía.
+
+---
+
+iPhone 16 Pro
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+• 1 TB
+Características principales:
+• Pantalla ProMotion 120 Hz.
+• Chip A18 Pro.
+• Cámara de 48 MP con LiDAR.
+• Titanio.
+• Apple Intelligence.
+
+---
+
+iPhone 16 Pro Max
+Memorias:
+• 256 GB
+• 512 GB
+• 1 TB
+Características principales:
+• Pantalla OLED de 6.9".
+• Chip A18 Pro.
+• Cámara profesional de 48 MP.
+• Zoom óptico avanzado.
+• Apple Intelligence.
+
+---
+
+iPhone 17
+Memorias:
+• 128 GB
+• 256 GB
+• 512 GB
+Características principales:
+• Pantalla Super Retina XDR de 120 Hz.
+• Chip A19.
+• Cámara Fusion de 48 MP.
+• Apple Intelligence.
+• USB-C, MagSafe y 5G.
+
+---
+
+iPhone 17 Pro
+Memorias:
+• 256 GB
+• 512 GB
+• 1 TB
+Características principales:
+• Pantalla ProMotion 120 Hz.
+• Chip A19 Pro.
+• Triple cámara profesional con zoom óptico de hasta 8x.
+• Estructura de aluminio forjado y Ceramic Shield 2.
+• Apple Intelligence, WiFi 7 y USB-C.
+
+---
+
+iPhone 17 Pro Max
+Memorias:
+• 256 GB
+• 512 GB
+• 1 TB
+• 2 TB
+Características principales:
+• Pantalla OLED ProMotion de 6.9" a 120 Hz.
+• Chip A19 Pro.
+• Triple cámara profesional con zoom óptico de hasta 8x.
+• Hasta 37 horas de reproducción de video.
+• Apple Intelligence, WiFi 7, MagSafe y USB-C.
+
+=== INFINIX ===
+
+INFINIX SMART 10
+Memorias:
+• 64 GB / 4 GB RAM
+• 128 GB / 4 GB RAM
+Características principales:
+• Pantalla HD+ de 6.7" con 120 Hz.
+• Procesador MediaTek Helio G81.
+• Cámara principal de 8 MP con IA.
+• Batería de 5.200 mAh.
+• Lector de huellas lateral y expansión por microSD.
+
+---
+
+INFINIX HOT 60i
+Memorias:
+• 128 GB / 6 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla IPS LCD de 6.7" con 120 Hz.
+• Procesador MediaTek Helio G81 Ultimate.
+• Cámara principal de 50 MP.
+• Batería de 5.160 mAh con carga rápida de 45 W.
+• XOS, NFC (según versión) y parlantes estéreo.
+
+---
+
+INFINIX HOT 60
+Memorias:
+• 128 GB / 6 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla IPS LCD de 6.78" con 120 Hz.
+• Procesador MediaTek Dimensity 7020.
+• Cámara principal de 50 MP.
+• Batería de 5.200 mAh.
+• 5G, XOS y carga rápida de 18 W.
+
+---
+
+INFINIX HOT 60 Pro
+Memorias:
+• 128 GB / 8 GB RAM
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla AMOLED de 6.78" con 144 Hz.
+• Procesador MediaTek Helio G200.
+• Cámara principal de 50 MP.
+• Batería de 5.160 mAh con carga rápida de 45 W.
+• Parlantes JBL y resistencia IP65.
+
+---
+
+INFINIX NOTE 50
+Memorias:
+• 256 GB / 8 GB RAM
+Características principales:
+• Pantalla AMOLED de 6.78" con 144 Hz.
+• Procesador MediaTek Dimensity 7300 Ultimate.
+• Cámara principal de 50 MP.
+• Batería de 5.500 mAh con carga rápida de 45 W.
+• 5G, NFC y parlantes estéreo.
+
+---
+
+INFINIX NOTE 50 Pro
+Memorias:
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED de 6.78" con 144 Hz.
+• Procesador MediaTek Dimensity 7300 Ultimate.
+• Cámara principal de 50 MP con OIS.
+• Batería de 5.500 mAh con carga rápida de 90 W.
+• IA integrada, NFC y carga inalámbrica.
+
+---
+
+INFINIX GT 30 Pro
+Memorias:
+• 256 GB / 8 GB RAM
+• 256 GB / 12 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla AMOLED Gaming de 6.78" con 144 Hz.
+• Procesador MediaTek Dimensity 8350 Ultimate.
+• Gatillos táctiles para juegos.
+• Cámara principal de 108 MP.
+• Batería de 5.500 mAh con carga rápida de 45 W.
+
+---
+
+INFINIX ZERO Flip
+Memorias:
+• 256 GB / 8 GB RAM
+• 512 GB / 12 GB RAM
+Características principales:
+• Pantalla plegable AMOLED LTPO de 120 Hz.
+• Procesador MediaTek Dimensity 8020.
+• Doble cámara de 50 MP.
+• Pantalla externa AMOLED.
+• Carga rápida de 70 W.
