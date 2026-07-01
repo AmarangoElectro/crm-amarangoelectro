@@ -557,6 +557,7 @@
   <div id="bloqueCatalogo" style="display:none;">
     <button class="btn btn-orange" style="margin-bottom:8px;" onclick="formProducto()">➕ Agregar producto al catálogo</button>
     <button class="btn btn-blue" style="margin-bottom:8px;background:#0B2D6B;" onclick="abrirImportarLista()">📋 Importar lista (pegar categoría - modelo)</button>
+    <button class="btn btn-blue" style="margin-bottom:8px;background:#7C3AED;" onclick="abrirImportarSpecs()">📲 Cargar características de celulares</button>
     <button class="btn btn-green" style="margin-bottom:8px;" onclick="abrirCargarCelus()">📱 Cargar lista de celulares (reemplaza)</button>
     <button class="btn btn-blue" style="margin-bottom:8px;" onclick="verListaPublica()">📱 Ver lista pública de precios</button>
     <button class="btn btn-ghost btn-sm" style="margin-bottom:12px;color:var(--blue);" onclick="document.getElementById('fileProd').click()">📥 Importar productos desde Excel</button>
@@ -1717,6 +1718,11 @@ function amaraResponder(txt){
     dela.slice(0,15).forEach(p=>{
       const c6=planCuotas(p.venta,6)[0];
       html+=`📱 <b>${p.nombre}</b> — $${fmt(p.venta)} <span style="font-size:11px;color:var(--muted);">(6c $${fmt(c6)})</span><br>`;
+      const sp=specsDeCelu(p.nombre);
+      if(sp && sp.specs && sp.specs.length){
+        html+=`<span style="font-size:11px;color:#0B2D6B;">`+sp.specs.slice(0,5).map(s=>'• '+s).join('<br>')+`</span><br>`;
+      }
+      html+='<br>';
     });
     if(dela.length>15) html+=`<br><i>...y ${dela.length-15} más</i>`;
     amaraBot(html);
@@ -3206,6 +3212,77 @@ async function procesarImportarLista(){
   closeModal();
   toast(`✅ ${agregados} productos importados`);
   renderCatalogo();
+}
+
+// ═══ CARACTERÍSTICAS DE CELULARES (se guardan por modelo, NO se borran al renovar precios) ═══
+function cargarSpecsCelus(){
+  try{ return JSON.parse(localStorage.getItem('amarango_celu_specs')||'{}'); }catch(e){ return {}; }
+}
+function guardarSpecsCelus(obj){
+  try{ localStorage.setItem('amarango_celu_specs', JSON.stringify(obj)); }catch(e){}
+}
+function claveModelo(n){ return (n||'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function parseSpecsTexto(txt){
+  txt=txt.replace(/===[^=]*===/g,'\n@@SEP@@\n'); // títulos de marca === X === separan
+  txt=txt.replace(/={2,}/g,'\n@@SEP@@\n');        // líneas de == o más separan
+  txt=txt.replace(/(^|\n)\s*-{2,}\s*(\n|$)/g,'\n@@SEP@@\n'); // líneas de -- o más (solas) separan
+  const bloques=txt.split(/@@SEP@@/).map(b=>b.trim()).filter(b=>b);
+  const modelos=[];
+  bloques.forEach(b=>{
+    const lineas=b.split('\n').map(l=>l.trim()).filter(l=>l);
+    if(!lineas.length) return;
+    let nombre='', memorias=[], specs=[], modo='';
+    lineas.forEach(l=>{
+      if(/^memorias:?$/i.test(l)){ modo='mem'; return; }
+      if(/^caracter[íi]sticas/i.test(l)){ modo='spec'; return; }
+      if(l.startsWith('•')||l.startsWith('-')){
+        const val=l.replace(/^[•\-]\s*/,'').replace(/\.$/,'').trim();
+        if(modo==='mem') memorias.push(val);
+        else if(modo==='spec') specs.push(val);
+      } else if(!nombre && !modo){ nombre=l; }
+    });
+    if(nombre) modelos.push({nombre, memorias, specs});
+  });
+  return modelos;
+}
+function abrirImportarSpecs(){
+  openModal(`<div class="modal-title">📲 Cargar características de celulares</div>
+    <div class="modal-sub">Pegá los datos de una marca (o varias). Se guardan por modelo y <b>no se borran</b> aunque renueves la lista de precios.</div>
+    <div class="card" style="background:#f7faff;padding:10px;margin-bottom:10px;font-size:11.5px;color:var(--muted);line-height:1.5;">
+      Formato: nombre del modelo, luego <b>Memorias:</b> con viñetas •, luego <b>Características principales:</b> con viñetas •. Separá cada modelo con una línea de guiones (-----).
+    </div>
+    <div class="field"><label>Pegá los datos acá</label>
+      <textarea id="specs_texto" rows="12" placeholder="Samsung Galaxy A05&#10;&#10;Memorias:&#10;• 64 GB / 4 GB RAM&#10;&#10;Características principales:&#10;• Pantalla...&#10;• Procesador...&#10;-----" style="width:100%;font-family:monospace;font-size:12px;"></textarea></div>
+    <button class="btn btn-orange" onclick="procesarImportarSpecs()">📥 Guardar características</button>`);
+}
+function procesarImportarSpecs(){
+  const txt=document.getElementById('specs_texto').value||'';
+  const modelos=parseSpecsTexto(txt);
+  if(!modelos.length){ toast('No detecté modelos. Revisá el formato.'); return; }
+  const store=cargarSpecsCelus();
+  let guardados=0;
+  modelos.forEach(m=>{
+    if(!m.specs.length && !m.memorias.length) return;
+    store[claveModelo(m.nombre)]={ nombre:m.nombre, memorias:m.memorias, specs:m.specs, act:Date.now() };
+    guardados++;
+  });
+  guardarSpecsCelus(store);
+  closeModal();
+  toast(`✅ ${guardados} modelos con características guardados`);
+}
+// Busca las specs de un celular por su nombre (tolerante: busca el modelo que mejor coincida)
+function specsDeCelu(nombreCelu){
+  const store=cargarSpecsCelus();
+  const clave=claveModelo(nombreCelu);
+  if(store[clave]) return store[clave];
+  // búsqueda parcial: el nombre del celu contiene el modelo guardado (o al revés)
+  let mejor=null, mejorLargo=0;
+  Object.keys(store).forEach(k=>{
+    if(clave.indexOf(k)>=0 || k.indexOf(clave)>=0){
+      if(k.length>mejorLargo){ mejor=store[k]; mejorLargo=k.length; }
+    }
+  });
+  return mejor;
 }
 function importarProductos(input){
   const file=input.files[0]; if(!file) return;
