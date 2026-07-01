@@ -556,6 +556,7 @@
 
   <div id="bloqueCatalogo" style="display:none;">
     <button class="btn btn-orange" style="margin-bottom:8px;" onclick="formProducto()">➕ Agregar producto al catálogo</button>
+    <button class="btn btn-blue" style="margin-bottom:8px;background:#0B2D6B;" onclick="abrirImportarLista()">📋 Importar lista (pegar categoría - modelo)</button>
     <button class="btn btn-green" style="margin-bottom:8px;" onclick="abrirCargarCelus()">📱 Cargar lista de celulares (reemplaza)</button>
     <button class="btn btn-blue" style="margin-bottom:8px;" onclick="verListaPublica()">📱 Ver lista pública de precios</button>
     <button class="btn btn-ghost btn-sm" style="margin-bottom:12px;color:var(--blue);" onclick="document.getElementById('fileProd').click()">📥 Importar productos desde Excel</button>
@@ -3100,7 +3101,7 @@ function renderCatalogo(){
   cont.innerHTML=`<div class="sec-title">📦 Productos (${prods.length})</div>`+prods.map(p=>`
     <div class="list-item" onclick="formProducto('${p.id}')">
       <div class="avatar" style="background:${nombreColor(p.mayorista||'?')}">${initials(p.nombre||'?')}</div>
-      <div class="li-info"><div class="li-name">${p.nombre}${p.memoria?` · ${p.memoria}`:''}</div><div class="li-meta">${p.mayorista?'🏭 '+p.mayorista+' · ':''}${(p.venta||0)>0?'Venta: $'+fmt(p.venta)+' · ':''}Costo: $${fmt(p.costo||0)}</div></div>
+      <div class="li-info"><div class="li-name">${p.nombre}${p.memoria?` · ${p.memoria}`:''}${p.modelo?` <span style="color:var(--muted);font-weight:600;font-size:11px;">(${p.modelo})</span>`:''}</div><div class="li-meta">${p.categoria?'📁 '+p.categoria+' · ':''}${p.mayorista?'🏭 '+p.mayorista+' · ':''}${(p.venta||0)>0?'Venta: $'+fmt(p.venta)+' · ':''}Costo: $${fmt(p.costo||0)}</div></div>
       <div class="li-right" style="display:flex;gap:10px;align-items:center;">
         <div class="li-tag" style="color:var(--green);font-size:18px;" onclick="event.stopPropagation();enviarPrecioProducto('${p.id}')">📲</div>
         <div class="li-tag" style="color:var(--red);" onclick="event.stopPropagation();delProductoUI('${p.id}')">🗑️</div>
@@ -3129,6 +3130,9 @@ function formProducto(id){
   const memorias=['','64GB','128GB','256GB','512GB','1TB'];
   openModal(`<div class="modal-title">${id?'Editar':'Nuevo'} producto</div><div class="modal-sub">Catálogo para cargar más rápido</div>
     <div class="field"><label>Nombre del producto *</label><input id="pr_nombre" value="${(p.nombre||'').replace(/"/g,'&quot;')}" placeholder="Ej: Moto G15"></div>
+    <div class="field"><label>Categoría <span style="color:var(--muted);font-weight:400;">(ej: Heladeras, TV)</span></label><input id="pr_categoria" list="catlist" value="${(p.categoria||'').replace(/"/g,'&quot;')}" placeholder="Ej: Calefacción">
+      <datalist id="catlist">${[...new Set(DB.productos.map(x=>x.categoria).filter(Boolean))].map(c=>`<option value="${c}">`).join('')}</datalist></div>
+    <div class="field"><label>Modelo <span style="color:var(--muted);font-weight:400;">(código del mayorista)</span></label><input id="pr_modelo" value="${(p.modelo||'').replace(/"/g,'&quot;')}" placeholder="Ej: DL1500"></div>
     <div class="field"><label>Memoria <span style="color:var(--muted);font-weight:400;">(celulares)</span></label>
       <select id="pr_mem">${memorias.map(m=>`<option value="${m}" ${p.memoria===m?'selected':''}>${m||'— sin memoria —'}</option>`).join('')}</select></div>
     <div class="field"><label>Precio de venta ($) <span style="color:var(--muted);font-weight:400;">(para lista pública)</span></label><input id="pr_venta" type="number" inputmode="numeric" value="${p.venta||''}" placeholder="0"></div>
@@ -3141,6 +3145,8 @@ async function saveProducto(id){
   const nombre=document.getElementById('pr_nombre').value.trim();
   if(!nombre){ toast('Poné un nombre'); return; }
   const data={ id: id||('p'+Date.now()), nombre,
+    categoria:document.getElementById('pr_categoria')?document.getElementById('pr_categoria').value.trim():'',
+    modelo:document.getElementById('pr_modelo')?document.getElementById('pr_modelo').value.trim():'',
     memoria:document.getElementById('pr_mem').value,
     venta:+document.getElementById('pr_venta').value||0,
     costo:+document.getElementById('pr_costo').value||0,
@@ -3155,6 +3161,51 @@ function delProductoUI(id){
   const p=DB.productos.find(x=>x.id===id); if(!p) return;
   if(!confirm(`¿Borrar "${p.nombre}" del catálogo?`)) return;
   DB.delProducto(id); toast('Producto borrado'); renderCatalogo();
+}
+// Importar lista pegando "CATEGORÍA - MODELO" (una por línea). Formato flexible.
+function abrirImportarLista(){
+  openModal(`<div class="modal-title">📋 Importar lista al catálogo</div>
+    <div class="modal-sub">Pegá una línea por producto. Formatos que entiendo:</div>
+    <div class="card" style="background:#f7faff;padding:10px;margin-bottom:10px;font-size:12px;color:var(--muted);">
+      • <b>Categoría - Modelo</b> (ej: Calefacción - DL1500)<br>
+      • <b>Categoría - Nombre - Modelo</b><br>
+      • Solo el nombre (queda sin categoría)
+    </div>
+    <div class="field"><label>Mayorista para todos</label><input id="imp_may" value="Stagliano" placeholder="Ej: Stagliano"></div>
+    <div class="field"><label>Pegá la lista acá</label>
+      <textarea id="imp_texto" rows="10" placeholder="Calefacción - DL1500&#10;Heladeras - FR2500&#10;TV - SD16T" style="width:100%;font-family:monospace;font-size:13px;"></textarea></div>
+    <button class="btn btn-orange" onclick="procesarImportarLista()">📥 Importar al catálogo</button>`);
+}
+async function procesarImportarLista(){
+  const txt=document.getElementById('imp_texto').value||'';
+  const may=(document.getElementById('imp_may').value||'').trim();
+  const lineas=txt.split('\n').map(l=>l.trim()).filter(l=>l && !l.startsWith('📦'));
+  if(!lineas.length){ toast('Pegá al menos una línea'); return; }
+  let agregados=0;
+  const nuevos=[];
+  lineas.forEach(l=>{
+    // sacar viñetas • - iniciales
+    l=l.replace(/^[•\-\*\s]+/,'').trim();
+    if(!l) return;
+    let categoria='', modelo='', nombre='';
+    const partes=l.split(/\s+-\s+/); // separar por " - "
+    if(partes.length>=3){ categoria=partes[0]; nombre=partes[1]; modelo=partes[partes.length-1]; }
+    else if(partes.length===2){ categoria=partes[0]; modelo=partes[1]; nombre=partes[1]; }
+    else { nombre=l; }
+    // evitar duplicados exactos (misma categoría + modelo)
+    const existe=DB.productos.find(p=>(p.categoria||'').toLowerCase()===categoria.toLowerCase() && (p.modelo||'').toLowerCase()===modelo.toLowerCase() && modelo);
+    if(existe) return;
+    const data={ id:'p'+Date.now()+Math.floor(Math.random()*10000), nombre:nombre||modelo, categoria, modelo, memoria:'', venta:0, costo:0, mayorista:may };
+    DB.productos.push(data);
+    nuevos.push(data);
+    agregados++;
+  });
+  if(may) DB.addMayorista(may);
+  // guardar todos en Supabase
+  for(const d of nuevos){ try{ await DB.upsertProducto(d); }catch(e){} }
+  closeModal();
+  toast(`✅ ${agregados} productos importados`);
+  renderCatalogo();
 }
 function importarProductos(input){
   const file=input.files[0]; if(!file) return;
@@ -6375,7 +6426,21 @@ const APP_NOMBRE = "AmarangoElectro";
 (function registrarSW(){
   if(!('serviceWorker' in navigator)) return;
   if(location.protocol!=='https:' && location.protocol!=='http:') return;
-  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  navigator.serviceWorker.register('sw.js').then(function(reg){
+    reg.update();
+    reg.addEventListener('updatefound',function(){
+      var nuevo=reg.installing;
+      if(!nuevo)return;
+      nuevo.addEventListener('statechange',function(){
+        if(nuevo.state==='activated'){ try{location.reload();}catch(e){} }
+      });
+    });
+  }).catch(()=>{});
+  document.addEventListener('visibilitychange',function(){
+    if(!document.hidden && navigator.serviceWorker.controller){
+      navigator.serviceWorker.getRegistration().then(function(r){ if(r) r.update(); });
+    }
+  });
 })();
 
 // Pide permiso de notificaciones (una vez)
