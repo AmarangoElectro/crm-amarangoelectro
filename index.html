@@ -250,7 +250,10 @@
 
   .modal-bg{position:fixed;inset:0;background:rgba(11,45,107,.45);z-index:100;display:none;align-items:flex-end;backdrop-filter:blur(2px);}
   .modal-bg.show{display:flex;}
-  .modal{background:#fff;width:100%;max-height:92vh;border-radius:22px 22px 0 0;padding:8px 18px 24px;overflow-y:auto;animation:slideUp .3s ease;}
+  .modal{background:#fff;width:100%;max-height:92vh;border-radius:22px 22px 0 0;padding:8px 18px 90px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;animation:slideUp .3s ease;}
+  /* botón guardar fijo abajo del modal, siempre visible y alcanzable */
+  .btn-guardar-fijo{position:sticky;bottom:0;margin:14px -18px -90px;padding:14px 18px calc(18px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid rgba(0,0,0,.08);box-shadow:0 -4px 14px rgba(11,45,107,.1);z-index:5;}
+  .btn-guardar-fijo .btn{margin:0;width:100%;}
   @keyframes slideUp{from{transform:translateY(100%);}to{transform:none;}}
   .modal-handle{width:40px;height:4px;background:#d8e0ee;border-radius:10px;margin:8px auto 14px;}
   .modal-back{display:inline-flex;align-items:center;gap:6px;background:#eef3fb;color:var(--blue);border:none;border-radius:11px;padding:9px 16px 9px 12px;font-size:14px;font-weight:800;cursor:pointer;margin-bottom:14px;-webkit-tap-highlight-color:rgba(11,45,107,.15);}
@@ -3145,7 +3148,7 @@ function formProducto(id){
     <div class="field"><label>Costo ($) <span style="color:var(--muted);font-weight:400;">(privado)</span></label><input id="pr_costo" type="number" inputmode="numeric" value="${p.costo||''}" placeholder="0"></div>
     <div class="field"><label>Mayorista</label><input id="pr_may" list="maylist" value="${(p.mayorista||'').replace(/"/g,'&quot;')}" placeholder="Ej: Stagliano">
       <datalist id="maylist">${datalist.map(m=>`<option value="${m}">`).join('')}</datalist></div>
-    <button class="btn btn-orange" onclick="saveProducto('${id||''}')">💾 Guardar producto</button>`);
+    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="saveProducto('${id||''}')">💾 Guardar producto</button></div>`);
 }
 async function saveProducto(id){
   const nombre=document.getElementById('pr_nombre').value.trim();
@@ -3180,7 +3183,7 @@ function abrirImportarLista(){
     <div class="field"><label>Mayorista para todos</label><input id="imp_may" value="Stagliano" placeholder="Ej: Stagliano"></div>
     <div class="field"><label>Pegá la lista acá</label>
       <textarea id="imp_texto" rows="10" placeholder="Calefacción - DL1500&#10;Heladeras - FR2500&#10;TV - SD16T" style="width:100%;font-family:monospace;font-size:13px;"></textarea></div>
-    <button class="btn btn-orange" onclick="procesarImportarLista()">📥 Importar al catálogo</button>`);
+    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="procesarImportarLista()">📥 Importar al catálogo</button></div>`);
 }
 async function procesarImportarLista(){
   const txt=document.getElementById('imp_texto').value||'';
@@ -3253,7 +3256,7 @@ function abrirImportarSpecs(){
     </div>
     <div class="field"><label>Pegá los datos acá</label>
       <textarea id="specs_texto" rows="12" placeholder="Samsung Galaxy A05&#10;&#10;Memorias:&#10;• 64 GB / 4 GB RAM&#10;&#10;Características principales:&#10;• Pantalla...&#10;• Procesador...&#10;-----" style="width:100%;font-family:monospace;font-size:12px;"></textarea></div>
-    <button class="btn btn-orange" onclick="procesarImportarSpecs()">📥 Guardar características</button>`);
+    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="procesarImportarSpecs()">📥 Guardar características</button></div>`);
 }
 function procesarImportarSpecs(){
   const txt=document.getElementById('specs_texto').value||'';
@@ -4537,7 +4540,7 @@ function formCliente(edit){
     <div class="field-row"><div class="field"><label>Cliente de revendedor <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="f_revend" value="${c.revendedor||''}" placeholder="Nombre revendedor"></div>
     <div class="field"><label>Inversionista <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="f_inver" value="${c.inversionista||''}" placeholder="Nombre"></div></div>
     <div class="field"><label>Observaciones</label><textarea id="f_obs" placeholder="Notas...">${c.observaciones||''}</textarea></div>
-    <button class="btn btn-orange" onclick="saveCliente('${edit?edit.id:''}')">💾 Guardar cliente</button>`);
+    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="saveCliente('${edit?edit.id:''}')">💾 Guardar cliente</button></div>`);
 }
 async function saveCliente(id){
   const nombre=document.getElementById('f_nombre').value.trim();
