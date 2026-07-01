@@ -154,6 +154,13 @@
   .cli-simbolos{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;align-items:center;}
   .cli-simb{font-size:10.5px;font-weight:800;color:var(--blue);background:#eef3fb;padding:2px 7px;border-radius:20px;white-space:nowrap;}
   .cli-simb.resp{background:#e8eefc;color:#0B2D6B;}
+  .cli-simb.prestamo{background:#e8f5e9;color:#1b5e20;}
+  /* emoji del producto en el catálogo (al costado, estilo avatar) */
+  .prod-emoji{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;background:#f2f6fc;}
+  /* selector de emoji en el formulario de producto */
+  .emoji-op{font-size:20px;width:42px;height:42px;border:1.5px solid rgba(11,45,107,.12);background:#fff;border-radius:10px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .emoji-op.sel{border-color:var(--orange);background:#fff5eb;box-shadow:0 0 0 2px rgba(255,122,0,.2);}
+  .emoji-op:active{transform:scale(.9);}
   /* chips de personas en el cajón */
   .cli-personas{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid rgba(11,45,107,.08);}
   .cli-pers-chip{font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;white-space:nowrap;}
@@ -2704,6 +2711,12 @@ function personasCliente(c){
   return { resp, inv, rev };
 }
 
+// ¿el cliente tiene algún préstamo? (para el chip 💵 Préstamo)
+function tienePrestamo(cliId){
+  const esPrestamo=v=> (v.tipo==='prestamo') || (!v.tipo && /pr[eé]stamo/i.test(v.producto||''));
+  return DB.ventas.some(v=>v.clienteId===cliId && esPrestamo(v));
+}
+
 function renderClientes(){
   const cont=document.getElementById('listaClientes');
   if(modoCli==='vip'){ renderClientesVip(cont); return; }
@@ -2725,7 +2738,7 @@ function renderClientes(){
     let cajonHtml='';
     // arriba del cajón: responsable + inversionista + revendedor completos
     let personasHtml='<div class="cli-personas">';
-    if(pers.resp) personasHtml+=`<span class="cli-pers-chip resp">👤 ${pers.resp}</span>`;
+    if(pers.resp){ const cp=colorPersona(pers.resp); personasHtml+=`<span class="cli-pers-chip" style="background:${cp.bg};color:${cp.fg};border:1px solid rgba(11,45,107,.12);">👤 ${pers.resp}</span>`; }
     if(pers.inv) personasHtml+=`<span class="cli-pers-chip inv">💰 ${pers.inv}</span>`;
     if(pers.rev) personasHtml+=`<span class="cli-pers-chip rev">🤝 ${pers.rev}</span>`;
     personasHtml+='</div>';
@@ -2745,9 +2758,12 @@ function renderClientes(){
     else if(est.cls==='amarillo') alertaTxt=(est.dias===0?'🟡 Vence hoy':'🟡 Vence '+est.dias+'d');
     else if(est.label==='Pagado') alertaTxt='✅ Pagado';
     else if(est.cls==='verde') alertaTxt='🟢 Al día';
-    // símbolos en la tarjeta cerrada (responsable siempre; 💰 si inv, 🤝 si rev)
+    // símbolos en la tarjeta cerrada (responsable con su color; 💰 si inv, 🤝 si rev, 💵 si préstamo)
+    const colResp=colorPersona(pers.resp);
+    const conPrestamo=tienePrestamo(c.id);
     let simbolos='<div class="cli-simbolos">';
-    if(pers.resp) simbolos+=`<span class="cli-simb resp">👤 ${pers.resp}</span>`;
+    if(pers.resp) simbolos+=`<span class="cli-simb resp" style="background:${colResp.bg};color:${colResp.fg};border:1px solid rgba(11,45,107,.12);">👤 ${pers.resp}</span>`;
+    if(conPrestamo) simbolos+=`<span class="cli-simb prestamo" title="Tiene préstamo">💵 Préstamo</span>`;
     if(pers.inv) simbolos+=`<span class="cli-simb" title="Tiene inversionista">💰</span>`;
     if(pers.rev) simbolos+=`<span class="cli-simb" title="Tiene revendedor">🤝</span>`;
     simbolos+='</div>';
@@ -2799,21 +2815,42 @@ function toggleCajon(cliId, ev){
   if(fl) fl.textContent=abierto?'▾':'▴';
 }
 // color del cuadradito de iniciales según el responsable
+// Color de cada responsable: Maxi blanco, Angela violeta, varones azules, mujeres naranjas.
+// Devuelve {bg, fg} (fondo y color de texto).
+var MUJERES_CONOCIDAS=['angela','sabry','selene','victoria','vicky','rosalia','rosi','sechu'];
+var VARONES_CONOCIDOS=['maxi','guido'];
+// tonos para diferenciar varios varones (azules) y varias mujeres (naranjas)
+var TONOS_AZUL=['#0B2D6B','#1554B0','#2E74D6','#0E7490','#3949AB','#1565C0'];
+var TONOS_NARANJA=['#FF7A00','#E65100','#F57C00','#FB8C00','#EF6C00','#FF9800'];
+function esMujerNombre(nomNorm){
+  if(MUJERES_CONOCIDAS.includes(nomNorm)) return true;
+  if(VARONES_CONOCIDOS.includes(nomNorm)) return false;
+  // heurística: nombres que terminan en 'a' suelen ser de mujer (no infalible)
+  return /a$/.test(nomNorm);
+}
+function colorPersona(nombre){
+  const resp=normPersona(nombre);
+  const k=(resp||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(!k) return {bg:'#94a3b8', fg:'#fff'};
+  if(k==='maxi') return {bg:'#ffffff', fg:'#0B2D6B'};      // Maxi blanco, texto azul
+  if(k==='angela') return {bg:'#7C3AED', fg:'#fff'};        // Angela violeta
+  // hash simple del nombre para elegir un tono estable
+  let h=0; for(let i=0;i<k.length;i++){ h=(h*31+k.charCodeAt(i))>>>0; }
+  if(esMujerNombre(k)){ const c=TONOS_NARANJA[h%TONOS_NARANJA.length]; return {bg:c, fg:'#fff'}; }
+  const c=TONOS_AZUL[h%TONOS_AZUL.length]; return {bg:c, fg:'#fff'};
+}
+
 function colorResponsable(c){
   const AZUL='#0B2D6B', NARANJA='#FF7A00';
   const resp=normPersona(c.responsable);
-  if(resp==='Maxi') return AZUL;
-  if(resp==='Angela') return NARANJA;
-  if(resp) return nombreColor(resp);
+  if(resp) return colorPersona(resp).bg;
   // sin responsable: ver si hay inversionista al 100%
   const vCli=DB.ventas.filter(v=>v.clienteId===c.id);
   for(const v of vCli){
     const invs=listaInversoresVenta(v);
     if(invs.length===1 && invs[0].pct>=100){
       const n=normPersona(invs[0].nombre);
-      if(n==='Maxi') return AZUL;
-      if(n==='Angela') return NARANJA;
-      return nombreColor(n);
+      if(n) return colorPersona(n).bg;
     }
   }
   return avatarColor(c.nombre);
@@ -3386,6 +3423,41 @@ async function confirmarCargarCelus(){
   toast(`✅ ${nuevos.length} celulares actualizados`);
   renderCatalogo();
 }
+// Emoji automático según la categoría/nombre del producto
+function emojiProducto(p){
+  if(p && p.emoji) return p.emoji; // si el usuario eligió uno, respetarlo
+  const txt=((p.categoria||'')+' '+(p.nombre||'')+' '+(p.modelo||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const tiene=(...ws)=>ws.some(w=>txt.includes(w));
+  if(p.categoria==='celular' || tiene('celular','telefono','smartphone','moto ','galaxy','iphone','redmi','poco','xiaomi','infinix')) return '📱';
+  if(tiene('tv','televisor','smart tv','pantalla','led')) return '📺';
+  if(tiene('heladera','refrigerador','freezer','frigor')) return '❄️';
+  if(tiene('lavarrop','lavadora','secarrop')) return '🧺';
+  if(tiene('microonda')) return '🍲';
+  if(tiene('cocina','anafe','horno','cocinilla')) return '🍳';
+  if(tiene('parlante','bocina','sonido','audio','soundbar')) return '🔊';
+  if(tiene('auricular','handsfree','headphone','airpod')) return '🎧';
+  if(tiene('ventilador','turbo ventilador')) return '🌀';
+  if(tiene('aire','split','acondicionado')) return '🌬️';
+  if(tiene('calefactor','calefaccion','estufa','caloventor','panel calefactor')) return '🔥';
+  if(tiene('cafeter','cafe ')) return '☕';
+  if(tiene('licuadora','batidora','procesador','juguera','minipimer','mixer')) return '🥤';
+  if(tiene('plancha','planchita')) return '👕';
+  if(tiene('aspiradora')) return '🧹';
+  if(tiene('freidora','airfryer','fritadora')) return '🍟';
+  if(tiene('termotanque','calefon','termo')) return '🚿';
+  if(tiene('notebook','laptop','computadora','pc','tablet')) return '💻';
+  if(tiene('reloj','smartwatch','watch')) return '⌚';
+  if(tiene('sabana','sabanas','acolchado','frazada','manta','colcha','juego de cama','sommier','almohada')) return '🛏️';
+  if(tiene('bici','bicicleta','monopatin','scooter')) return '🚲';
+  if(tiene('secador','planchita de pelo','belleza','depiladora')) return '💇';
+  if(tiene('balanza')) return '⚖️';
+  if(tiene('herramienta','taladro','amoladora','soldadora','atornillador')) return '🔧';
+  if(tiene('mascota','perro','gato')) return '🐾';
+  return '📦'; // por defecto
+}
+// Lista de emojis para elegir a mano
+var EMOJIS_PRODUCTO=['📦','📱','📺','❄️','🧺','🍲','🍳','🔊','🎧','🌀','🌬️','🔥','☕','🥤','👕','🧹','🍟','🚿','💻','⌚','🛏️','🚲','💇','⚖️','🔧','🐾'];
+
 function renderCatalogo(){
   const cont=document.getElementById('listaCatalogo'); if(!cont) return;
   const q=(document.getElementById('searchProd')?.value||'').toLowerCase().trim();
@@ -3409,8 +3481,8 @@ function renderCatalogo(){
   prods.sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
   cont.innerHTML=`<div class="sec-title">📦 Productos (${prods.length})</div>`+prods.map(p=>`
     <div class="list-item" onclick="formProducto('${p.id}')">
-      <div class="avatar" style="background:${nombreColor(p.mayorista||'?')}">${initials(p.nombre||'?')}</div>
-      <div class="li-info"><div class="li-name">${p.nombre}${p.memoria?` · ${p.memoria}`:''}${p.modelo?` <span style="color:var(--muted);font-weight:600;font-size:11px;">(${p.modelo})</span>`:''}</div><div class="li-meta">${p.categoria?'📁 '+p.categoria+' · ':''}${p.mayorista?'🏭 '+p.mayorista+' · ':''}${(p.venta||0)>0?'Venta: $'+fmt(p.venta)+' · ':''}Costo: $${fmt(p.costo||0)}</div></div>
+      <div class="prod-emoji">${emojiProducto(p)}</div>
+      <div class="li-info"><div class="li-name">${p.nombre}${p.memoria?` · ${p.memoria}`:''}${p.modelo?` <span style="color:var(--muted);font-weight:600;font-size:11px;">(${p.modelo})</span>`:''}</div><div class="li-meta">${p.categoria?p.categoria+' · ':''}${(p.venta||0)>0?'$'+fmt(p.venta):'<span style="color:var(--muted);">sin precio</span>'}</div></div>
       <div class="li-right" style="display:flex;gap:10px;align-items:center;">
         <div class="li-tag" style="color:var(--green);font-size:18px;" onclick="event.stopPropagation();enviarPrecioProducto('${p.id}')">📲</div>
         <div class="li-tag" style="color:var(--red);" onclick="event.stopPropagation();delProductoUI('${p.id}')">🗑️</div>
@@ -3432,6 +3504,19 @@ function enviarPrecioProducto(id){
     <button class="btn btn-green" onclick="window.open('https://wa.me/?text='+encodeURIComponent(\`${msg.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`),'_blank')">📲 Enviar por WhatsApp</button>
     <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--orange);" onclick="copiarTexto(\`${msg.replace(/`/g,'\\\`').replace(/"/g,'&quot;')}\`,this)">📋 Copiar</button>`);
 }
+function elegirEmojiProd(e){
+  document.getElementById('pr_emoji').value=e;
+  document.querySelectorAll('#emojiPicker .emoji-op').forEach(b=>b.classList.toggle('sel', b.textContent===e));
+}
+function actualizarEmojiPreview(){
+  // si el usuario no eligió emoji a mano, previsualizar el automático según categoría
+  const emojiActual=document.getElementById('pr_emoji').value;
+  if(emojiActual) return; // ya eligió uno, no piso su elección
+  const cat=document.getElementById('pr_categoria').value;
+  const nom=document.getElementById('pr_nombre')?document.getElementById('pr_nombre').value:'';
+  const e=emojiProducto({categoria:cat, nombre:nom});
+  document.querySelectorAll('#emojiPicker .emoji-op').forEach(b=>b.classList.toggle('sel', b.textContent===e));
+}
 function formProducto(id){
   const p = id ? DB.productos.find(x=>x.id===id) : {};
   const mayoristas=(DB.mayoristas&&DB.mayoristas.length)?DB.mayoristas.slice():['Stagliano','MEGA','Flor Electro Impacto','New Red','ATTAIN','WOMEN'];
@@ -3439,8 +3524,11 @@ function formProducto(id){
   const memorias=['','64GB','128GB','256GB','512GB','1TB'];
   openModal(`<div class="modal-title">${id?'Editar':'Nuevo'} producto</div><div class="modal-sub">Catálogo para cargar más rápido</div>
     <div class="field"><label>Nombre del producto *</label><input id="pr_nombre" value="${(p.nombre||'').replace(/"/g,'&quot;')}" placeholder="Ej: Moto G15"></div>
-    <div class="field"><label>Categoría <span style="color:var(--muted);font-weight:400;">(ej: Heladeras, TV)</span></label><input id="pr_categoria" list="catlist" value="${(p.categoria||'').replace(/"/g,'&quot;')}" placeholder="Ej: Calefacción">
+    <div class="field"><label>Categoría <span style="color:var(--muted);font-weight:400;">(ej: Heladeras, TV)</span></label><input id="pr_categoria" list="catlist" value="${(p.categoria||'').replace(/"/g,'&quot;')}" placeholder="Ej: Calefacción" oninput="actualizarEmojiPreview()">
       <datalist id="catlist">${[...new Set(DB.productos.map(x=>x.categoria).filter(Boolean))].map(c=>`<option value="${c}">`).join('')}</datalist></div>
+    <div class="field"><label>Ícono del producto <span style="color:var(--muted);font-weight:400;">(se pone solo, podés cambiarlo)</span></label>
+      <div id="emojiPicker" style="display:flex;flex-wrap:wrap;gap:6px;">${EMOJIS_PRODUCTO.map(e=>`<button type="button" class="emoji-op${(p.emoji||emojiProducto(p))===e?' sel':''}" onclick="elegirEmojiProd('${e}')">${e}</button>`).join('')}</div>
+      <input type="hidden" id="pr_emoji" value="${p.emoji||''}"></div>
     <div class="field"><label>Modelo <span style="color:var(--muted);font-weight:400;">(código del mayorista)</span></label><input id="pr_modelo" value="${(p.modelo||'').replace(/"/g,'&quot;')}" placeholder="Ej: DL1500"></div>
     <div class="field"><label>Memoria <span style="color:var(--muted);font-weight:400;">(celulares)</span></label>
       <select id="pr_mem">${memorias.map(m=>`<option value="${m}" ${p.memoria===m?'selected':''}>${m||'— sin memoria —'}</option>`).join('')}</select></div>
@@ -3457,6 +3545,7 @@ async function saveProducto(id){
   const data={ id: id||('p'+Date.now()), nombre,
     categoria:document.getElementById('pr_categoria')?document.getElementById('pr_categoria').value.trim():'',
     modelo:document.getElementById('pr_modelo')?document.getElementById('pr_modelo').value.trim():'',
+    emoji:document.getElementById('pr_emoji')?document.getElementById('pr_emoji').value:'',
     memoria:document.getElementById('pr_mem').value,
     venta:+document.getElementById('pr_venta').value||0,
     costo:+document.getElementById('pr_costo').value||0,
