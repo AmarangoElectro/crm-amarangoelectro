@@ -128,6 +128,28 @@
   .card{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--blue);border-right:3px solid var(--orange);border-radius:16px;padding:16px;box-shadow:0 4px 16px rgba(11,45,107,.05);margin-bottom:10px;}
   .list-item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--card);border:1px solid var(--border);border-left:3px solid var(--blue);border-right:3px solid var(--orange);border-radius:15px;box-shadow:0 3px 12px rgba(11,45,107,.05);margin-bottom:8px;cursor:pointer;transition:transform .1s;}
   .list-item:active{transform:scale(.98);}
+  /* ===== TARJETAS DE CLIENTES ESTILO TRELLO (dos por fila, franja de color arriba) ===== */
+  .cli-lista{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:2px;align-items:start;}
+  .cli-card2{background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 12px rgba(11,45,107,.09);border:1px solid rgba(11,45,107,.06);}
+  .cli-franja{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:9px 12px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .cli-franja:active{filter:brightness(.94);}
+  .cli-franja-nom{color:#fff;font-weight:800;font-size:13px;text-shadow:0 1px 2px rgba(0,0,0,.15);word-break:break-word;line-height:1.2;}
+  .cli-franja-alerta{color:#fff;font-size:9.5px;font-weight:800;background:rgba(255,255,255,.22);padding:2px 7px;border-radius:20px;white-space:nowrap;flex-shrink:0;}
+  .cli-body{padding:10px 14px 8px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+  .cli-body:active{background:rgba(11,45,107,.03);}
+  .cli-body-prod{font-size:13px;color:var(--blue);font-weight:700;word-break:break-word;}
+  .cli-body-debe{font-size:12px;font-weight:800;color:#c62828;margin-top:3px;}
+  .cli-body-debe.ok{color:#2e7d32;}
+  .cli-cajon-btn{padding:9px 14px;font-size:12.5px;font-weight:800;color:var(--muted);border-top:1px dashed rgba(11,45,107,.12);cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;}
+  .cli-cajon-btn:active{background:rgba(11,45,107,.04);}
+  .cli-cajon{padding:4px 14px 12px;background:#f7faff;}
+  .cli-det-row{padding:8px 0;border-bottom:1px solid rgba(11,45,107,.06);}
+  .cli-det-row:last-child{border-bottom:none;}
+  .cli-det-prod{font-size:13px;font-weight:700;color:var(--blue);}
+  .cli-det-info{font-size:11.5px;color:var(--muted);margin-top:2px;}
+  .cli-det-est{font-weight:800;padding:1px 6px;border-radius:10px;margin-left:4px;}
+  .cli-det-est.rojo{background:#ffebee;color:#c62828;}
+  .cli-det-est.verde{background:#e8f5e9;color:#2e7d32;}
   .avatar{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;font-size:16px;background:var(--blue);overflow:hidden;text-transform:uppercase;letter-spacing:.5px;}
   .li-info{flex:1;min-width:0;}
   .li-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -933,7 +955,11 @@ const DB = {
   async upsertCliente(c){
     if(CLOUD){
       const { error } = await sb.from('clientes').upsert(c);
-      if(error){ alert('❌ No se pudo guardar el cliente en la nube:\n\n'+error.message+'\n\n(Se guardó solo en este celular)'); console.error('upsertCliente:', error); }
+      if(error){
+        const detalle=(error.message||'')+(error.details?' · '+error.details:'')+(error.hint?' · '+error.hint:'');
+        console.error('upsertCliente:', detalle, error);
+        alert('❌ No se pudo guardar el cliente en la nube:\n\n'+detalle+'\n\n(Se guardó en este celular igual)');
+      }
     }
     this.saveLocal();
   },
@@ -1736,30 +1762,63 @@ function amaraResponder(txt){
   }
 
   // ========== CELULAR ESPECÍFICO POR NOMBRE (ej "A56", "Moto G15", "note 14") ==========
-  // si menciona un modelo puntual, mostrar SOLO ese con specs + botones Enviar/Copiar
+  // Reconoce el CÓDIGO del modelo como unidad (a56, g15, note14) para no partir los números.
   {
     const celusAll=(DB.productos||[]).filter(p=>p.categoria==='celular' && (p.venta||p.usd));
     if(celusAll.length && !det_e.valor){
-      // normalizar la búsqueda del usuario
-      const q=amaraNorm(txt).replace(/tenes|tienen|tenés|hay|stock|precio|cuanto|cuánto|sale|vale|de|el|la|un|una|quiero|busco|dame|pasame|mostrame|info|caracteristicas|características|\?/g,' ').replace(/\s+/g,' ').trim();
-      if(q.length>=2){
-        // buscar celu cuyo nombre contenga la búsqueda (o al revés), tolerante
-        const qc=q.replace(/\s+/g,'');
-        let match=celusAll.filter(p=>{
-          const n=amaraNorm(p.nombre).replace(/\s+/g,'');
-          return n.indexOf(qc)>=0 || qc.indexOf(n)>=0 || amaraNorm(p.nombre).split(' ').some(w=>w.length>=3 && q.split(' ').includes(w));
+      // saco palabras de relleno y dejo la consulta limpia
+      let q=amaraNorm(txt).replace(/tenes|tienen|tenés|hay|stock|precio|cuanto|cuánto|sale|vale|quiero|busco|dame|pasame|mostrame|info|el|la|un|una|de|por|favor|caracteristicas|características|\?/g,' ').replace(/\s+/g,' ').trim();
+      // saca "samsung galaxy" redundante para quedarnos con el código (a56)
+      // extrae los "códigos de modelo": letra(s)+número pegados (a56, g15, s26), o note/edge/hot + número
+      const extraerCodigos=(s)=>{
+        s=s.replace(/\s+/g,' ');
+        const codes=[];
+        // note 14, edge 60, hot 60, zero flip → junta la palabra clave con el número
+        const rex1=/(note|edge|hot|smart|zero|gt|reno|redmi|poco)\s*([a-z]?\d+\s*(pro\+?|ultra|plus|max|fusion)?)/gi;
+        let m; while((m=rex1.exec(s))){ codes.push((m[1]+m[2]).replace(/\s+/g,'')); }
+        // códigos tipo a56, g15, s26, m7, c75, e15 (letra(s) + número, no precedidos de dígito)
+        const rex2=/\b([a-z]{1,3}\d{1,3}[a-z]?(\+|pro\+?|ultra|plus|max)?)\b/gi;
+        while((m=rex2.exec(s))){ codes.push(m[1].replace(/\s+/g,'')); }
+        // iphone 13, iphone 16 pro max
+        const rex3=/iphone\s*(\d{1,2}\s*(pro\s*max|pro|plus)?)/gi;
+        while((m=rex3.exec(s))){ codes.push(('iphone'+m[1]).replace(/\s+/g,'')); }
+        return [...new Set(codes)];
+      };
+      const codigosQ=extraerCodigos(q);
+      // función: saca los códigos del NOMBRE de cada celu (para comparar unidad con unidad)
+      const codigosDe=(nombre)=>extraerCodigos(amaraNorm(nombre));
+
+      if(codigosQ.length){
+        // ¿parece que el usuario está pidiendo un celu? (algún código detectado)
+        // busco celus cuyo código coincida EXACTO con alguno de la consulta
+        const norm=s=>s.replace(/\s+/g,'').toLowerCase();
+        let exactos=celusAll.filter(p=>{
+          const cs=codigosDe(p.nombre).map(norm);
+          return codigosQ.some(cq=>cs.includes(norm(cq)));
         });
-        // priorizar coincidencia más exacta (nombre más corto que contiene la búsqueda)
-        if(match.length){
-          match.sort((a,b)=>a.nombre.length-b.nombre.length);
-          // si hay una coincidencia clara (el modelo aparece tal cual), mostrar ese
-          const elegido=match[0];
-          const soloModelo=/^[a-z]{0,10}\s*\d/i.test(q) || q.split(' ').length<=3;
-          if(soloModelo){
-            mostrarCeluAmara(elegido, match.length>1?match.slice(1,5):[]);
+        // agrupar por MODELO (sin la memoria) para no repetir el mismo modelo por cada memoria
+        const modeloBase=(nombre)=>amaraNorm(nombre).replace(/\d+\s*\/\s*\d+\s*(gb|g)?/g,'').replace(/\d+\s*gb/g,'').replace(/\s+/g,' ').trim();
+        if(exactos.length){
+          // ¿son todos el mismo modelo (distintas memorias)? entonces mostrar el primero directo
+          const modelos=[...new Set(exactos.map(p=>modeloBase(p.nombre)))];
+          if(modelos.length===1){
+            // un solo modelo, mostrarlo (elijo el de menor precio como referencia)
+            exactos.sort((a,b)=>(a.venta||0)-(b.venta||0));
+            mostrarCeluAmara(exactos[0], []);
             return;
           }
+          // varios modelos distintos coinciden → lista corta para elegir
+          const primeros=exactos.slice(0,6);
+          let html=`Encontré varios que coinciden con <b>"${q}"</b>. ¿Cuál te muestro? 🐝`;
+          amaraBot(html);
+          primeros.forEach(p=>{
+            amaraAccion('📱 '+p.nombre+' — $'+fmt(p.venta), ()=>{ mostrarCeluAmara(p, []); });
+          });
+          return;
         }
+        // no hubo match exacto de código → aviso corto (no traigo cualquier cosa)
+        amaraBot(`No encontré un celu que coincida con <b>"${q}"</b>. 🤔 Probá con el modelo tal cual, ej: <i>"A56"</i>, <i>"Moto G15"</i> o <i>"Note 14"</i>. 🐝`);
+        return;
       }
     }
   }
@@ -2558,6 +2617,64 @@ function setModoCli(m){
   document.getElementById('cliSearchBox').style.display = m==='todos'?'flex':'none';
   renderClientes();
 }
+// Estado de pago del cliente mirando todas sus ventas: rojo atrasado, amarillo vence pronto, verde al día
+function estadoCliente(cliId){
+  const vs=DB.ventas.filter(v=>v.clienteId===cliId);
+  if(!vs.length) return {cls:'gris', label:'Sin ventas', dias:null};
+  let atrasado=false, vencePronto=false, diaMin=null;
+  vs.forEach(v=>{
+    const px=proxVencimiento(v);
+    if(!px) return;
+    const venc=parseD(px.vence), hoy=today();
+    const dias=Math.round((venc-hoy)/(1000*60*60*24));
+    if(venc<hoy) atrasado=true;
+    else if(dias<=3) vencePronto=true;
+    if(diaMin===null || dias<diaMin) diaMin=dias;
+  });
+  if(atrasado) return {cls:'rojo', label:'Atrasado', dias:diaMin};
+  if(vencePronto) return {cls:'amarillo', label:'Vence pronto', dias:diaMin};
+  const algunaPend=vs.some(v=>proxVencimiento(v));
+  return algunaPend ? {cls:'verde', label:'Al día', dias:diaMin} : {cls:'verde', label:'Pagado', dias:null};
+}
+// Cuánto debe el cliente en total (suma de cuotas impagas)
+function deudaCliente(cliId){
+  const vs=DB.ventas.filter(v=>v.clienteId===cliId);
+  let debe=0;
+  vs.forEach(v=>{ ventaCuotas(v).forEach(c=>{ if(!c.pagada) debe+=(c.monto||0); }); });
+  return debe;
+}
+// El producto que está por vencer primero (o el primero que tenga)
+function productoAVencer(cliId){
+  const vs=DB.ventas.filter(v=>v.clienteId===cliId);
+  let mejor=null, fechaMin=null;
+  vs.forEach(v=>{
+    const px=proxVencimiento(v);
+    if(px){
+      const f=parseD(px.vence);
+      if(fechaMin===null || f<fechaMin){ fechaMin=f; mejor=v; }
+    }
+  });
+  if(mejor) return mejor.producto||'Producto';
+  return vs.length?(vs[0].producto||'Producto'):'—';
+}
+// Detalle de cada venta del cliente para el cajón (producto + cuotas + fecha + estado)
+function detalleVentasCliente(cliId){
+  const vs=DB.ventas.filter(v=>v.clienteId===cliId);
+  return vs.map(v=>{
+    const px=proxVencimiento(v);
+    let estado, cls;
+    if(!px){ estado='✅ Pagado'; cls='verde'; }
+    else {
+      const venc=parseD(px.vence), hoy=today();
+      if(venc<hoy){ estado='🔴 Debe'; cls='rojo'; }
+      else { estado='🟢 Al día'; cls='verde'; }
+    }
+    const cuotasTxt = v.cuotas>1 ? `${v.cuotas} cuotas` : 'Contado';
+    const fechaTxt = px ? dispDate(px.vence) : (v.fecha?dispDate(v.fecha):'');
+    return { producto:v.producto||'Producto', cuotasTxt, fechaTxt, estado, cls };
+  });
+}
+
 function renderClientes(){
   const cont=document.getElementById('listaClientes');
   if(modoCli==='vip'){ renderClientesVip(cont); return; }
@@ -2565,17 +2682,53 @@ function renderClientes(){
   let cs=clientesAmbito().filter(c=>c.nombre.toLowerCase().includes(q)||(c.telefono||'').includes(q)||(c.dni||'').includes(q));
   cs.sort((a,b)=>a.nombre.localeCompare(b.nombre));
   if(!cs.length){ cont.innerHTML=emptyState('👥','Sin clientes','Tocá el + para agregar el primero'); return; }
-  cont.innerHTML=cs.map(c=>{
-    const cal=calificar(c.id); const nv=DB.ventas.filter(v=>v.clienteId===c.id).length;
+  cont.innerHTML='<div class="cli-lista">'+cs.map(c=>{
+    const est=estadoCliente(c.id);
+    const nv=DB.ventas.filter(v=>v.clienteId===c.id).length;
+    const prodVenc=productoAVencer(c.id);
+    const debe=deudaCliente(c.id);
     const vip=nivelVIP(c.id);
-    // color del avatar = color del responsable (Maxi azul, Angela naranja, otro su color)
-    const avCol=colorResponsable(c);
-    return `<div class="list-item" onclick="detalleCliente('${c.id}')">
-      <div class="avatar" style="background:${avCol}">${initials(c.nombre)}</div>
-      <div class="li-info"><div class="li-name">${c.nombre} ${vip?vip.ico:''}</div><div class="li-meta">${c.localidad||'—'} · ${nv} compra${nv!==1?'s':''}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:3px;font-size:11px;">${chipNombre(c.responsable,'resp')}${chipNombre(c.inversionista,'inv')}${chipNombre(c.revendedor,'rev')}</div></div>
-      <div class="li-right"><span class="rating-pill rp-${cal.cls}">${cal.ico} ${cal.label}</span></div></div>`;
-  }).join('');
+    // color de la franja según estado
+    const colorFranja = est.cls==='rojo'?'#e53935' : est.cls==='amarillo'?'#f5a623' : est.cls==='verde'?'#43a047' : '#94a3b8';
+    // detalle para el cajón
+    const dets=detalleVentasCliente(c.id);
+    const cajonHtml = dets.length ? dets.map(d=>
+      `<div class="cli-det-row">
+        <div class="cli-det-prod">📦 ${d.producto}</div>
+        <div class="cli-det-info">${d.cuotasTxt}${d.fechaTxt?' · '+d.fechaTxt:''} <span class="cli-det-est ${d.cls}">${d.estado}</span></div>
+      </div>`
+    ).join('') : '<div class="cli-det-row" style="color:var(--muted);">Sin ventas cargadas</div>';
+    // texto de alerta a la derecha de la franja
+    let alertaTxt='';
+    if(est.cls==='rojo') alertaTxt='🔴 Atrasado';
+    else if(est.cls==='amarillo') alertaTxt=(est.dias===0?'🟡 Vence hoy':'🟡 Vence '+est.dias+'d');
+    else if(est.label==='Pagado') alertaTxt='✅ Pagado';
+    else if(est.cls==='verde') alertaTxt='🟢 Al día';
+    return `<div class="cli-card2">
+      <div class="cli-franja" style="background:${colorFranja};" onclick="detalleCliente('${c.id}')">
+        <span class="cli-franja-nom">${c.nombre} ${vip?vip.ico:''}</span>
+        <span class="cli-franja-alerta">${alertaTxt}</span>
+      </div>
+      <div class="cli-body" onclick="detalleCliente('${c.id}')">
+        <div class="cli-body-prod">📦 ${prodVenc}${nv>1?` <span style="color:var(--muted);">+${nv-1} más</span>`:''}</div>
+        ${debe>0?`<div class="cli-body-debe">Debe: $${fmt(debe)}</div>`:`<div class="cli-body-debe ok">Sin deuda</div>`}
+      </div>
+      <div class="cli-cajon-btn" onclick="toggleCajon('${c.id}',event)">
+        <span id="cajflecha-${c.id}">▾</span> Ver detalle
+      </div>
+      <div class="cli-cajon" id="cajon-${c.id}" style="display:none;">${cajonHtml}</div>
+    </div>`;
+  }).join('')+'</div>';
+}
+// abre/cierra el cajón de una tarjeta sin entrar al cliente
+function toggleCajon(cliId, ev){
+  if(ev){ ev.stopPropagation(); }
+  const caj=document.getElementById('cajon-'+cliId);
+  const fl=document.getElementById('cajflecha-'+cliId);
+  if(!caj) return;
+  const abierto=caj.style.display!=='none';
+  caj.style.display=abierto?'none':'block';
+  if(fl) fl.textContent=abierto?'▾':'▴';
 }
 // color del cuadradito de iniciales según el responsable
 function colorResponsable(c){
