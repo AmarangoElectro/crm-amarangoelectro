@@ -251,6 +251,10 @@
   .modal-bg{position:fixed;inset:0;background:rgba(11,45,107,.45);z-index:100;display:none;align-items:flex-end;backdrop-filter:blur(2px);}
   .modal-bg.show{display:flex;}
   .modal{background:#fff;width:100%;max-height:92vh;border-radius:22px 22px 0 0;padding:8px 18px 90px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;animation:slideUp .3s ease;}
+  /* barra superior del modal con Atrás + Guardar, fija arriba y siempre visible */
+  .modal-topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;margin:0 -18px 8px;padding:6px 18px 10px;border-bottom:1px solid rgba(0,0,0,.06);}
+  .modal-save-top{background:var(--orange);color:#fff;border:none;border-radius:20px;padding:10px 20px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(255,122,0,.3);-webkit-tap-highlight-color:transparent;}
+  .modal-save-top:active{transform:scale(.95);}
   /* botón guardar fijo abajo del modal, siempre visible y alcanzable */
   .btn-guardar-fijo{position:sticky;bottom:0;margin:14px -18px -90px;padding:14px 18px calc(18px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid rgba(0,0,0,.08);box-shadow:0 -4px 14px rgba(11,45,107,.1);z-index:5;}
   .btn-guardar-fijo .btn{margin:0;width:100%;}
@@ -2110,7 +2114,18 @@ function amaraBuscarClientes(txt){
 }
 
 /* ============ MODAL ============ */
-function openModal(html){ document.getElementById('modal').innerHTML='<div class="modal-handle"></div><button class="modal-back" onclick="closeModal()">← Atrás</button>'+html; document.getElementById('modalBg').classList.add('show'); empujarHistorial(); }
+// openModal(html) normal. openModal(html, {onGuardar:'nombreFuncion(args)', textoGuardar:'💾 Guardar'})
+// muestra un botón Guardar ARRIBA, al lado de Atrás, siempre visible.
+function openModal(html, opts){
+  opts=opts||{};
+  var barra='<div class="modal-topbar"><button class="modal-back" onclick="closeModal()">← Atrás</button>';
+  if(opts.onGuardar){
+    barra+='<button class="modal-save-top" onclick="'+opts.onGuardar+'">'+(opts.textoGuardar||'💾 Guardar')+'</button>';
+  }
+  barra+='</div>';
+  document.getElementById('modal').innerHTML='<div class="modal-handle"></div>'+barra+html;
+  document.getElementById('modalBg').classList.add('show'); empujarHistorial();
+}
 function closeModal(){ document.getElementById('modalBg').classList.remove('show'); }
 /* Acordeón reutilizable: pliega/despliega un cajón por su id. Devuelve el HTML del encabezado clickeable. */
 function cajonHeader(idCajon, titulo, abiertoPorDefecto){
@@ -3148,7 +3163,8 @@ function formProducto(id){
     <div class="field"><label>Costo ($) <span style="color:var(--muted);font-weight:400;">(privado)</span></label><input id="pr_costo" type="number" inputmode="numeric" value="${p.costo||''}" placeholder="0"></div>
     <div class="field"><label>Mayorista</label><input id="pr_may" list="maylist" value="${(p.mayorista||'').replace(/"/g,'&quot;')}" placeholder="Ej: Stagliano">
       <datalist id="maylist">${datalist.map(m=>`<option value="${m}">`).join('')}</datalist></div>
-    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="saveProducto('${id||''}')">💾 Guardar producto</button></div>`);
+    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="saveProducto('${id||''}')">💾 Guardar producto</button></div>`,
+    {onGuardar:`saveProducto('${id||''}')`, textoGuardar:'💾 Guardar'});
 }
 async function saveProducto(id){
   const nombre=document.getElementById('pr_nombre').value.trim();
@@ -3183,7 +3199,8 @@ function abrirImportarLista(){
     <div class="field"><label>Mayorista para todos</label><input id="imp_may" value="Stagliano" placeholder="Ej: Stagliano"></div>
     <div class="field"><label>Pegá la lista acá</label>
       <textarea id="imp_texto" rows="10" placeholder="Calefacción - DL1500&#10;Heladeras - FR2500&#10;TV - SD16T" style="width:100%;font-family:monospace;font-size:13px;"></textarea></div>
-    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="procesarImportarLista()">📥 Importar al catálogo</button></div>`);
+    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="procesarImportarLista()">📥 Importar al catálogo</button></div>`,
+    {onGuardar:'procesarImportarLista()', textoGuardar:'📥 Importar'});
 }
 async function procesarImportarLista(){
   const txt=document.getElementById('imp_texto').value||'';
@@ -3256,7 +3273,8 @@ function abrirImportarSpecs(){
     </div>
     <div class="field"><label>Pegá los datos acá</label>
       <textarea id="specs_texto" rows="12" placeholder="Samsung Galaxy A05&#10;&#10;Memorias:&#10;• 64 GB / 4 GB RAM&#10;&#10;Características principales:&#10;• Pantalla...&#10;• Procesador...&#10;-----" style="width:100%;font-family:monospace;font-size:12px;"></textarea></div>
-    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="procesarImportarSpecs()">📥 Guardar características</button></div>`);
+    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="procesarImportarSpecs()">📥 Guardar características</button></div>`,
+    {onGuardar:'procesarImportarSpecs()', textoGuardar:'📥 Guardar'});
 }
 function procesarImportarSpecs(){
   const txt=document.getElementById('specs_texto').value||'';
@@ -4540,7 +4558,8 @@ function formCliente(edit){
     <div class="field-row"><div class="field"><label>Cliente de revendedor <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="f_revend" value="${c.revendedor||''}" placeholder="Nombre revendedor"></div>
     <div class="field"><label>Inversionista <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="f_inver" value="${c.inversionista||''}" placeholder="Nombre"></div></div>
     <div class="field"><label>Observaciones</label><textarea id="f_obs" placeholder="Notas...">${c.observaciones||''}</textarea></div>
-    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="saveCliente('${edit?edit.id:''}')">💾 Guardar cliente</button></div>`);
+    <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="saveCliente('${edit?edit.id:''}')">💾 Guardar cliente</button></div>`,
+    {onGuardar:`saveCliente('${edit?edit.id:''}')`, textoGuardar:'💾 Guardar'});
 }
 async function saveCliente(id){
   const nombre=document.getElementById('f_nombre').value.trim();
@@ -4621,7 +4640,8 @@ function formVenta(preCliente){
       </label>
       <div id="v_pagadoInfo" style="font-size:11px;color:var(--muted);margin-top:6px;display:none;">Se va a registrar como pagada (todas las cuotas marcadas). Podés cambiarlo después desde el detalle.</div>
     </div>
-    <button class="btn btn-orange" onclick="saveVenta()">💾 Registrar venta</button>`);
+    <button class="btn btn-orange" onclick="saveVenta()">💾 Registrar venta</button>`,
+    {onGuardar:'saveVenta()', textoGuardar:'💾 Guardar'});
   renderItems();
   renderInversoresForm();
 }
