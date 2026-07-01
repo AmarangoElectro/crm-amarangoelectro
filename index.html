@@ -204,10 +204,21 @@
   .amara-send{background:var(--blue);color:#fff;border:none;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
   .amara-send:active{transform:scale(.92);}
 
-  .nav{position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.82);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-top:1px solid rgba(0,0,0,.06);display:flex;justify-content:space-around;padding:6px 4px 10px;z-index:55;box-shadow:0 -2px 14px rgba(11,45,107,.05);}
-  .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;flex:1;padding:12px 2px;min-height:66px;border-radius:12px;color:var(--muted);-webkit-tap-highlight-color:rgba(255,122,0,.18);touch-action:manipulation;position:relative;z-index:1;}
-  .nav-item:active{background:rgba(255,122,0,.1);transform:scale(.96);}
+  .nav{position:fixed;bottom:0;left:0;right:0;background:#ffffff;border-top:1px solid rgba(0,0,0,.08);display:flex;justify-content:space-around;padding:6px 4px 10px;z-index:200;box-shadow:0 -2px 14px rgba(11,45,107,.08);touch-action:manipulation;}
+  .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;flex:1;padding:12px 2px;min-height:66px;border-radius:12px;color:var(--muted);-webkit-tap-highlight-color:rgba(255,122,0,.18);touch-action:manipulation;position:relative;z-index:1;user-select:none;-webkit-user-select:none;}
+  .nav-item:active{transform:scale(.92);}
+  .nav-item *{pointer-events:none;}
   .nav-item.active{color:var(--orange);}
+  /* botón activo: círculo con anillo azul-naranja alrededor del ícono (como la abeja) */
+  .nav-item.active .nav-ico{
+    background:#fff;
+    border-radius:50%;
+    padding:9px;
+    box-shadow:0 0 0 2.5px var(--blue), 0 0 0 5px var(--orange), 0 4px 10px rgba(11,45,107,.28);
+    margin-top:-16px;
+    transition:all .18s ease;
+  }
+  .nav-item.active .nav-lbl{font-weight:800;color:var(--blue);}
   .nav-ico{font-size:24px;line-height:1;}
   .nav-lbl{font-size:10px;font-weight:700;}
   .planilla-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid var(--border);background:#fff;margin-bottom:14px;}
@@ -481,6 +492,7 @@
       <button class="fin-menu-btn" onclick="abrirSeccionFin('respuestas')"><span class="fmb-ico">💬</span><span class="fmb-txt">Respuestas<br><small>listas para WhatsApp</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('finanzas')"><span class="fmb-ico">📊</span><span class="fmb-txt">Resumen<br><small>del negocio</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('persona')"><span class="fmb-ico">👤</span><span class="fmb-txt">Por persona<br><small>ventas de cada uno</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('planilla')"><span class="fmb-ico">📋</span><span class="fmb-txt">Planilla<br><small>tablero mes a mes</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('inv')"><span class="fmb-ico">💼</span><span class="fmb-txt">Inversores<br><small>reparto</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('panel')"><span class="fmb-ico">📈</span><span class="fmb-txt">Panel<br><small>estadísticas</small></span></button>
     </div>
@@ -495,6 +507,7 @@
     <button class="seg-btn" id="modoCalcBtn" onclick="setModoFin('calc')">🧮 Calculadora</button>
     <button class="seg-btn" id="modoInvBtn" onclick="setModoFin('inv')">💼 Inversores</button>
     <button class="seg-btn" id="modoPersBtn" onclick="setModoFin('persona')">👤 Por persona</button>
+    <button class="seg-btn" id="modoPlanillaBtn" onclick="setModoFin('planilla')">📋 Planilla</button>
     <button class="seg-btn" id="modoCatBtn" onclick="setModoFin('catalogo')">📦 Catálogo</button>
     <button class="seg-btn" id="modoPlacaBtn" onclick="setModoFin('placas')">🎨 Placas</button>
     <button class="seg-btn" id="modoRespBtn" onclick="setModoFin('respuestas')">💬 Respuestas</button>
@@ -570,6 +583,10 @@
   <div id="bloqueRespuestas" style="display:none;">
     <div id="respuestasContent"></div>
   </div>
+  <div id="bloquePlanilla" style="display:none;">
+    <div class="seg" id="planillaMeses" style="margin-bottom:12px;flex-wrap:wrap;gap:5px;"></div>
+    <div id="planillaContent"></div>
+  </div>
 </div>
 
 <!-- Mini menú flotante (se despliega del botón abeja) -->
@@ -607,11 +624,11 @@
 </div>
 
 <div class="nav">
-  <button class="nav-item active" data-nav="inicio" onclick="go('inicio')"><span class="nav-ico" data-ico="home"></span><span class="nav-lbl">Inicio</span></button>
-  <button class="nav-item" data-nav="clientes" onclick="go('clientes')"><span class="nav-ico" data-ico="people"></span><span class="nav-lbl">Clientes</span></button>
-  <button class="nav-item" data-nav="ventas" onclick="go('ventas')"><span class="nav-ico" data-ico="cash"></span><span class="nav-lbl">Ventas</span></button>
-  <button class="nav-item" data-nav="cobranzas" onclick="go('cobranzas')"><span class="nav-ico" data-ico="calendar"></span><span class="nav-lbl">Cobranzas</span></button>
-  <button class="nav-item" data-nav="finanzas" onclick="go('finanzas')"><span class="nav-ico" data-ico="chart"></span><span class="nav-lbl">Finanzas</span></button>
+  <button class="nav-item active" data-nav="inicio"><span class="nav-ico" data-ico="home"></span><span class="nav-lbl">Inicio</span></button>
+  <button class="nav-item" data-nav="clientes"><span class="nav-ico" data-ico="people"></span><span class="nav-lbl">Clientes</span></button>
+  <button class="nav-item" data-nav="ventas"><span class="nav-ico" data-ico="cash"></span><span class="nav-lbl">Ventas</span></button>
+  <button class="nav-item" data-nav="cobranzas"><span class="nav-ico" data-ico="calendar"></span><span class="nav-lbl">Cobranzas</span></button>
+  <button class="nav-item" data-nav="finanzas"><span class="nav-ico" data-ico="chart"></span><span class="nav-lbl">Finanzas</span></button>
 </div>
 
 <div class="modal-bg" id="modalBg" onclick="if(event.target===this)closeModal()"><div class="modal" id="modal"></div></div>
@@ -1309,6 +1326,33 @@ function go(v){
   if(v==='finanzas' && !window._finAbrirSeccion){ if(typeof volverMenuFin==='function') volverMenuFin(); }
   window._finAbrirSeccion=false;
 }
+// ═══ Toque directo en la barra de abajo (reacciona al instante, sin toques perdidos) ═══
+(function engancharBarraNav(){
+  function enganchar(){
+    var barra=document.querySelector('.nav');
+    if(!barra)return;
+    barra.querySelectorAll('.nav-item').forEach(function(btn){
+      var destino=btn.getAttribute('data-nav');
+      if(!destino)return;
+      var yaFue=false;
+      // touchend = reacciona apenas levantás el dedo, sin esperar el "posible doble toque"
+      btn.addEventListener('touchend', function(ev){
+        ev.preventDefault();      // evita que dispare también el click (doble disparo)
+        ev.stopPropagation();
+        yaFue=true;
+        go(destino);
+        setTimeout(function(){yaFue=false;},400);
+      }, {passive:false});
+      // click de respaldo (para mouse / si el touchend no corre)
+      btn.addEventListener('click', function(ev){
+        if(yaFue)return;          // ya lo manejó el touchend
+        go(destino);
+      });
+    });
+  }
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',enganchar);}
+  else{enganchar();}
+})();
 function fabAction(){ if(currentView==='ventas'||currentView==='cobranzas') formVenta(); else formCliente(); }
 function toggleFabMenu(){
   const m=document.getElementById('fabMenu'), fab=document.getElementById('fab');
@@ -2796,6 +2840,7 @@ function setModoFin(m){
   const cb=document.getElementById('modoCatBtn'); if(cb) cb.classList.toggle('active', m==='catalogo');
   const pnb=document.getElementById('modoPanelBtn'); if(pnb) pnb.classList.toggle('active', m==='panel');
   const plb=document.getElementById('modoPlacaBtn'); if(plb) plb.classList.toggle('active', m==='placas');
+  const pllb=document.getElementById('modoPlanillaBtn'); if(pllb) pllb.classList.toggle('active', m==='planilla');
   const rsb=document.getElementById('modoRespBtn'); if(rsb) rsb.classList.toggle('active', m==='respuestas');
   document.getElementById('bloqueFinanzas').style.display = m==='finanzas'?'block':'none';
   document.getElementById('bloqueCalc').style.display = m==='calc'?'block':'none';
@@ -2804,6 +2849,7 @@ function setModoFin(m){
   const bc=document.getElementById('bloqueCatalogo'); if(bc) bc.style.display = m==='catalogo'?'block':'none';
   const bpn=document.getElementById('bloquePanel'); if(bpn) bpn.style.display = m==='panel'?'block':'none';
   const bpl=document.getElementById('bloquePlacas'); if(bpl) bpl.style.display = m==='placas'?'block':'none';
+  const bpll=document.getElementById('bloquePlanilla'); if(bpll) bpll.style.display = m==='planilla'?'block':'none';
   const brs=document.getElementById('bloqueRespuestas'); if(brs) brs.style.display = m==='respuestas'?'block':'none';
   if(m==='calc') renderCalc();
   if(m==='inv') renderInversores();
@@ -2811,6 +2857,7 @@ function setModoFin(m){
   if(m==='catalogo') renderCatalogo();
   if(m==='panel') renderPanel();
   if(m==='placas') renderPlacas();
+  if(m==='planilla') renderPlanillaMes();
   if(m==='respuestas') renderRespuestas();
 }
 let persSel=null;
@@ -2875,6 +2922,75 @@ function renderPorPersona(){
   cont.innerHTML=html;
 }
 function selPersona(p){ persSel=p; renderPorPersona(); }
+
+// ═══ PLANILLA MES A MES (tablero estilo Google Sheets, usa las ventas del CRM) ═══
+var planillaMesSel=null;
+var MESES_NOM=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function mesDeVenta(v){
+  // devuelve "AAAA-MM" de la fecha de la venta
+  var f=(v.fecha||'').slice(0,7);
+  return f || '';
+}
+function renderPlanillaMes(){
+  var vs=[...ventasAmbito()];
+  // meses disponibles (de las ventas que hay)
+  var meses={};
+  vs.forEach(function(v){ var m=mesDeVenta(v); if(m) meses[m]=true; });
+  var listaMeses=Object.keys(meses).sort().reverse(); // más nuevo primero
+  if(!listaMeses.length){
+    document.getElementById('planillaMeses').innerHTML='';
+    document.getElementById('planillaContent').innerHTML=emptyState('📋','Sin ventas cargadas','Cargá ventas y aparecen acá.');
+    return;
+  }
+  if(!planillaMesSel || listaMeses.indexOf(planillaMesSel)<0) planillaMesSel=listaMeses[0];
+  // botones de mes
+  var btns=document.getElementById('planillaMeses');
+  btns.innerHTML=listaMeses.map(function(m){
+    var partes=m.split('-'); var nom=MESES_NOM[parseInt(partes[1])-1]+' '+partes[0].slice(2);
+    var on=(m===planillaMesSel);
+    return '<button class="seg-btn'+(on?' active':'')+'" style="flex:0 0 auto;padding:8px 12px;" onclick="selPlanillaMes(\''+m+'\')">'+nom+'</button>';
+  }).join('');
+  // filtrar ventas del mes elegido, ordenadas por nombre de cliente
+  var delMes=vs.filter(function(v){return mesDeVenta(v)===planillaMesSel;});
+  delMes.sort(function(a,b){
+    var ca=(DB.clientes.find(function(c){return c.id===a.clienteId;})||{}).nombre||'';
+    var cb=(DB.clientes.find(function(c){return c.id===b.clienteId;})||{}).nombre||'';
+    return ca.localeCompare(cb);
+  });
+  var totalMonto=delMes.reduce(function(s,v){return s+(v.precioVenta||0);},0);
+  var partesMes=planillaMesSel.split('-');
+  var nombreMes=MESES_NOM[parseInt(partesMes[1])-1]+' '+partesMes[0];
+  var html='<div class="planilla-hint">← deslizá la tabla para ver todas las columnas →</div>';
+  html+='<div class="planilla-wrap"><table class="planilla">';
+  html+='<thead><tr><th>Nombre</th><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th></tr></thead><tbody>';
+  html+=delMes.map(function(v){
+    var cli=DB.clientes.find(function(c){return c.id===v.clienteId;})||{nombre:'?'};
+    var inv=(v.inversionista||'').trim();
+    if(!inv){ // por si están en el array de inversionistas
+      try{ var li=listaInversoresVenta(v).map(function(x){return x.nombre;}).filter(Boolean); inv=li.join('/'); }catch(e){}
+    }
+    return '<tr onclick="detalleVenta(\''+v.id+'\')" style="cursor:pointer;">'+
+      '<td>'+cli.nombre+'</td>'+
+      '<td><b>'+(v.producto||'')+'</b></td>'+
+      '<td class="col-num">'+(v.cuotas>1?'de '+v.cuotas:'Contado')+'</td>'+
+      '<td class="col-monto">$'+fmt(v.precioVenta||0)+'</td>'+
+      '<td>'+dispDate(v.fecha)+'</td>'+
+      '<td style="color:var(--orange);font-weight:700;">'+(inv||'—')+'</td>'+
+      '<td>'+(v.revendedor||'—')+'</td>'+
+    '</tr>';
+  }).join('');
+  html+='</tbody></table></div>';
+  // total abajo
+  html+='<div class="card" style="margin-top:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;background:var(--card);border:2px solid var(--blue);">'+
+    '<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;">Total '+nombreMes+'</div>'+
+    '<div style="font-size:24px;font-weight:800;color:var(--blue);">$'+fmt(totalMonto)+'</div></div>'+
+    '<div style="text-align:right;"><div style="font-size:22px;font-weight:800;color:var(--orange);">'+delMes.length+'</div>'+
+    '<div style="font-size:11px;color:var(--muted);font-weight:700;">'+(delMes.length===1?'venta':'ventas')+'</div></div>'+
+  '</div>';
+  document.getElementById('planillaContent').innerHTML=html;
+}
+function selPlanillaMes(m){ planillaMesSel=m; renderPlanillaMes(); }
+
 
 /* ============ CATÁLOGO DE PRODUCTOS ============ */
 /* ============ CARGAR LISTA DE CELULARES (reemplaza los viejos) ============ */
