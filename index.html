@@ -1011,9 +1011,14 @@ async function subirNube(tabla, dato){
   if(!CLOUD || !sb) return {ok:true};
   try{
     const { error } = await sb.from(tabla).upsert(dato);
-    if(error) return {ok:false, msg:(error.message||'')+(error.details?' · '+error.details:'')};
+    if(error){
+      const msg=(error.message||'')+(error.details?' · '+error.details:'')+(error.hint?' · '+error.hint:'');
+      // AVISO FUERTE para diagnóstico: mostramos el error real en pantalla
+      alert('⚠️ La nube rechazó el guardado en "'+tabla+'":\n\n'+msg+'\n\n(Se guardó en el celu, pero NO en la nube. Por eso al salir se pierde.)');
+      return {ok:false, msg};
+    }
     return {ok:true};
-  }catch(e){ return {ok:false, msg:'sin conexión'}; }
+  }catch(e){ return {ok:false, msg:'sin conexión: '+(e.message||e)}; }
 }
 // reintenta subir todo lo pendiente (se llama solo al volver la señal / al abrir)
 async function procesarPendientes(){
