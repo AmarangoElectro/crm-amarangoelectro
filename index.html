@@ -1027,11 +1027,17 @@ async function vaciarPendientesAtascados(){
 async function subirNube(tabla, dato){
   if(!CLOUD || !sb) return {ok:true};
   try{
-    const { error } = await sb.from(tabla).upsert(dato);
+    // .select() OBLIGA a Supabase a devolver la fila escrita. Si RLS bloquea en silencio,
+    // no vuelve ninguna fila -> lo detectamos como fallo (antes pasaba desapercibido).
+    const { data, error } = await sb.from(tabla).upsert(dato).select();
     if(error){
       const msg=(error.message||'')+(error.details?' · '+error.details:'')+(error.hint?' · '+error.hint:'');
-      // AVISO FUERTE para diagnóstico: mostramos el error real en pantalla
       alert('⚠️ La nube rechazó el guardado en "'+tabla+'":\n\n'+msg+'\n\n(Se guardó en el celu, pero NO en la nube. Por eso al salir se pierde.)');
+      return {ok:false, msg};
+    }
+    if(!data || !data.length){
+      const msg='La nube aceptó la conexión pero NO devolvió la fila guardada. Casi seguro son los PERMISOS (RLS) de la tabla "'+tabla+'": la clave pública no tiene permiso para escribir. Hay que activar las políticas de escritura en Supabase.';
+      alert('⚠️ No se pudo guardar en "'+tabla+'":\n\n'+msg);
       return {ok:false, msg};
     }
     return {ok:true};
