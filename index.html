@@ -6033,11 +6033,17 @@ function repartoInversores(v){
   });
   const mapa={};
   expand.forEach(x=>{ mapa[x.nombre]=(mapa[x.nombre]||0)+x.pct; });
+  // Cuota que paga el cliente (lo que realmente entra por cada cuota cobrada)
+  const _cuotaCliente = (v.tipo!=='prestamo' && _n>0)
+    ? ((v.montoCuota>0?v.montoCuota:(planCuotas(v.precioVenta||0,_n)[0]))||Math.round((v.precioVenta||0)/_n))
+    : Math.round((v.precioVenta||0)/_n);
   return Object.entries(mapa).map(([nombre,pct])=>({
     nombre, pct,
     puso: Math.round(costo*pct/100),
     ganancia: Math.round(gananciaTotal*pct/100),
-    recibe: Math.round(costo*pct/100)+Math.round(gananciaTotal*pct/100)
+    recibe: Math.round(costo*pct/100)+Math.round(gananciaTotal*pct/100),
+    // REGLA REAL DE MAX: cada cuota del cliente se reparte ENTERA según el %
+    recibePorCuota: Math.round(_cuotaCliente*pct/100)
   }));
 }
 /* ============ SOLICITUD DE INVERSIÓN ============ */
@@ -6131,7 +6137,7 @@ function bloquePagosTercerosHTML(v){
   // INVERSIONISTA
   if(hayInv){
     reparto.forEach((r,idx)=>{
-      const recibePorCuota = Math.round(r.recibe/nCuotas);
+      const recibePorCuota = r.recibePorCuota||Math.round(r.recibe/nCuotas);
       const debeAcum = recibePorCuota*cuotasCobradas;     // lo que le corresponde por lo cobrado hasta ahora
       const yaPagado = (v.pagoInv && v.pagoInv[r.nombre]) ? v.pagoInv[r.nombre] : 0; // cuántas cuotas ya le pagué
       const pagadoMonto = recibePorCuota*yaPagado;
@@ -6237,12 +6243,12 @@ function detalleVenta(id){
               <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:3px;">
                 <span>💰 Puso $${fmt(r.puso)}</span>
                 <span>📈 Gana $${fmt(r.ganancia)}</span>
-                <span>↩️ $${fmt(Math.round(r.recibe/v.cuotas))}/cuota</span>
+                <span>↩️ $${fmt(r.recibePorCuota||Math.round(r.recibe/v.cuotas))}/cuota</span>
               </div>
               <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:auto;padding:6px 12px;font-size:12px;" onclick="solicitudInversion('${v.id}','${r.nombre.replace(/'/g,"\\'")}')">📨 Solicitar inversión a ${r.nombre}</button>
             </div>`).join('')}
           <div style="font-size:11px;color:var(--muted);margin-top:8px;">Por cada cuota cobrada, repartís así:</div>
-          ${reparto.map(r=>`<div class="calc-line" style="font-size:12px;"><span class="cl-lbl" style="color:${nombreColor(r.nombre)};">${r.nombre}</span><span class="cl-val">$${fmt(Math.round(r.recibe/v.cuotas))}/cuota</span></div>`).join('')}
+          ${reparto.map(r=>`<div class="calc-line" style="font-size:12px;"><span class="cl-lbl" style="color:${nombreColor(r.nombre)};">${r.nombre}</span><span class="cl-val">$${fmt(r.recibePorCuota||Math.round(r.recibe/v.cuotas))}/cuota</span></div>`).join('')}
         </div>`;
     }
   }
@@ -6283,7 +6289,7 @@ function avisarInversoresCobro(v, numCuota){
     const cli=DB.clientes.find(c=>c.id===v.clienteId);
     const nomCli=cli?cli.nombre:'un cliente';
     reparto.forEach(r=>{
-      const porCuota = Math.round(r.recibe/(v.cuotas||1));
+      const porCuota = r.recibePorCuota||Math.round(r.recibe/(v.cuotas||1));
       AUDIT.registrar('cobró', 'inversion',
         `la cuota ${numCuota} de <b>${nomCli}</b> (${v.producto}). A <b>${r.nombre}</b> le corresponden <b>$${fmt(porCuota)}</b> de esa cuota.`);
     });
