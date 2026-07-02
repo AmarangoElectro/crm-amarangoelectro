@@ -319,13 +319,13 @@
   .amara-send{background:var(--blue);color:#fff;border:none;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
   .amara-send:active{transform:scale(.92);}
 
-  .nav{position:fixed;bottom:0;left:0;right:0;background:#ffffff;border-top:1px solid rgba(0,0,0,.08);display:flex;justify-content:space-around;padding:6px 4px 10px;z-index:200;box-shadow:0 -2px 14px rgba(11,45,107,.08);touch-action:manipulation;}
+  .nav{position:fixed;bottom:0;left:0;right:0;background:#ffffff;border-top:1px solid rgba(0,0,0,.08);display:flex;justify-content:space-around;padding:6px 4px 10px;z-index:200;box-shadow:0 -2px 14px rgba(11,45,107,.08);touch-action:none;}
   body.dark .topbar{background:#010409 !important;border-bottom:1px solid #30363d;box-shadow:none;}
   body.dark .nav{background:#010409;border-top:1px solid #30363d;}
   body.dark .nav-item{color:var(--muted);}
   body.dark .nav-item.active{color:var(--orange);}
   body.dark .nav-item.active .nav-lbl{color:var(--orange);}
-  .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;flex:1;padding:12px 2px;min-height:66px;border-radius:12px;color:var(--muted);-webkit-tap-highlight-color:rgba(255,122,0,.18);touch-action:manipulation;position:relative;z-index:1;user-select:none;-webkit-user-select:none;}
+  .nav-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:none;cursor:pointer;flex:1;padding:12px 2px;min-height:66px;border-radius:12px;color:var(--muted);-webkit-tap-highlight-color:rgba(255,122,0,.18);touch-action:none;position:relative;z-index:1;user-select:none;-webkit-user-select:none;}
   .nav-item:active{transform:scale(.96);background:rgba(255,122,0,.1);}
   .nav-item *{pointer-events:none;}
   .nav-item.active{color:var(--orange);}
@@ -1485,7 +1485,7 @@ function go(v){
   if(v==='finanzas' && !window._finAbrirSeccion){ if(typeof volverMenuFin==='function') volverMenuFin(); }
   window._finAbrirSeccion=false;
 }
-// ═══ Toque directo en la barra de abajo (reacciona al instante, sin toques perdidos) ═══
+// ═══ Toque directo en la barra de abajo (reacciona apenas apoyás el dedo) ═══
 (function engancharBarraNav(){
   function enganchar(){
     var barra=document.querySelector('.nav');
@@ -1493,27 +1493,16 @@ function go(v){
     barra.querySelectorAll('.nav-item').forEach(function(btn){
       var destino=btn.getAttribute('data-nav');
       if(!destino)return;
-      var yaFue=false, startX=0, startY=0, movido=false;
-      // guardar dónde empezó el toque
+      var yaFue=false;
+      // touchstart = reacciona AL INSTANTE, apenas el dedo toca (no se pierde ningún toque)
       btn.addEventListener('touchstart', function(ev){
-        var t=ev.touches[0];
-        startX=t.clientX; startY=t.clientY; movido=false;
-      }, {passive:true});
-      // si el dedo se movió mucho, es scroll, no toque
-      btn.addEventListener('touchmove', function(ev){
-        var t=ev.touches[0];
-        if(Math.abs(t.clientX-startX)>12 || Math.abs(t.clientY-startY)>12) movido=true;
-      }, {passive:true});
-      // touchend = reacciona apenas levantás el dedo (si no fue scroll)
-      btn.addEventListener('touchend', function(ev){
-        if(movido) return;        // fue un scroll, ignorar
-        ev.preventDefault();
+        ev.preventDefault();     // que el navegador no lo trate como scroll ni lo cancele
         ev.stopPropagation();
         yaFue=true;
         go(destino);
         setTimeout(function(){yaFue=false;},350);
       }, {passive:false});
-      // click de respaldo (para mouse / si el touchend no corre)
+      // click de respaldo (para mouse / si el touch no corre)
       btn.addEventListener('click', function(ev){
         if(yaFue)return;
         go(destino);
