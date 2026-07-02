@@ -524,6 +524,7 @@
     <div class="mc-item" onclick="cerrarMenuConfig();abrirBackup();"><span data-ico="download" data-size="18"></span> Respaldo de datos</div>
     <div class="mc-item" onclick="toggleModoOscuro();"><span id="darkIco">🌙</span> <span id="darkLabel">Modo oscuro</span></div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirPapelera();"><span data-ico="trash" data-size="18"></span> Papelera</div>
+    <div class="mc-item" onclick="cerrarMenuConfig();vaciarPendientesAtascados();" style="color:var(--orange);">🧹 Vaciar pendientes atascados</div>
   </div>
 </div>
 <div id="presenciaBar" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--border);"></div>
@@ -1006,6 +1007,22 @@ const PENDIENTES={
     this.save(a);
   }
 };
+// Vacía la cola de pendientes atascados (datos viejos que nunca lograron subir y pisaban lo nuevo)
+async function vaciarPendientesAtascados(){
+  const a=PENDIENTES.load();
+  if(!a.length){ toast('✅ No hay pendientes atascados. Todo está sincronizado con la nube.'); return; }
+  const ok=confirm('Hay '+a.length+' registro(s) esperando subir a la nube.\n\nSi la nube ya funciona (badge "En la nube"), estos son datos VIEJOS atascados que pisan lo nuevo al abrir la app.\n\n¿Vaciar la cola? Se va a bajar la versión buena desde la nube.');
+  if(!ok) return;
+  // Último intento de subirlos por si alguno todavía sirve
+  const quedan=[];
+  for(const p of a){ const r=await subirNube(p.tabla, p.dato); if(!r.ok) quedan.push(p); }
+  // Vaciar del todo (los que subieron ya están; los viejos que fallan se descartan)
+  PENDIENTES.save([]);
+  toast('🧹 Cola vaciada. Recargando datos desde la nube...');
+  await DB.load();
+  render();
+  setTimeout(()=>{ try{ alert('✅ Listo. Ahora la app muestra lo que está guardado en la nube. Probá cerrar y volver a entrar: debería quedar todo.'); }catch(e){} }, 400);
+}
 // intenta subir un registro a la nube; NUNCA lanza error (devuelve ok:true/false)
 async function subirNube(tabla, dato){
   if(!CLOUD || !sb) return {ok:true};
@@ -1044,14 +1061,16 @@ const DB = {
         try{ const {data:msg} = await sb.from('mensajes').select('*'); this.mensajes = msg||[]; }catch(e){ this.mensajes=[]; }
         try{ const {data:prod} = await sb.from('productos').select('*'); this.productos = prod||[]; }catch(e){ this.productos=[]; }
         try{ this.mayoristas = JSON.parse(localStorage.getItem('ae_mayoristas')||'[]'); }catch(e){ this.mayoristas=[]; }
-        // reinyectar lo pendiente que todavía no llegó a la nube (para que no "desaparezca")
+        // 1º intentar subir lo pendiente (así la nube queda al día ANTES de mostrar nada)
+        await procesarPendientes();
+        // 2º reinyectar SOLO lo que realmente no logró subir (sigue en la cola tras el intento).
+        //    Si un pendiente ya subió, la nube ya lo tiene y NO lo pisamos con la versión vieja.
         PENDIENTES.load().forEach(p=>{
           if(!p.dato || !p.dato.id) return;
           if(p.tabla==='clientes' && !this.clientes.find(x=>x.id===p.dato.id)) this.clientes.push(p.dato);
           if(p.tabla==='ventas' && !this.ventas.find(x=>x.id===p.dato.id)) this.ventas.push(p.dato);
           if(p.tabla==='productos' && !this.productos.find(x=>x.id===p.dato.id)) this.productos.push(p.dato);
         });
-        procesarPendientes(); // reintentar subirlos (en segundo plano)
         this.semillaMayoristas();
         return;
       }catch(e){ console.error(e); }
