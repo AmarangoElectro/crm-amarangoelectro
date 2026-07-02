@@ -458,12 +458,15 @@
   body.dark .seg-btn{color:var(--muted);}
   body.dark .seg-btn.active{background:var(--orange);color:#0d1117;}
   .seg-btn{flex:1;padding:9px;text-align:center;font-size:12px;font-weight:700;color:var(--muted);border-radius:9px;cursor:pointer;border:none;background:none;}
-  .fin-menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:8px;}
-  .fin-menu-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:var(--card,#fff);border:2px solid var(--border);border-radius:18px;padding:20px 12px;cursor:pointer;font-family:inherit;transition:all .15s;min-height:120px;}
-  .fin-menu-btn:active{transform:scale(.97);border-color:var(--orange);}
-  .fin-menu-btn .fmb-ico{font-size:38px;line-height:1;}
-  .fin-menu-btn .fmb-txt{font-size:14px;font-weight:800;color:var(--blue);text-align:center;line-height:1.3;}
+  .fin-menu-btn{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:12px;background:var(--card,#fff);border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;font-family:inherit;transition:all .15s;min-height:0;width:100%;text-align:left;}
+  .fin-menu-btn:active{transform:scale(.98);border-color:var(--orange);}
+  .fin-menu-btn .fmb-ico{font-size:22px;line-height:1;}
+  .fin-menu-btn .fmb-txt{font-size:14px;font-weight:800;color:var(--blue);text-align:left;line-height:1.25;}
   .fin-menu-btn .fmb-txt small{font-size:11px;font-weight:600;color:var(--muted);}
+  .fin-menu-grid{display:flex;flex-direction:column;gap:8px;}
+  /* botón estrella de Placas en el Inicio */
+  .btn-placas-star{display:block;width:100%;background:linear-gradient(135deg,#FF7A00,#ff9838);color:#fff;border:none;border-radius:14px;padding:14px 16px;font-size:15px;font-weight:800;font-family:inherit;cursor:pointer;margin:10px 0 14px;box-shadow:0 3px 12px rgba(255,122,0,.35);text-align:center;-webkit-tap-highlight-color:transparent;}
+  .btn-placas-star:active{transform:scale(.98);}
   body.dark .fin-menu-btn{background:#161b22;border-color:#30363d;}
   body.dark .fin-menu-btn .fmb-txt{color:var(--text);}
   body.dark .fin-menu-btn .fmb-txt small{color:var(--muted);}
@@ -541,6 +544,7 @@
       <div><div class="hs-val" id="heroCli">0</div><div class="hs-lbl">Clientes</div></div>
     </div>
   </div>
+  <button class="btn-placas-star" onclick="go('finanzas');setTimeout(()=>abrirSeccionFin('placas'),80);">🎨 Armar precios y placas <span style="font-size:11px;font-weight:600;opacity:.85;">· tu herramienta estrella</span></button>
   <div id="panelHoy"></div>
   <div class="sec-title">💰 Caja y capital</div>
   <div class="card" id="cajaBox" style="margin-bottom:14px;"></div>
@@ -611,7 +615,7 @@
   <!-- MENÚ DE INICIO (botones grandes, simple) -->
   <div id="finMenu">
     <div class="fin-menu-grid">
-      <button class="fin-menu-btn" onclick="abrirSeccionFin('placas')"><span class="fmb-ico">🎨</span><span class="fmb-txt">Armar precios<br><small>y placas</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('placas')" style="border-color:var(--orange);"><span class="fmb-ico">🎨</span><span class="fmb-txt">Armar precios y placas<br><small>lo que más usás</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('catalogo')"><span class="fmb-ico">📦</span><span class="fmb-txt">Catálogo<br><small>productos y celus</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('calc')"><span class="fmb-ico">🧮</span><span class="fmb-txt">Calculadora<br><small>cuotas y costos</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('respuestas')"><span class="fmb-ico">💬</span><span class="fmb-txt">Respuestas<br><small>listas para WhatsApp</small></span></button>
@@ -716,19 +720,8 @@
   </div>
 </div>
 
-<!-- Mini menú flotante (se despliega del botón abeja) -->
-<div id="fabMenu" class="fab-menu" style="display:none;">
-  <button class="fab-opt" onclick="fabMenuAccion('agregar')">
-    <span class="fab-opt-lbl" id="fabOptLbl">Agregar</span>
-    <span class="fab-opt-ico" data-ico="plus" data-size="22"></span>
-  </button>
-  <button class="fab-opt" onclick="fabMenuAccion('amara')">
-    <span class="fab-opt-lbl">Amara</span>
-    <span class="fab-opt-ico" style="background:linear-gradient(135deg,#0B2D6B,#1565C0);border-color:#FF7A00;">🐝</span>
-  </button>
-</div>
-<!-- Botón principal abeja -->
-<button class="fab" id="fab" onclick="toggleFabMenu()"><span id="fabIco">🐝</span></button>
+<!-- Botón principal: agrega directo (cliente o venta según la pantalla) -->
+<button class="fab" id="fab" onclick="fabAction()"><span id="fabIco">➕</span></button>
 
 <!-- Ventana de chat de Amara -->
 <div id="amaraBg" class="amara-bg" onclick="if(event.target===this)cerrarAmara()">
@@ -931,7 +924,7 @@ async function abrirAvisos(){
     lista=avisos.map(a=>{
       const col=nombreColor(a.quien);
       const fecha=new Date(a.ts).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      const accionColor = a.accion==='borró'?'var(--red)':'var(--orange)';
+      const accionColor = a.accion==='borró'?'var(--red)':(a.accion==='cobró'?'var(--green)':'var(--orange)');
       return `<div class="card" style="padding:10px 12px;margin-bottom:8px;border-left:3px solid ${col};">
         <div style="font-size:13px;line-height:1.5;"><b style="color:${col};">${a.quien}</b> <span style="color:${accionColor};font-weight:700;">${a.accion}</span> ${a.detalle}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px;">${fecha}</div>
@@ -952,6 +945,7 @@ async function latido(){
   if(!CLOUD || !sb) return;
   const yo=usuarioActual(); if(!yo) return;
   try{ await sb.from('presencia').upsert({nombre:yo, ultimo_visto:new Date().toISOString()}); }catch(e){}
+  procesarPendientes(); // aprovechar el latido para reintentar lo pendiente
 }
 async function leerPresencia(){
   if(!CLOUD || !sb) return;
@@ -998,6 +992,40 @@ function initCloud(){
 }
 
 /* ============ DATOS ============ */
+/* Cola de pendientes: si la nube falla (sin señal), lo guardado se reintenta solo */
+const PENDIENTES={
+  load(){ try{ return JSON.parse(localStorage.getItem('ae_pendientes')||'[]'); }catch(e){ return []; } },
+  save(a){ try{ localStorage.setItem('ae_pendientes', JSON.stringify(a)); }catch(e){} },
+  agregar(tabla, dato){
+    const a=this.load();
+    // si ya hay un pendiente del mismo registro, reemplazarlo (queda la versión más nueva)
+    const i=a.findIndex(p=>p.tabla===tabla && p.dato && p.dato.id===dato.id);
+    if(i>=0) a[i]={tabla,dato,ts:Date.now()}; else a.push({tabla,dato,ts:Date.now()});
+    this.save(a);
+  }
+};
+// intenta subir un registro a la nube; NUNCA lanza error (devuelve ok:true/false)
+async function subirNube(tabla, dato){
+  if(!CLOUD || !sb) return {ok:true};
+  try{
+    const { error } = await sb.from(tabla).upsert(dato);
+    if(error) return {ok:false, msg:(error.message||'')+(error.details?' · '+error.details:'')};
+    return {ok:true};
+  }catch(e){ return {ok:false, msg:'sin conexión'}; }
+}
+// reintenta subir todo lo pendiente (se llama solo al volver la señal / al abrir)
+async function procesarPendientes(){
+  if(!CLOUD || !sb) return;
+  const a=PENDIENTES.load(); if(!a.length) return;
+  const quedan=[];
+  for(const p of a){
+    const r=await subirNube(p.tabla, p.dato);
+    if(!r.ok) quedan.push(p);
+  }
+  PENDIENTES.save(quedan);
+  if(a.length && !quedan.length){ try{ toast('☁️ Se subieron a la nube los datos pendientes ✅'); }catch(e){} }
+}
+window.addEventListener('online', procesarPendientes);
 const DB = {
   clientes: [], ventas: [], mensajes: [], productos: [], mayoristas: [],
   async load(){
@@ -1009,6 +1037,14 @@ const DB = {
         try{ const {data:msg} = await sb.from('mensajes').select('*'); this.mensajes = msg||[]; }catch(e){ this.mensajes=[]; }
         try{ const {data:prod} = await sb.from('productos').select('*'); this.productos = prod||[]; }catch(e){ this.productos=[]; }
         try{ this.mayoristas = JSON.parse(localStorage.getItem('ae_mayoristas')||'[]'); }catch(e){ this.mayoristas=[]; }
+        // reinyectar lo pendiente que todavía no llegó a la nube (para que no "desaparezca")
+        PENDIENTES.load().forEach(p=>{
+          if(!p.dato || !p.dato.id) return;
+          if(p.tabla==='clientes' && !this.clientes.find(x=>x.id===p.dato.id)) this.clientes.push(p.dato);
+          if(p.tabla==='ventas' && !this.ventas.find(x=>x.id===p.dato.id)) this.ventas.push(p.dato);
+          if(p.tabla==='productos' && !this.productos.find(x=>x.id===p.dato.id)) this.productos.push(p.dato);
+        });
+        procesarPendientes(); // reintentar subirlos (en segundo plano)
         this.semillaMayoristas();
         return;
       }catch(e){ console.error(e); }
@@ -1046,41 +1082,31 @@ const DB = {
     localStorage.setItem('ae_mayoristas', JSON.stringify(this.mayoristas));
   },
   async upsertProducto(p){
-    if(CLOUD){
-      const { error } = await sb.from('productos').upsert(p);
-      if(error){ alert('❌ No se pudo guardar el producto en la nube:\n\n'+error.message); console.error('upsertProducto:', error); }
-    }
-    this.saveLocal();
+    this.saveLocal(); // primero el celu: nunca se pierde nada
+    const r=await subirNube('productos', p);
+    if(!r.ok){ PENDIENTES.agregar('productos', p); toast('⚠️ Sin señal: quedó en el celu y se sube solo cuando vuelva'); console.warn('upsertProducto:', r.msg); }
   },
   async delProducto(id){
-    if(CLOUD){ await sb.from('productos').delete().eq('id',id); }
+    if(CLOUD){ try{ await sb.from('productos').delete().eq('id',id); }catch(e){ console.warn(e); } }
     this.productos=this.productos.filter(x=>x.id!==id);
     this.saveLocal();
   },
   async upsertCliente(c){
-    if(CLOUD){
-      const { error } = await sb.from('clientes').upsert(c);
-      if(error){
-        const detalle=(error.message||'')+(error.details?' · '+error.details:'')+(error.hint?' · '+error.hint:'');
-        console.error('upsertCliente:', detalle, error);
-        alert('❌ No se pudo guardar el cliente en la nube:\n\n'+detalle+'\n\n(Se guardó en este celular igual)');
-      }
-    }
-    this.saveLocal();
+    this.saveLocal(); // primero el celu: nunca se pierde nada
+    const r=await subirNube('clientes', c);
+    if(!r.ok){ PENDIENTES.agregar('clientes', c); toast('⚠️ Sin señal: el cliente quedó en el celu y se sube solo cuando vuelva'); console.warn('upsertCliente:', r.msg); }
   },
   async upsertVenta(v){
-    if(CLOUD){
-      const { error } = await sb.from('ventas').upsert(v);
-      if(error){ alert('❌ No se pudo guardar la venta en la nube:\n\n'+error.message); console.error('upsertVenta:', error); }
-    }
-    this.saveLocal();
+    this.saveLocal(); // primero el celu: nunca se pierde nada
+    const r=await subirNube('ventas', v);
+    if(!r.ok){ PENDIENTES.agregar('ventas', v); toast('⚠️ Sin señal: la venta quedó en el celu y se sube sola cuando vuelva'); console.warn('upsertVenta:', r.msg); }
   },
   async delCliente(id){
-    if(CLOUD){ await sb.from('ventas').delete().eq('clienteId',id); await sb.from('clientes').delete().eq('id',id); }
+    if(CLOUD){ try{ await sb.from('ventas').delete().eq('clienteId',id); await sb.from('clientes').delete().eq('id',id); }catch(e){ console.warn(e); } }
     this.saveLocal();
   },
   async delVenta(id){
-    if(CLOUD){ await sb.from('ventas').delete().eq('id',id); }
+    if(CLOUD){ try{ await sb.from('ventas').delete().eq('id',id); }catch(e){ console.warn(e); } }
     this.saveLocal();
   },
   async enviarMensaje(m){
@@ -1467,18 +1493,29 @@ function go(v){
     barra.querySelectorAll('.nav-item').forEach(function(btn){
       var destino=btn.getAttribute('data-nav');
       if(!destino)return;
-      var yaFue=false;
-      // touchend = reacciona apenas levantás el dedo, sin esperar el "posible doble toque"
+      var yaFue=false, startX=0, startY=0, movido=false;
+      // guardar dónde empezó el toque
+      btn.addEventListener('touchstart', function(ev){
+        var t=ev.touches[0];
+        startX=t.clientX; startY=t.clientY; movido=false;
+      }, {passive:true});
+      // si el dedo se movió mucho, es scroll, no toque
+      btn.addEventListener('touchmove', function(ev){
+        var t=ev.touches[0];
+        if(Math.abs(t.clientX-startX)>12 || Math.abs(t.clientY-startY)>12) movido=true;
+      }, {passive:true});
+      // touchend = reacciona apenas levantás el dedo (si no fue scroll)
       btn.addEventListener('touchend', function(ev){
-        ev.preventDefault();      // evita que dispare también el click (doble disparo)
+        if(movido) return;        // fue un scroll, ignorar
+        ev.preventDefault();
         ev.stopPropagation();
         yaFue=true;
         go(destino);
-        setTimeout(function(){yaFue=false;},400);
+        setTimeout(function(){yaFue=false;},350);
       }, {passive:false});
       // click de respaldo (para mouse / si el touchend no corre)
       btn.addEventListener('click', function(ev){
-        if(yaFue)return;          // ya lo manejó el touchend
+        if(yaFue)return;
         go(destino);
       });
     });
@@ -1487,31 +1524,6 @@ function go(v){
   else{enganchar();}
 })();
 function fabAction(){ if(currentView==='ventas'||currentView==='cobranzas') formVenta(); else formCliente(); }
-function toggleFabMenu(){
-  const m=document.getElementById('fabMenu'), fab=document.getElementById('fab');
-  if(m.style.display==='none'||!m.style.display){
-    // ajustar la etiqueta de "Agregar" según dónde estás
-    const lbl=document.getElementById('fabOptLbl');
-    if(lbl) lbl.textContent=(currentView==='ventas'||currentView==='cobranzas')?'Agregar venta':'Agregar cliente';
-    m.style.display='flex'; fab.classList.add('abierto');
-    poblarIconos();
-    setTimeout(()=>document.addEventListener('click', cerrarFabMenuFuera),10);
-  } else cerrarFabMenu();
-}
-function cerrarFabMenu(){
-  const m=document.getElementById('fabMenu'), fab=document.getElementById('fab');
-  if(m) m.style.display='none'; if(fab) fab.classList.remove('abierto');
-  document.removeEventListener('click', cerrarFabMenuFuera);
-}
-function cerrarFabMenuFuera(ev){
-  const m=document.getElementById('fabMenu'), fab=document.getElementById('fab');
-  if(m && !m.contains(ev.target) && ev.target!==fab && !fab.contains(ev.target)) cerrarFabMenu();
-}
-function fabMenuAccion(tipo){
-  cerrarFabMenu();
-  if(tipo==='amara') abrirAmara();
-  else fabAction();
-}
 
 /* ============================================================
    AMARA — asistente guía (gratis, sin IA): atajos + ayuda
@@ -2911,6 +2923,12 @@ async function borrarVentaCajon(ventaId, cliId, debe, ev){
   await DB.delVenta(ventaId);
   toastUndo('Producto movido a papelera');
   renderClientes();
+  // reabrir el cajón de este cliente para que no te saque (queda mostrando lo que quedó)
+  setTimeout(()=>{
+    const caj=document.getElementById('cajon-'+cliId);
+    const fl=document.getElementById('cajflecha-'+cliId);
+    if(caj){ caj.style.display='block'; if(fl) fl.textContent='▴'; caj.scrollIntoView({block:'center',behavior:'smooth'}); }
+  },50);
 }
 // abre/cierra el cajón de una tarjeta sin entrar al cliente
 function toggleCajon(cliId, ev){
@@ -6122,7 +6140,29 @@ function detalleVenta(id){
     <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--blue);" onclick="verRecibo('${id}')">🧾 Recibo de compra</button>
     <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--red);" onclick="delVenta('${id}')">🗑️ Eliminar venta</button>`);
 }
-async function cobrarCuota(id){ const v=DB.ventas.find(x=>x.id===id); v.pagadas=(v.pagadas||0)+1; await DB.upsertVenta(v); toast('Pago registrado ✅'); detalleVenta(id); }
+async function cobrarCuota(id){
+  const v=DB.ventas.find(x=>x.id===id);
+  v.pagadas=(v.pagadas||0)+1;
+  await DB.upsertVenta(v);
+  // avisar a los inversionistas cuánto les corresponde de esta cuota
+  avisarInversoresCobro(v, v.pagadas);
+  toast('Pago registrado ✅');
+  detalleVenta(id);
+}
+// registra un aviso para cada inversionista con cuánto le toca de la cuota cobrada
+function avisarInversoresCobro(v, numCuota){
+  try{
+    const reparto = (typeof repartoInversores==='function') ? repartoInversores(v) : [];
+    if(!reparto || !reparto.length || (v.cuotas||1)<=1) return;
+    const cli=DB.clientes.find(c=>c.id===v.clienteId);
+    const nomCli=cli?cli.nombre:'un cliente';
+    reparto.forEach(r=>{
+      const porCuota = Math.round(r.recibe/(v.cuotas||1));
+      AUDIT.registrar('cobró', 'inversion',
+        `la cuota ${numCuota} de <b>${nomCli}</b> (${v.producto}). A <b>${r.nombre}</b> le corresponden <b>$${fmt(porCuota)}</b> de esa cuota.`);
+    });
+  }catch(e){ console.warn('avisar inv', e); }
+}
 function reciboHTML(v, cli, tipo, cuotaNum){
   const cuotas=ventaCuotas(v);
   const totalVenta=cuotas.reduce((s,c)=>s+c.monto,0);
