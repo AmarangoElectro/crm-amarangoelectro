@@ -525,6 +525,7 @@
     <div class="mc-item" onclick="toggleModoOscuro();"><span id="darkIco">🌙</span> <span id="darkLabel">Modo oscuro</span></div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirPapelera();"><span data-ico="trash" data-size="18"></span> Papelera</div>
     <div class="mc-item" onclick="cerrarMenuConfig();vaciarPendientesAtascados();" style="color:var(--orange);">🧹 Vaciar pendientes atascados</div>
+    <div class="mc-item" onclick="cerrarMenuConfig();testGuardadoNube();" style="color:var(--blue);">🔍 Test de guardado (diagnóstico)</div>
   </div>
 </div>
 <div id="presenciaBar" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--border);"></div>
@@ -1007,6 +1008,33 @@ const PENDIENTES={
     this.save(a);
   }
 };
+// DIAGNÓSTICO: guarda un cliente de prueba directo en la nube y muestra el resultado crudo
+async function testGuardadoNube(){
+  let r='';
+  r+='CLOUD activo: '+(CLOUD?'SÍ':'NO')+'\n';
+  r+='Cliente Supabase (sb): '+(sb?'SÍ':'NO')+'\n';
+  r+='URL: '+SUPABASE_URL+'\n';
+  r+='KEY empieza con: '+SUPABASE_KEY.slice(0,12)+'...\n\n';
+  if(!CLOUD || !sb){ alert('❌ La nube NO está activa.\n\n'+r); return; }
+  const idTest='TEST_'+Date.now();
+  const cliPrueba={ id:idTest, nombre:'⚠️ CLIENTE DE PRUEBA (borrar)', num:99999 };
+  try{
+    r+='--- INTENTO 1: ESCRIBIR ---\n';
+    const w=await sb.from('clientes').upsert(cliPrueba).select();
+    if(w.error){ r+='ESCRITURA: ERROR\n'+w.error.message+'\n'+(w.error.hint||'')+'\n'+(w.error.details||'')+'\n'; }
+    else if(!w.data || !w.data.length){ r+='ESCRITURA: rechazada en silencio (RLS bloquea escritura). No devolvió fila.\n'; }
+    else { r+='ESCRITURA: OK ✅ (devolvió la fila)\n'; }
+    r+='\n--- INTENTO 2: LEER DE VUELTA ---\n';
+    const rd=await sb.from('clientes').select('*').eq('id',idTest);
+    if(rd.error){ r+='LECTURA: ERROR\n'+rd.error.message+'\n'; }
+    else if(!rd.data || !rd.data.length){ r+='LECTURA: NO encontró el cliente. Confirma que NO se guardó en la nube.\n'; }
+    else { r+='LECTURA: OK ✅ El cliente SÍ está en la nube. Si no lo ves en la app, el problema es al MOSTRAR, no al guardar.\n'; }
+    // limpiar
+    try{ await sb.from('clientes').delete().eq('id',idTest); r+='\n(cliente de prueba borrado)'; }catch(e){}
+  }catch(e){ r+='\nEXCEPCIÓN: '+(e.message||e); }
+  alert('🔍 RESULTADO DEL TEST:\n\n'+r);
+  console.log('TEST GUARDADO:', r);
+}
 // Vacía la cola de pendientes atascados (datos viejos que nunca lograron subir y pisaban lo nuevo)
 async function vaciarPendientesAtascados(){
   const a=PENDIENTES.load();
