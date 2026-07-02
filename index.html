@@ -569,6 +569,7 @@
     <button class="seg-btn" id="cliModoVip" onclick="setModoCli('vip')">⭐ VIP</button>
   </div>
   <div class="search-box" id="cliSearchBox"><span>🔍</span><input id="searchCli" placeholder="Buscar por nombre, DNI o teléfono..." oninput="renderClientes()"></div>
+  <button class="btn btn-orange" style="width:100%;margin-bottom:12px;" onclick="formCliente()">➕ Agregar cliente</button>
   <button class="btn btn-ghost btn-sm" style="margin-bottom:10px;color:var(--blue);" onclick="document.getElementById('fileExcel').click()">📥 Importar clientes desde Excel</button>
   <input type="file" id="fileExcel" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importarExcel(this)">
   <button class="btn btn-ghost btn-sm" style="margin-bottom:10px;color:var(--blue);" onclick="document.getElementById('fileVentas').click()">🛒 Importar compras desde Excel</button>
@@ -580,6 +581,7 @@
 <div class="view" id="view-ventas">
   <div class="view-title">Ventas</div>
   <div class="view-desc">Registro de ventas, costos y ganancias</div>
+  <button class="btn btn-orange" style="width:100%;margin-bottom:10px;" onclick="formVenta()">➕ Agregar venta</button>
   <div class="seg" style="margin-bottom:8px;">
     <button class="seg-btn active" data-vv="lista" onclick="setVistaVentas('lista',this)">📋 Lista</button>
     <button class="seg-btn" data-vv="planilla" onclick="setVistaVentas('planilla',this)">📊 Planilla</button>
@@ -720,8 +722,8 @@
   </div>
 </div>
 
-<!-- Botón principal: agrega directo (cliente o venta según la pantalla) -->
-<button class="fab" id="fab" onclick="fabAction()"><span id="fabIco">➕</span></button>
+<!-- Botón flotante: pasar a la página siguiente -->
+<button class="fab" id="fab" onclick="irSiguientePagina()" title="Página siguiente"><span id="fabIco">➡️</span></button>
 
 <!-- Ventana de chat de Amara -->
 <div id="amaraBg" class="amara-bg" onclick="if(event.target===this)cerrarAmara()">
@@ -2990,15 +2992,24 @@ function renderClientesVip(cont){
       const gb=DB.ventas.filter(v=>v.clienteId===b.c.id).reduce((s,v)=>s+(v.precioVenta||0),0);
       return gb-ga;
     });
-    html+=`<div class="sec-title">${ico} ${titulo} (${lista.length})</div>`;
+    html+=`<div class="sec-title">${ico} ${titulo} (${lista.length})</div><div class="cli-lista">`;
     html+=lista.map(({c,vip})=>{
       const nv=DB.ventas.filter(v=>v.clienteId===c.id).length;
       const gastado=DB.ventas.filter(v=>v.clienteId===c.id).reduce((s,v)=>s+(v.precioVenta||0),0);
-      return `<div class="list-item" onclick="detalleCliente('${c.id}')">
-        <div class="avatar" style="background:${avatarColor(c.nombre)}">${initials(c.nombre)}</div>
-        <div class="li-info"><div class="li-name">${c.nombre} ${ico}</div><div class="li-meta">${nv} compra${nv!==1?'s':''} · $${fmt(gastado)} gastado</div></div>
-        <div class="li-right">${c.telefono?`<div class="li-tag" style="color:var(--green);font-weight:700;" onclick="event.stopPropagation();waCliente('${c.id}')">📲</div>`:''}</div></div>`;
+      const colFr = ico==='🥇' ? 'linear-gradient(135deg,#c9a13b,#ffd964)' : (ico==='🥈' ? 'linear-gradient(135deg,#9aa2ad,#d7dde5)' : 'linear-gradient(135deg,#a5602c,#d98d52)');
+      const debeMes=deudaDelMes(c.id);
+      return `<div class="cli-card2" onclick="detalleCliente('${c.id}')">
+        <div class="cli-franja" style="background:${colFr};">
+          <span class="cli-franja-nom">${c.nombre} ${ico}</span>
+        </div>
+        <div class="cli-body">
+          <div class="cli-body-prod">🛍️ ${nv} compra${nv!==1?'s':''} · $${fmt(gastado)}</div>
+          ${debeMes>0?`<div class="cli-body-debe">Este mes: $${fmt(debeMes)}</div>`:`<div class="cli-body-debe ok">Al día este mes</div>`}
+          ${c.telefono?`<div class="cli-simbolos"><span class="cli-simb" onclick="event.stopPropagation();waCliente('${c.id}')" style="background:#e8f5e9;color:#1b5e20;">📲 WhatsApp</span></div>`:''}
+        </div>
+      </div>`;
     }).join('');
+    html+=`</div>`;
   });
   cont.innerHTML=html;
 }
@@ -5734,6 +5745,53 @@ async function recalcularVentasCliente(id){
   toast(`✅ ${actualizadas} venta(s) recalculada(s)`);
   detalleCliente(id);
 }
+// ===== COMPROBANTES DE PAGO POR CLIENTE (foto) =====
+function agregarComprobante(cliId){
+  const input=document.createElement('input');
+  input.type='file'; input.accept='image/*';
+  input.onchange=e=>{
+    const file=e.target.files[0]; if(!file) return;
+    const reader=new FileReader();
+    reader.onload=async ev=>{
+      // achicar la imagen para que no ocupe tanto (máx 900px de ancho)
+      const img=new Image();
+      img.onload=async ()=>{
+        const max=900; let w=img.width, h=img.height;
+        if(w>max){ h=Math.round(h*max/w); w=max; }
+        const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+        canvas.getContext('2d').drawImage(img,0,0,w,h);
+        const data=canvas.toDataURL('image/jpeg',0.7);
+        const c=DB.clientes.find(x=>x.id===cliId); if(!c) return;
+        if(!c.comprobantes) c.comprobantes=[];
+        c.comprobantes.push({ id:'cp'+Date.now(), img:data, fecha:isoDate(today()) });
+        await DB.upsertCliente(c);
+        toast('📎 Comprobante guardado');
+        detalleCliente(cliId);
+      };
+      img.src=ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+async function borrarComprobante(cliId, cpId){
+  if(!confirm('¿Borrar este comprobante?')) return;
+  const c=DB.clientes.find(x=>x.id===cliId); if(!c||!c.comprobantes) return;
+  c.comprobantes=c.comprobantes.filter(x=>x.id!==cpId);
+  await DB.upsertCliente(c);
+  toast('🗑️ Comprobante borrado');
+  detalleCliente(cliId);
+}
+function verComprobante(cliId, cpId){
+  const c=DB.clientes.find(x=>x.id===cliId); if(!c||!c.comprobantes) return;
+  const cp=c.comprobantes.find(x=>x.id===cpId); if(!cp) return;
+  openModal(`<div style="text-align:center;">
+    <div class="sec-title">📎 Comprobante · ${cp.fecha||''}</div>
+    <img src="${cp.img}" style="max-width:100%;border-radius:12px;border:1.5px solid var(--border);">
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:12px;" onclick="borrarComprobante('${cliId}','${cpId}')">🗑️ Borrar comprobante</button>
+  </div>`);
+}
+
 function detalleCliente(id){
   const c=DB.clientes.find(x=>x.id===id); if(!c)return;
   const cal=calificar(id);
@@ -5762,6 +5820,18 @@ function detalleCliente(id){
     </div>
     ${c.observaciones?`<div class="info-box" style="margin-bottom:14px;"><div class="info-lbl">Observaciones</div><div class="info-val" style="font-weight:500;">${c.observaciones}</div></div>`:''}
     <div class="btn-row" style="margin-bottom:8px;">${c.telefono?`<button class="btn btn-green btn-sm" onclick="waCliente('${id}')">💬 WhatsApp</button>`:'<div></div>'}<button class="btn btn-ghost btn-sm" onclick="formCliente(DB.clientes.find(x=>x.id==='${id}'))">✏️ Editar</button></div>
+    <div class="sec-title">📎 Comprobantes de pago (${(c.comprobantes||[]).length})</div>
+    <div class="card" style="padding:10px 12px;margin-bottom:12px;">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;">
+        ${(c.comprobantes||[]).map(cp=>`
+          <div style="position:relative;">
+            <img src="${cp.img}" onclick="verComprobante('${id}','${cp.id}')" style="width:72px;height:72px;object-fit:cover;border-radius:10px;border:1.5px solid var(--border);cursor:pointer;">
+            <span onclick="borrarComprobante('${id}','${cp.id}')" style="position:absolute;top:-6px;right:-6px;background:var(--red);color:#fff;border-radius:50%;width:20px;height:20px;font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;">✕</span>
+            <div style="font-size:9px;color:var(--muted);text-align:center;margin-top:2px;">${cp.fecha||''}</div>
+          </div>`).join('') || '<span style="font-size:12px;color:var(--muted);">Sin comprobantes todavía</span>'}
+      </div>
+      <button class="btn btn-ghost btn-sm" style="width:100%;" onclick="agregarComprobante('${id}')">📸 Agregar comprobante</button>
+    </div>
     <div class="sec-title">Historial de compras (${vs.length})${vsArch.length?` <span onclick="toggleVerArchivadas('${id}')" style="float:right;font-size:11px;font-weight:600;color:var(--blue);cursor:pointer;text-transform:none;">${verArchivadas?'Ocultar':'Ver'} archivadas (${vsArch.length})</span>`:''}</div>
     <div style="margin-bottom:10px;font-size:12px;color:var(--muted);">Total comprado: <b style="color:var(--blue);">$${fmt(totalComprado)}</b></div>
     ${vs.length?`<div class="seg" style="margin-bottom:10px;">
@@ -6997,28 +7067,14 @@ async function startApp(){
     try{ await AUDIT.recargar(); actualizarAvisoBadge(); }catch(e){}
   }, 20000);
 }
-/* ============ DESLIZAR ENTRE PÁGINAS ============ */
+/* ============ DESLIZAR ENTRE PÁGINAS: DESACTIVADO (Max prefiere botones) ============ */
 const ORDEN_VISTAS=['inicio','clientes','ventas','cobranzas','finanzas'];
-let swX=0, swY=0, swActivo=false;
-document.addEventListener('touchstart',(e)=>{
-  if(e.touches.length!==1){ swActivo=false; return; }
-  // No deslizar si el gesto arranca sobre una tabla planilla, un modal o un select
-  if(e.target.closest('.planilla-wrap, .modal-bg, select, input, textarea')){ swActivo=false; return; }
-  swX=e.touches[0].clientX; swY=e.touches[0].clientY; swActivo=true;
-},{passive:true});
-document.addEventListener('touchend',(e)=>{
-  if(!swActivo) return; swActivo=false;
-  const dx=e.changedTouches[0].clientX-swX;
-  const dy=e.changedTouches[0].clientY-swY;
-  // Solo si es un gesto largo (120px) y MUY claramente horizontal (3x más que vertical)
-  if(Math.abs(dx)<120 || Math.abs(dx)<Math.abs(dy)*3) return;
-  // No cambiar de página si hay un modal abierto
-  if(document.getElementById('modalBg').classList.contains('show')) return;
+// botón flotante: pasa a la página siguiente
+function irSiguientePagina(){
   let i=ORDEN_VISTAS.indexOf(currentView);
-  if(i<0) return;
-  if(dx<0 && i<ORDEN_VISTAS.length-1) go(ORDEN_VISTAS[i+1]);   // dedo a la izquierda → siguiente
-  else if(dx>0 && i>0) go(ORDEN_VISTAS[i-1]);                  // dedo a la derecha → anterior
-},{passive:true});
+  if(i<0) i=0;
+  go(ORDEN_VISTAS[(i+1)%ORDEN_VISTAS.length]);
+}
 
 /* ============ CHAT INTERNO ============ */
 const CHAT_EMOJIS=['👍','❤️','✅','⚠️','📦','💰','📲','🚚','👀','🐝','🔥','🙌'];
