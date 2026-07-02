@@ -524,8 +524,6 @@
     <div class="mc-item" onclick="cerrarMenuConfig();abrirBackup();"><span data-ico="download" data-size="18"></span> Respaldo de datos</div>
     <div class="mc-item" onclick="toggleModoOscuro();"><span id="darkIco">🌙</span> <span id="darkLabel">Modo oscuro</span></div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirPapelera();"><span data-ico="trash" data-size="18"></span> Papelera</div>
-    <div class="mc-item" onclick="cerrarMenuConfig();vaciarPendientesAtascados();" style="color:var(--orange);">🧹 Vaciar pendientes atascados</div>
-    <div class="mc-item" onclick="cerrarMenuConfig();testGuardadoNube();" style="color:var(--blue);">🔍 Test de guardado (diagnóstico)</div>
     <div class="mc-item" onclick="cerrarMenuConfig();recargarDesdeNube();" style="color:var(--green);">🔄 Recargar desde la nube</div>
   </div>
 </div>
@@ -7264,25 +7262,24 @@ const APP_NOMBRE = "AmarangoElectro";
 // El manifest ahora es un archivo real (manifest.json) junto a este index.html.
 // Esto hace que la instalación sea SÓLIDA y no se borre sola.
 
-// Service worker real (sw.js) para que sea instalable como app de verdad
-(function registrarSW(){
-  if(!('serviceWorker' in navigator)) return;
-  if(location.protocol!=='https:' && location.protocol!=='http:') return;
-  navigator.serviceWorker.register('sw.js').then(function(reg){
-    reg.update();
-    reg.addEventListener('updatefound',function(){
-      var nuevo=reg.installing;
-      if(!nuevo)return;
-      nuevo.addEventListener('statechange',function(){
-        if(nuevo.state==='activated'){ try{location.reload();}catch(e){} }
-      });
-    });
-  }).catch(()=>{});
-  document.addEventListener('visibilitychange',function(){
-    if(!document.hidden && navigator.serviceWorker.controller){
-      navigator.serviceWorker.getRegistration().then(function(r){ if(r) r.update(); });
+// Service worker: LIMPIEZA de caché viejo.
+// El caché anterior estaba sirviendo versiones viejas de la app (por eso no se veían
+// los cambios ni los datos frescos). Lo desactivamos y borramos todo lo cacheado.
+(function limpiarSW(){
+  try{
+    if('serviceWorker' in navigator){
+      // desregistrar cualquier service worker viejo que esté cacheando la app
+      navigator.serviceWorker.getRegistrations().then(function(regs){
+        regs.forEach(function(r){ r.unregister(); });
+      }).catch(()=>{});
     }
-  });
+    // borrar TODOS los cachés guardados por el navegador para esta app
+    if(window.caches && caches.keys){
+      caches.keys().then(function(keys){
+        keys.forEach(function(k){ caches.delete(k); });
+      }).catch(()=>{});
+    }
+  }catch(e){}
 })();
 
 // Pide permiso de notificaciones (una vez)

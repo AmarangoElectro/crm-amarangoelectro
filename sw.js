@@ -1,40 +1,20 @@
-// Service Worker - Calculadora AmarangoElectro
-// v2: RED PRIMERO para el HTML (siempre trae la última versión), caché solo de respaldo.
-var CACHE='amarango-calc-v2';
-var ARCHIVOS=['./calculadora.html','./manifest.json','./icon.png','./icon-192.png'];
+// sw.js - Service Worker LIMPIO (no cachea nada)
+// El anterior guardaba versiones viejas de la app y no dejaba ver los cambios.
+// Este se instala, borra todo el caché viejo y deja pasar siempre la versión más nueva.
 
 self.addEventListener('install', function(e){
-  self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(function(c){return c.addAll(ARCHIVOS).catch(function(){});}));
+  self.skipWaiting(); // activarse de inmediato, sin esperar
 });
 
 self.addEventListener('activate', function(e){
   e.waitUntil(
-    caches.keys().then(function(claves){
-      return Promise.all(claves.map(function(k){ if(k!==CACHE)return caches.delete(k); }));
+    caches.keys().then(function(keys){
+      return Promise.all(keys.map(function(k){ return caches.delete(k); }));
+    }).then(function(){
+      return self.clients.claim();
     })
   );
-  self.clients.claim();
 });
 
-self.addEventListener('fetch', function(e){
-  var req=e.request;
-  // Para el HTML y JS: RED PRIMERO (siempre lo último). Si no hay internet, uso el caché.
-  var esDocumento = req.mode==='navigate' || (req.url.indexOf('.html')>-1);
-  if(esDocumento){
-    e.respondWith(
-      fetch(req).then(function(r){
-        return caches.open(CACHE).then(function(c){ try{c.put(req,r.clone());}catch(err){} return r; });
-      }).catch(function(){ return caches.match(req).then(function(x){ return x || caches.match('./calculadora.html'); }); })
-    );
-    return;
-  }
-  // Para imágenes/íconos: caché primero (no cambian casi nunca)
-  e.respondWith(
-    caches.match(req).then(function(resp){
-      return resp || fetch(req).then(function(r){
-        return caches.open(CACHE).then(function(c){ try{c.put(req,r.clone());}catch(err){} return r; });
-      }).catch(function(){ return resp; });
-    })
-  );
-});
+// NO interceptar fetch: siempre va directo a la red (nunca sirve copias viejas)
+// (a propósito no hay listener de 'fetch')
