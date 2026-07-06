@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AmarangoElectro</title>
 <meta name="theme-color" content="#0B2D6B">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -98,7 +98,7 @@
   .login-box input{width:100%;padding:16px;border:none;border-radius:14px;font-size:18px;text-align:center;letter-spacing:3px;margin-bottom:14px;outline:none;}
   .login-box button{width:100%;padding:16px;border:none;border-radius:14px;background:var(--orange);color:#fff;font-weight:800;font-size:16px;cursor:pointer;}
   .login-err{color:#ffb3ba;font-size:13px;text-align:center;height:18px;margin-bottom:8px;}
-  .cloud-badge{position:fixed;top:8px;right:10px;background:rgba(29,185,84,.12);color:#1DB954;border:1px solid rgba(29,185,84,.35);border-radius:20px;font-size:10px;font-weight:700;padding:3px 9px;z-index:60;display:none;backdrop-filter:blur(4px);}
+  .cloud-badge{position:fixed;top:8px;right:56px;background:rgba(29,185,84,.12);color:#1DB954;border:1px solid rgba(29,185,84,.35);border-radius:20px;font-size:10px;font-weight:700;padding:3px 9px;z-index:60;display:none;backdrop-filter:blur(4px);}
   .cloud-badge.off{background:rgba(245,184,0,.15);color:#b38600;border-color:rgba(245,184,0,.4);}
   .cloud-badge.show{display:block;}
 
@@ -335,14 +335,14 @@
   .nav-item.active .nav-lbl{font-weight:800;color:var(--orange);}
   .nav-ico{font-size:24px;line-height:1;}
   .nav-lbl{font-size:10px;font-weight:700;}
-  .planilla-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid var(--border);background:#fff;margin-bottom:14px;}
-  table.planilla{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px;}
-  table.planilla th{background:var(--blue);color:#fff;font-weight:800;padding:9px 10px;text-align:left;white-space:nowrap;position:sticky;top:0;border-right:1px solid rgba(255,255,255,.2);}
-  table.planilla td{padding:8px 10px;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border);}
+  .planilla-wrap{overflow-x:hidden;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid var(--border);background:#fff;margin-bottom:14px;}
+  table.planilla{border-collapse:collapse;width:100%;min-width:100%;font-size:9.5px;table-layout:fixed;}
+  table.planilla th{background:var(--blue);color:#fff;font-weight:800;padding:5px 4px;text-align:left;position:sticky;top:0;border-right:1px solid rgba(255,255,255,.25);font-size:9px;overflow:hidden;text-overflow:ellipsis;}
+  table.planilla td{padding:5px 4px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0;}
   table.planilla tr:nth-child(even) td{background:#f7f9ff;}
   table.planilla .col-monto{font-weight:800;color:var(--green);}
   table.planilla .col-num{color:var(--muted);font-weight:700;text-align:center;}
-  .planilla-hint{font-size:11px;color:var(--muted);margin-bottom:6px;text-align:center;}
+  .planilla-hint{font-size:10px;color:var(--muted);margin-bottom:6px;text-align:center;}
   .chat-bg{position:fixed;inset:0;background:rgba(11,45,107,.4);z-index:200;display:none;align-items:flex-end;}
   .chat-bg.show{display:flex;}
   .chat-panel{background:var(--bg);width:100%;height:92vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden;}
@@ -554,9 +554,9 @@
   <div class="topbar-actions">
     <span onclick="abrirChat()" title="Mensajes" style="position:relative;color:#fff;"><span data-ico="chat" data-size="22"></span><span id="chatBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
     <span onclick="abrirAvisos()" title="Avisos" style="position:relative;color:#fff;"><span data-ico="alert" data-size="22"></span><span id="avisoBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
-    <span onclick="abrirNotifPago()" title="Fechas de pago" style="position:relative;color:#fff;">🔔<span id="pagoBadge" style="display:none;position:absolute;top:-6px;right:-8px;background:#dc2626;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:8px;padding:0 3px;">0</span></span>
-    <span onclick="toggleOcultar()" id="btnOjito" title="Ocultar montos" style="color:#fff;"><span data-ico="lock" data-size="22"></span></span>
-    <span onclick="toggleMenuConfig(event)" title="Configuración" style="position:relative;color:#fff;"><span data-ico="gear" data-size="22"></span><span id="tareaBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;border:2px solid var(--blue);"></span></span>
+    <span onclick="abrirNotifPago()" title="Fechas de pago" style="position:relative;color:#fff;"><span data-ico="calendar" data-size="22"></span><span id="pagoBadge" style="display:none;position:absolute;top:-6px;right:-8px;background:#dc2626;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:8px;padding:0 3px;">0</span></span>
+    <span onclick="toggleOcultar()" id="btnOjito" title="Ocultar montos" style="color:#fff;"><span data-ico="eye" data-size="22"></span></span>
+    <span onclick="toggleMenuConfig(event)" title="Configuración" style="position:relative;color:#fff;background:rgba(255,255,255,.16);border-radius:10px;"><span data-ico="gear" data-size="22"></span><span id="tareaBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;border:2px solid var(--blue);"></span></span>
     <span onclick="logout()" title="Salir">⏻</span>
   </div>
   <!-- menú desplegable de configuración -->
@@ -2507,7 +2507,7 @@ function armarBotonAtras(){
 /* ============ RENDER ROUTER ============ */
 function render(){
   try{ actualizarPagoBadge(); }catch(e){}
-  const oj=document.getElementById('btnOjito'); if(oj) oj.textContent=OCULTAR_DATOS?'🙈':'👁️';
+  const oj=document.getElementById('btnOjito'); if(oj) oj.innerHTML=OCULTAR_DATOS?'<span data-ico="eyeoff" data-size="22"></span>':'<span data-ico="eye" data-size="22"></span>';
   if(typeof actualizarAvisoBadge==='function') actualizarAvisoBadge();
   // poner el nombre del usuario en el switch
   const lbl=document.getElementById('ambitoMioLbl');
@@ -4100,8 +4100,9 @@ function renderPlanillaMes(){
   var totalMonto=delMes.reduce(function(s,v){return s+(v.precioVenta||0);},0);
   var partesMes=planillaMesSel.split('-');
   var nombreMes=MESES_NOM[parseInt(partesMes[1])-1]+' '+partesMes[0];
-  var html='<div class="planilla-hint">← deslizá la tabla para ver todas las columnas →</div>';
+  var html='<div class="planilla-hint">🔍 Tocá una fila para ver el detalle · verde = pagado</div>';
   html+='<div class="planilla-wrap"><table class="planilla">';
+  html+='<colgroup><col style="width:20%"><col style="width:22%"><col style="width:10%"><col style="width:14%"><col style="width:12%"><col style="width:10%"><col style="width:6%"><col style="width:6%"></colgroup>';
   html+='<thead><tr><th>Nombre</th><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Pagar</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th></tr></thead><tbody>';
   html+=delMes.map(function(v){
     var cli=DB.clientes.find(function(c){return c.id===v.clienteId;})||{nombre:'?'};
