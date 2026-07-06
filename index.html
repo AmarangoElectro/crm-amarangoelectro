@@ -4111,8 +4111,13 @@ function renderPlanillaMes(){
   var totalMonto=delMes.reduce(function(s,v){return s+(v.precioVenta||0);},0);
   var partesMes=planillaMesSel.split('-');
   var nombreMes=MESES_NOM[parseInt(partesMes[1])-1]+' '+partesMes[0];
-  var html='<div class="planilla-hint">🔍 Tocá una fila para ver el detalle · verde = pagado</div>';
-  html+='<div class="planilla-wrap"><table class="planilla">';
+  var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;">'+
+    '<button onclick="planillaMesNav(-1)" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:16px;font-weight:800;cursor:pointer;">◀</button>'+
+    '<div style="flex:1;text-align:center;font-size:15px;font-weight:900;color:var(--blue);">'+nombreMes+'</div>'+
+    '<button onclick="planillaMesNav(1)" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:16px;font-weight:800;cursor:pointer;">▶</button>'+
+  '</div>';
+  html+='<div class="planilla-hint">👉 Deslizá al costado para cambiar de mes · verde ✓ = pagado</div>';
+  html+='<div class="planilla-wrap" ontouchstart="planillaTouchStart(event)" ontouchend="planillaTouchEnd(event)"><table class="planilla">';
   html+='<colgroup><col style="width:20%"><col style="width:22%"><col style="width:10%"><col style="width:14%"><col style="width:12%"><col style="width:10%"><col style="width:6%"><col style="width:6%"></colgroup>';
   html+='<thead><tr><th>Nombre</th><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Pagar</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th></tr></thead><tbody>';
   html+=delMes.map(function(v){
@@ -4124,22 +4129,46 @@ function renderPlanillaMes(){
     var totCuotas=(v.cuotas||1);
     var pagadas=(v.pagadas||0);
     var todoPagado = pagadas>=totCuotas;
-    // texto de cuotas: "X de Y" (pagadas de total). Contado si es 1.
     var txtCuotas = totCuotas>1 ? (pagadas+' de '+totCuotas) : (todoPagado?'Pagado':'Contado');
-    // monto en verde si esta todo pagado, sino color normal
-    var colorMonto = todoPagado ? '#1DB954' : 'var(--text)';
-    // boton pagar: si falta pagar cuotas, muestra boton; si esta todo pagado, tilde verde
+
+    // ¿La próxima cuota está pronta a vencer? (2-3 días) o vencida
+    var estadoVenc=''; // '', 'pronto', 'vencido'
+    if(!todoPagado){
+      try{
+        var prox=proxVencimiento(v);
+        if(prox && prox.vence){
+          var vd=parseD(prox.vence); var h=today();
+          var difDias=Math.round((vd-h)/86400000);
+          if(difDias<0) estadoVenc='vencido';
+          else if(difDias<=3) estadoVenc='pronto';
+        }
+      }catch(e){}
+    }
+
+    // Celda MONTO: verde+tilde si pagado; fondo clarito si pronto/vencido
+    var celMonto;
+    if(todoPagado){
+      celMonto = '<td class="col-monto" style="background:#e6f8ee;color:#1DB954 !important;font-weight:800;">✓ $'+fmt(v.precioVenta||0)+'</td>';
+    } else if(estadoVenc==='vencido'){
+      celMonto = '<td class="col-monto" style="background:#fdeaea;color:#dc2626 !important;">$'+fmt(v.precioVenta||0)+'</td>';
+    } else if(estadoVenc==='pronto'){
+      celMonto = '<td class="col-monto" style="background:#fff7e0;color:#b35c00 !important;">$'+fmt(v.precioVenta||0)+'</td>';
+    } else {
+      celMonto = '<td class="col-monto" style="color:var(--text) !important;">$'+fmt(v.precioVenta||0)+'</td>';
+    }
+
+    // Celda PAGAR: tilde verde si pagado, botón si falta
     var celPagar;
     if(todoPagado){
       celPagar = '<td style="text-align:center;color:#1DB954;font-weight:800;">✅</td>';
     } else {
-      celPagar = '<td style="text-align:center;"><button onclick="event.stopPropagation();marcarCuotaPlanilla(\''+v.id+'\')" style="background:#1DB954;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">✔ Pagó</button></td>';
+      celPagar = '<td style="text-align:center;"><button onclick="event.stopPropagation();marcarCuotaPlanilla(\''+v.id+'\')" style="background:#1DB954;color:#fff;border:none;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✔</button></td>';
     }
     return '<tr onclick="detalleVenta(\''+v.id+'\')" style="cursor:pointer;">'+
       '<td>'+cli.nombre+'</td>'+
       '<td><b>'+(v.producto||'')+'</b></td>'+
       '<td class="col-num">'+txtCuotas+'</td>'+
-      '<td class="col-monto" style="color:'+colorMonto+' !important;">$'+fmt(v.precioVenta||0)+'</td>'+
+      celMonto+
       celPagar+
       '<td>'+dispDate(v.fecha)+'</td>'+
       '<td style="color:var(--orange);font-weight:700;">'+(inv||'—')+'</td>'+
@@ -4157,6 +4186,30 @@ function renderPlanillaMes(){
   document.getElementById('planillaContent').innerHTML=html;
 }
 function selPlanillaMes(m){ planillaMesSel=m; renderPlanillaMes(); }
+// Navegar al mes anterior / siguiente de la planilla
+function planillaMesNav(dir){
+  var vs=[...ventasAmbito()];
+  var meses={}; vs.forEach(function(v){ var m=mesDeVenta(v); if(m) meses[m]=true; });
+  var lista=Object.keys(meses).sort();
+  var i=lista.indexOf(planillaMesSel);
+  if(i<0) return;
+  var ni=i+dir;
+  if(ni<0 || ni>=lista.length) return; // no hay más meses
+  planillaMesSel=lista[ni];
+  renderPlanillaMes();
+}
+// Swipe horizontal en la planilla: izquierda = mes siguiente, derecha = mes anterior
+var _plSwipeX=0, _plSwipeY=0;
+function planillaTouchStart(e){ var t=e.touches[0]; _plSwipeX=t.clientX; _plSwipeY=t.clientY; }
+function planillaTouchEnd(e){
+  var t=e.changedTouches[0];
+  var dx=t.clientX-_plSwipeX, dy=t.clientY-_plSwipeY;
+  // solo si el gesto es más horizontal que vertical y suficientemente largo
+  if(Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)*1.5){
+    if(dx<0) planillaMesNav(1);   // deslizó a la izquierda → mes siguiente
+    else planillaMesNav(-1);      // deslizó a la derecha → mes anterior
+  }
+}
 // Marca una cuota como pagada desde la planilla (sin salir de la vista)
 async function marcarCuotaPlanilla(ventaId){
   var v=DB.ventas.find(function(x){return x.id===ventaId;});
