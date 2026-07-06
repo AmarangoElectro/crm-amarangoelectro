@@ -98,7 +98,7 @@
   .login-box input{width:100%;padding:16px;border:none;border-radius:14px;font-size:18px;text-align:center;letter-spacing:3px;margin-bottom:14px;outline:none;}
   .login-box button{width:100%;padding:16px;border:none;border-radius:14px;background:var(--orange);color:#fff;font-weight:800;font-size:16px;cursor:pointer;}
   .login-err{color:#ffb3ba;font-size:13px;text-align:center;height:18px;margin-bottom:8px;}
-  .cloud-badge{position:fixed;top:8px;right:56px;background:rgba(29,185,84,.12);color:#1DB954;border:1px solid rgba(29,185,84,.35);border-radius:20px;font-size:10px;font-weight:700;padding:3px 9px;z-index:60;display:none;backdrop-filter:blur(4px);}
+  .cloud-badge{position:fixed;top:60px;left:12px;right:auto;background:rgba(29,185,84,.12);color:#1DB954;border:1px solid rgba(29,185,84,.35);border-radius:20px;font-size:10px;font-weight:700;padding:3px 9px;z-index:60;display:none;backdrop-filter:blur(4px);}
   .cloud-badge.off{background:rgba(245,184,0,.15);color:#b38600;border-color:rgba(245,184,0,.4);}
   .cloud-badge.show{display:block;}
 
@@ -119,8 +119,8 @@
   .topbar-title b{color:#fff;}
   .topbar-title .ae-electro{color:#fff;}
   .topbar-sub{color:rgba(255,255,255,.6);font-size:10px;}
-  .topbar-actions{display:flex;gap:6px;color:#fff;font-size:22px;align-items:center;}
-  .topbar-actions>span{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:12px;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,.2);}
+  .topbar-actions{display:flex;gap:2px;color:#fff;font-size:20px;align-items:center;}
+  .topbar-actions>span{width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:9px;cursor:pointer;-webkit-tap-highlight-color:rgba(255,255,255,.2);}
   .topbar-actions>span:active{background:rgba(255,255,255,.18);}
   .menu-config{position:absolute;top:64px;right:10px;background:#fff;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.22);padding:6px;z-index:200;min-width:210px;animation:viewIn .2s ease;}
   body.dark .menu-config{background:#161b22;box-shadow:0 8px 30px rgba(0,0,0,.6);border:1px solid #30363d;}
@@ -147,6 +147,8 @@
   .hero-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);font-weight:700;}
   .hero-amt{font-size:34px;font-weight:800;margin-top:4px;color:var(--blue);letter-spacing:-.5px;}
   .hero-amt span{color:var(--orange);}
+  /* Ojito: tapa solo el total grande con un difuminado (no se lee pero se ve que hay algo) */
+  .secreto-oculto{filter:blur(11px)!important;user-select:none;pointer-events:none;}
   .hero-sub{font-size:11px;color:var(--green);font-weight:700;margin-top:2px;}
   .hero-stats{display:flex;gap:18px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
   .hs-val{font-size:18px;font-weight:800;color:var(--blue);}
@@ -1259,13 +1261,22 @@ let ultimoBorrado = null; // para el botón "Deshacer"
 
 /* ============ UTILS ============ */
 let OCULTAR_DATOS = false;
-const fmt = n => OCULTAR_DATOS ? '•••••' : Math.round(n).toLocaleString('es-AR');
+const fmt = n => Math.round(n).toLocaleString('es-AR'); // fmt siempre normal; el ojito solo tapa el total grande
 function toggleOcultar(){
   OCULTAR_DATOS=!OCULTAR_DATOS;
   try{ localStorage.setItem('ae_ocultar', OCULTAR_DATOS?'1':'0'); }catch(e){}
+  aplicarOcultarTotal();
+}
+// Oculta SOLO el total grande de facturación y la ganancia (lo demás siempre visible)
+function aplicarOcultarTotal(){
   const btn=document.getElementById('btnOjito');
-  if(btn) btn.innerHTML=ico(OCULTAR_DATOS?'unlock':'lock',22);
-  render();
+  if(btn) btn.innerHTML=ico(OCULTAR_DATOS?'eyeoff':'eye',22);
+  ['heroFact','heroGan'].forEach(function(id){
+    const el=document.getElementById(id);
+    if(!el) return;
+    if(OCULTAR_DATOS) el.classList.add('secreto-oculto');
+    else el.classList.remove('secreto-oculto');
+  });
 }
 const today = () => { const d=new Date(); d.setHours(0,0,0,0); return d; };
 const parseD = s => { const d=new Date(s); d.setHours(0,0,0,0); return d; };
@@ -2507,7 +2518,7 @@ function armarBotonAtras(){
 /* ============ RENDER ROUTER ============ */
 function render(){
   try{ actualizarPagoBadge(); }catch(e){}
-  const oj=document.getElementById('btnOjito'); if(oj) oj.innerHTML=OCULTAR_DATOS?'<span data-ico="eyeoff" data-size="22"></span>':'<span data-ico="eye" data-size="22"></span>';
+  try{ aplicarOcultarTotal(); }catch(e){}
   if(typeof actualizarAvisoBadge==='function') actualizarAvisoBadge();
   // poner el nombre del usuario en el switch
   const lbl=document.getElementById('ambitoMioLbl');
