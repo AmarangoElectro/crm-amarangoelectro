@@ -74,6 +74,8 @@
     background-image:none;
     background-attachment:scroll;
     background-size:auto;
+    overflow-x:hidden;
+    overflow-y:auto;
   }
   input,select,textarea,button{font-family:inherit;font-size:16px;}
 
@@ -102,7 +104,7 @@
 
   /* HEADER */
   .topbar{background:linear-gradient(135deg,#061738 0%,#0B2D6B 55%,#14418f 100%);backdrop-filter:saturate(140%) blur(6px);-webkit-backdrop-filter:saturate(140%) blur(6px);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 2px 12px rgba(6,23,56,.35);}
-  .ambito-bar{display:flex;gap:6px;padding:8px 14px;background:var(--blue);position:sticky;top:0;z-index:30;}
+  .ambito-bar{display:flex;gap:6px;padding:8px 14px;background:var(--blue);position:sticky;top:0;z-index:30;box-sizing:border-box;width:100%;max-width:100%;}
   .ambito-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.7);border:none;font-weight:700;font-size:13px;padding:9px;border-radius:10px;cursor:pointer;}
   .ambito-btn.active{background:var(--orange);color:#fff;}
   .ambito-btn svg{flex-shrink:0;}
@@ -645,6 +647,7 @@
     <button class="seg-btn" data-cob="hoy" onclick="segCob('hoy',this)">📅 Hoy</button>
     <button class="seg-btn" data-cob="prox" onclick="segCob('prox',this)">🔜 Próximas</button>
     <button class="seg-btn" data-cob="pagadas" onclick="segCob('pagadas',this)">🟢 Pagadas</button>
+    <button class="seg-btn" data-cob="seguimiento" onclick="segCob('seguimiento',this)">🎯 Seguimiento</button>
     <button class="seg-btn" data-cob="pordia" onclick="segCob('pordia',this)">📆 Por día</button>
   </div>
   <div id="listaCobranzas"></div>
@@ -3182,8 +3185,180 @@ function renderVentas(){
 
 let cobFiltro='agenda';
 function segCob(f,el){ cobFiltro=f; document.querySelectorAll('[data-cob]').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderCobranzas(); }
+/* ============ SEGUIMIENTO DE COBRANZA (estilo Pipedrive) ============ */
+// Cada deuda pendiente puede tener una GESTIÓN: contactado, prometió pagar (con
+// fecha), o no responde. Así ninguna deuda queda "olvidada": siempre está en una
+// etapa visible y el sistema te recuerda volver a insistir.
+
+// Estados posibles de gestión
+const GESTION_ESTADOS = {
+  'sin':      { label:'Sin gestionar', emoji:'⚪', color:'#7a8aaa' },
+  'contactado':{ label:'Contactado',   emoji:'📞', color:'#0B2D6B' },
+  'promesa':  { label:'Prometió pagar',emoji:'🤝', color:'#16a34a' },
+  'noresp':   { label:'No responde',   emoji:'🔇', color:'#b35c00' }
+};
+
+function _gestionKey(ventaId, num){ return ventaId+'-'+num; }
+function cargarGestiones(){
+  try{ return JSON.parse(localStorage.getItem('ae_gestion_cobro')||'{}'); }catch(e){ return {}; }
+}
+function guardarGestiones(g){
+  try{ localStorage.setItem('ae_gestion_cobro', JSON.stringify(g)); }catch(e){}
+}
+function getGestion(ventaId, num){
+  const g=cargarGestiones();
+  return g[_gestionKey(ventaId,num)] || { estado:'sin', nota:'', fechaPromesa:'', ts:0 };
+}
+function setGestion(ventaId, num, datos){
+  const g=cargarGestiones();
+  g[_gestionKey(ventaId,num)] = Object.assign({ ts:Date.now() }, datos);
+  guardarGestiones(g);
+  // guardar también en nube si está disponible (reusa auditoría como respaldo de eventos)
+  try{
+    if(typeof AUDIT!=='undefined' && datos.estado==='promesa'){
+      AUDIT.registrar('gestionó','cobro','promesa de pago registrada'+(datos.fechaPromesa?' para el '+datos.fechaPromesa:''));
+    }
+  }catch(e){}
+}
+
+// Modal para gestionar una cuota puntual
+function gestionarCuota(ventaId, num){
+  const v=DB.ventas.find(x=>x.id===ventaId); if(!v) return;
+  const cli=DB.clientes.find(c=>c.id===v.clienteId)||{nombre:'Cliente'};
+  const cuota=(ventaCuotas(v)||[]).find(c=>c.num===num) || {monto:0, vence:''};
+  const gest=getGestion(ventaId, num);
+
+  const opciones=Object.keys(GESTION_ESTADOS).map(k=>{
+    const e=GESTION_ESTADOS[k];
+    const sel = gest.estado===k;
+    return `<button class="btn ${sel?'btn-blue':'btn-ghost'}" style="width:100%;margin-bottom:8px;text-align:left;justify-content:flex-start;"
+      onclick="aplicarGestion('${ventaId}',${num},'${k}')">${e.emoji} ${e.label}${sel?' ✓':''}</button>`;
+  }).join('');
+
+  openModal(`<div class="modal-title">🎯 Gestión de cobro</div>
+    <div class="modal-sub">${cli.nombre} · Cuota ${num} · $${fmt(cuota.monto)}</div>
+    <div class="card" style="padding:12px;margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--muted);">¿Qué pasó con este cobro?</div>
+    </div>
+    ${opciones}
+    <div class="field" style="margin-top:10px;">
+      <label>📅 Si prometió pagar, ¿qué día?</label>
+      <input type="date" id="gest_fecha" value="${gest.fechaPromesa||''}">
+    </div>
+    <div class="field">
+      <label>📝 Nota (opcional)</label>
+      <textarea id="gest_nota" placeholder="Ej: dijo que cobra el viernes...">${gest.nota||''}</textarea>
+    </div>
+    <button class="btn btn-green" style="margin-top:8px;" onclick="guardarGestionCuota('${ventaId}',${num})">💾 Guardar gestión</button>
+    ${cli.telefono?`<button class="btn btn-ghost" style="margin-top:8px;" onclick="recordarPagoWhatsApp('${(cli.nombre||'').replace(/'/g,'')}','${cli.telefono}','${(v.producto||'').replace(/'/g,'')}',${cuota.monto},'${cuota.vence}')">💬 Mandarle recordatorio</button>`:''}`);
+}
+
+let _gestSelEstado = null;
+function aplicarGestion(ventaId, num, estado){
+  _gestSelEstado = estado;
+  // reabrir con el estado marcado visualmente
+  const g=cargarGestiones(); const k=_gestionKey(ventaId,num);
+  const prev=g[k]||{};
+  g[k]=Object.assign({}, prev, {estado});
+  guardarGestiones(g);
+  gestionarCuota(ventaId, num);
+}
+
+function guardarGestionCuota(ventaId, num){
+  const fecha=(document.getElementById('gest_fecha')||{}).value||'';
+  const nota=(document.getElementById('gest_nota')||{}).value||'';
+  const actual=getGestion(ventaId,num);
+  setGestion(ventaId, num, { estado:actual.estado||'sin', nota, fechaPromesa:fecha });
+  closeModal(); toast('Gestión guardada 🎯');
+  if(currentView==='cobranzas') renderCobranzas();
+}
+
+// Vista de seguimiento: agrupa deudas pendientes por estado de gestión,
+// y destaca las PROMESAS DE PAGO por fecha (lo que no se puede olvidar).
+function renderSeguimiento(cont){
+  const hoy=today();
+  let pend=[];
+  ventasAmbito().forEach(v=>{
+    (ventaCuotas(v)||[]).forEach(c=>{
+      if(c.pagada) return;
+      const venc=parseD(c.vence);
+      if(venc<=addDays(hoy,60)){ // deudas vigentes o vencidas (hasta 60 días adelante)
+        const g=getGestion(v.id, c.num);
+        pend.push({v,c,g,venc});
+      }
+    });
+  });
+
+  if(!pend.length){ cont.innerHTML=emptyState('✅','¡Todo al día!','No hay deudas para gestionar'); return; }
+
+  // 1) PROMESAS DE PAGO (lo más importante: no olvidar)
+  const promesas=pend.filter(r=>r.g.estado==='promesa').sort((a,b)=>{
+    return (a.g.fechaPromesa||'9999').localeCompare(b.g.fechaPromesa||'9999');
+  });
+
+  // 2) Agrupar el resto por estado
+  const grupos={ sin:[], contactado:[], noresp:[] };
+  pend.forEach(r=>{ if(r.g.estado!=='promesa'){ (grupos[r.g.estado]||grupos.sin).push(r); } });
+
+  function fila(r){
+    const cli=DB.clientes.find(c=>c.id===r.v.clienteId)||{nombre:'?'};
+    const e=GESTION_ESTADOS[r.g.estado]||GESTION_ESTADOS.sin;
+    const vencido = r.venc<hoy;
+    const promeTxt = (r.g.estado==='promesa'&&r.g.fechaPromesa)?` · 🤝 pagó dijo ${_fechaLegible(r.g.fechaPromesa)}`:'';
+    return `<div class="list-item" onclick="gestionarCuota('${r.v.id}',${r.c.num})" style="cursor:pointer;">
+      <div class="avatar" style="background:${e.color};width:34px;height:34px;font-size:15px;">${e.emoji}</div>
+      <div class="li-info">
+        <div class="li-name" style="font-size:14px;">${cli.nombre}</div>
+        <div class="li-meta">${r.v.producto||''} · Cuota ${r.c.num}${promeTxt} ${vencido?'· <span style="color:#dc2626;font-weight:700;">vencida</span>':''}</div>
+      </div>
+      <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div></div>
+    </div>`;
+  }
+
+  let html='';
+
+  // Resumen arriba
+  const totalPend=pend.reduce((s,r)=>s+r.c.monto,0);
+  const totalProm=promesas.reduce((s,r)=>s+r.c.monto,0);
+  html+=`<div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;margin-bottom:14px;padding:14px;">
+    <div style="color:rgba(255,255,255,.8);font-size:12px;">Total en gestión</div>
+    <div style="color:#fff;font-size:26px;font-weight:900;">$${fmt(totalPend)}</div>
+    <div style="color:rgba(255,255,255,.7);font-size:12px;margin-top:2px;">${pend.length} deudas · 🤝 $${fmt(totalProm)} prometido</div>
+  </div>`;
+
+  // Bloque de promesas (destacado)
+  if(promesas.length){
+    html+=`<div class="card" style="margin-bottom:14px;padding:12px;border-left:4px solid #16a34a;">
+      <div style="font-weight:800;color:#16a34a;font-size:15px;margin-bottom:8px;">🤝 Promesas de pago (${promesas.length})</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Clientes que dijeron que van a pagar. Volvé a insistir en la fecha.</div>
+      ${promesas.map(fila).join('')}
+    </div>`;
+  }
+
+  function bloqueEstado(clave, titulo, color){
+    const arr=grupos[clave]; if(!arr||!arr.length) return '';
+    arr.sort((a,b)=>a.venc-b.venc);
+    const total=arr.reduce((s,r)=>s+r.c.monto,0);
+    return `<div class="card" style="margin-bottom:14px;padding:12px;border-left:4px solid ${color};">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-weight:800;color:${color};font-size:15px;">${titulo}</div>
+        <div style="font-size:12px;color:var(--muted);font-weight:700;">${arr.length} · $${fmt(total)}</div>
+      </div>
+      ${arr.map(fila).join('')}
+    </div>`;
+  }
+
+  html+=bloqueEstado('noresp', '🔇 No responden', '#b35c00');
+  html+=bloqueEstado('contactado', '📞 Contactados (esperando)', '#0B2D6B');
+  html+=bloqueEstado('sin', '⚪ Sin gestionar (empezá por acá)', '#7a8aaa');
+
+  cont.innerHTML=html;
+}
+
+
 function renderCobranzas(){
   const cont=document.getElementById('listaCobranzas');
+  if(cobFiltro==='seguimiento'){ renderSeguimiento(cont); return; }
   // construir lista de cuotas individuales
   let rows=[];
   ventasAmbito().forEach(v=>{
