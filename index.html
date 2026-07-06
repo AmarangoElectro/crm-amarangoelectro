@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <title>AmarangoElectro</title>
 <meta name="theme-color" content="#0B2D6B">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -70,10 +70,8 @@
   html,body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Plus Jakarta Sans',sans-serif;background:#fff;color:var(--text);overscroll-behavior:none;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-0.01em;}
   body{
     padding-bottom:90px;min-height:100vh;
-    background-color:#FFFDF7;
-    background-image:
-      radial-gradient(circle at 8% 6%, rgba(255,122,0,.06) 0, transparent 22%),
-      radial-gradient(circle at 94% 96%, rgba(255,122,0,.06) 0, transparent 24%);
+    background-color:#F2F7FC;
+    background-image:none;
     background-attachment:scroll;
     background-size:auto;
   }
@@ -82,11 +80,15 @@
   /* ===== LOGIN ===== */
   #loginScreen{position:fixed;inset:0;background:linear-gradient(160deg,var(--blue),#06183d);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px;}
   #loginScreen.hide{display:none;}
-  .login-personas{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:320px;margin-top:10px;}
-  .login-persona{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;width:78px;}
-  .login-persona:active{transform:scale(.95);}
-  .lp-av{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:22px;box-shadow:0 4px 12px rgba(0,0,0,.25);border:2.5px solid rgba(255,255,255,.25);}
-  .lp-name{color:#fff;font-weight:700;font-size:13px;}
+  .login-personas{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;max-width:360px;margin-top:auto;margin-bottom:24px;padding-top:20px;}
+  .login-persona{display:flex;flex-direction:column;align-items:center;gap:7px;cursor:pointer;width:82px;}
+  .login-persona:active{transform:scale(.93);}
+  /* Botón blanco con doble borde azul/naranja (como el logo AmarangoElectro) y la abeja adentro */
+  .lp-av{width:66px;height:66px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:#ffffff !important;font-size:30px;
+    border:3px solid #0B2D6B;
+    box-shadow:0 0 0 3px #FF7A00, 0 5px 14px rgba(0,0,0,.3);}
+  .lp-name{color:#fff;font-weight:800;font-size:14px;text-shadow:0 1px 3px rgba(0,0,0,.4);}
   .login-logo{width:110px;height:110px;background:#fff;border-radius:50%;object-fit:cover;margin-bottom:20px;box-shadow:0 10px 30px rgba(0,0,0,.35);}
   .login-title{color:#fff;font-size:22px;font-weight:800;letter-spacing:.5px;}
   .login-sub{color:rgba(255,255,255,.6);font-size:13px;margin-top:4px;margin-bottom:30px;}
@@ -333,8 +335,8 @@
   .nav-lbl{font-size:10px;font-weight:700;}
   .planilla-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid var(--border);background:#fff;margin-bottom:14px;}
   table.planilla{border-collapse:collapse;width:max-content;min-width:100%;font-size:12px;}
-  table.planilla th{background:var(--blue);color:#fff;font-weight:800;padding:9px 10px;text-align:left;white-space:nowrap;position:sticky;top:0;}
-  table.planilla td{padding:8px 10px;white-space:nowrap;border-bottom:1px solid var(--border);}
+  table.planilla th{background:var(--blue);color:#fff;font-weight:800;padding:9px 10px;text-align:left;white-space:nowrap;position:sticky;top:0;border-right:1px solid rgba(255,255,255,.2);}
+  table.planilla td{padding:8px 10px;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border);}
   table.planilla tr:nth-child(even) td{background:#f7f9ff;}
   table.planilla .col-monto{font-weight:800;color:var(--green);}
   table.planilla .col-num{color:var(--muted);font-weight:700;text-align:center;}
@@ -479,6 +481,44 @@
 
   .spinner{width:40px;height:40px;border:4px solid #eef3fb;border-top-color:var(--orange);border-radius:50%;animation:spin .8s linear infinite;margin:30px auto;}
   @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* ===== MODO OSCURO SIMPLIFICADO (pedido de Max) =====
+     Solo cambia el fondo de la pantalla a negro y la barra de arriba a negra.
+     TODO lo demás (tarjetas, textos, inputs, botones) queda igual que el modo claro.
+     Este bloque va al final del CSS a propósito: al estar más abajo, gana sobre
+     las reglas viejas de body.dark sin tener que borrarlas una por una. */
+  body.dark{
+    --bg:#000000; --card:#ffffff; --text:#1a1a2e; --muted:#7a8aaa;
+    --line:#e7ecf5; --line2:#eef2f9;
+    background:#000000 !important;
+  }
+  /* Volver TODO al aspecto claro salvo el fondo del body */
+  body.dark .card, body.dark .list-item, body.dark .cli-card2, body.dark .modal,
+  body.dark .cli-body, body.dark .cli-cajon, body.dark .prod-emoji,
+  body.dark .cli-deuda-resumen, body.dark input, body.dark select, body.dark textarea,
+  body.dark .modal-topbar, body.dark .btn-guardar-fijo, body.dark .cli-simb.resp,
+  body.dark .ambito-bar, body.dark .ambito-btn, body.dark .menu-config,
+  body.dark .amara-msg.bot, body.dark .amara-chip, body.dark .amara-input,
+  body.dark .amara-input input, body.dark .fin-menu-btn{
+    background:#ffffff !important; color:#1a1a2e !important; border-color:#e7ecf5 !important;
+  }
+  body.dark .sec-title, body.dark .li-name, body.dark .info-val, body.dark .modal-title,
+  body.dark .quick-val, body.dark .cajabox-val, body.dark .fact-val, body.dark .stat-val,
+  body.dark .hero-amt, body.dark .hs-val, body.dark .mc-item, body.dark .fmb-txt{
+    color:#1a1a2e !important;
+  }
+  body.dark .li-meta, body.dark .info-lbl, body.dark .modal-sub, body.dark .hero-label,
+  body.dark .nav-item, body.dark .fmb-txt small{
+    color:#7a8aaa !important;
+  }
+  /* Barra de abajo (nav) también clara, como el resto */
+  body.dark .nav{ background:#ffffff !important; border-top:1px solid #e7ecf5 !important; }
+  /* La barra de ARRIBA (topbar) sí queda negra, como pediste */
+  body.dark .topbar{
+    background:#000000 !important;
+    border-bottom:1px solid #222 !important;
+  }
+
 </style>
 </head>
 <body>
@@ -512,6 +552,7 @@
   <div class="topbar-actions">
     <span onclick="abrirChat()" title="Mensajes" style="position:relative;color:#fff;"><span data-ico="chat" data-size="22"></span><span id="chatBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
     <span onclick="abrirAvisos()" title="Avisos" style="position:relative;color:#fff;"><span data-ico="alert" data-size="22"></span><span id="avisoBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
+    <span onclick="abrirNotifPago()" title="Fechas de pago" style="position:relative;color:#fff;">🔔<span id="pagoBadge" style="display:none;position:absolute;top:-6px;right:-8px;background:#dc2626;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:8px;padding:0 3px;">0</span></span>
     <span onclick="toggleOcultar()" id="btnOjito" title="Ocultar montos" style="color:#fff;"><span data-ico="lock" data-size="22"></span></span>
     <span onclick="toggleMenuConfig(event)" title="Configuración" style="position:relative;color:#fff;"><span data-ico="gear" data-size="22"></span><span id="tareaBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;border:2px solid var(--blue);"></span></span>
     <span onclick="logout()" title="Salir">⏻</span>
@@ -668,7 +709,9 @@
       <div style="height:10px;background:#fff1e3;border-radius:10px;overflow:hidden;">
         <div id="finBar" style="height:100%;background:linear-gradient(90deg,var(--green),#44d978);width:0%;"></div>
       </div>
-      <button class="btn btn-orange" style="margin-top:12px;" onclick="abrirReporteMensual()">📊 Ver reporte del mes</button>
+      <button class="btn btn-blue" style="margin-top:12px;" onclick="abrirTablero()">🧠 Tablero inteligente</button>
+      <button class="btn btn-blue" style="margin-top:8px;" onclick="abrirAuditoriaVendedor(30)">🔍 Auditoría por vendedor</button>
+      <button class="btn btn-orange" style="margin-top:8px;" onclick="abrirReporteMensual()">📊 Ver reporte del mes</button>
     </div>
   </div>
 
@@ -822,7 +865,7 @@ function getUsuarios(){
   catch(e){ return USUARIOS_DEFAULT.slice(); }
 }
 function saveUsuarios(u){ try{ localStorage.setItem('ae_usuarios', JSON.stringify(u)); }catch(e){} }
-function usuarioActual(){ return sessionStorage.getItem('ae_user')||''; }
+function usuarioActual(){ return localStorage.getItem('ae_user')||sessionStorage.getItem('ae_user')||''; }
 /* Apodo amigable según el nombre, para los saludos */
 function apodoDe(nombre){
   const n=(nombre||'').trim().toLowerCase();
@@ -2460,6 +2503,7 @@ function armarBotonAtras(){
 
 /* ============ RENDER ROUTER ============ */
 function render(){
+  try{ actualizarPagoBadge(); }catch(e){}
   const oj=document.getElementById('btnOjito'); if(oj) oj.textContent=OCULTAR_DATOS?'🙈':'👁️';
   if(typeof actualizarAvisoBadge==='function') actualizarAvisoBadge();
   // poner el nombre del usuario en el switch
@@ -3278,6 +3322,399 @@ function renderFinanzas(){
 }
 function finRow(l,val,c,plain){ return `<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:13px;"><span style="color:var(--muted);">${l}</span><span style="font-weight:700;color:${c};">${plain?val:'$'+fmt(val)}</span></div>`; }
 /* Reporte mensual del negocio. El TOTAL es del negocio (visible). La ganancia por persona NO se muestra acá (privada). */
+/* ============ TABLERO INTELIGENTE (interpreta tus datos) ============ */
+// No solo muestra números: los lee y te dice qué significan.
+// Usa tus datos reales de ventas/clientes/cuotas. Sin IA externa, todo local.
+
+function _mesDe(f){ const d=new Date(f); return d.getFullYear()*12 + d.getMonth(); }
+function _finDe(dias){ const h=today(); const f=new Date(h); f.setDate(f.getDate()+dias); return f; }
+
+function tableroDatos(){
+  const hoy=today();
+  const mesHoy=_mesDe(hoy);
+  const mesPasado=mesHoy-1;
+
+  let factMes=0, factAnt=0, gananciaMes=0, costoMes=0, envioMes=0;
+  const prodGanancia={};   // producto -> ganancia acumulada del mes
+  const respVentas={};     // responsable -> facturado del mes
+  const mayorMargen={};    // mayorista -> {venta, costo}
+  const diaSemana=[0,0,0,0,0,0,0]; // ventas por día de semana (todas)
+
+  DB.ventas.forEach(v=>{
+    const m=_mesDe(v.fecha);
+    const venta=+v.precioVenta||0, costo=+v.precioCosto||0, envio=+v.envio||0;
+    if(m===mesHoy){
+      factMes+=venta; costoMes+=costo; envioMes+=envio;
+      const g=venta-costo-envio;
+      gananciaMes+=g;
+      const pnom=(v.producto||'—').split('×').pop().trim().slice(0,28);
+      prodGanancia[pnom]=(prodGanancia[pnom]||0)+g;
+      const r=(v.responsable||'—');
+      respVentas[r]=(respVentas[r]||0)+venta;
+      if(v.mayorista){ if(!mayorMargen[v.mayorista])mayorMargen[v.mayorista]={venta:0,costo:0}; mayorMargen[v.mayorista].venta+=venta; mayorMargen[v.mayorista].costo+=costo; }
+    }
+    if(m===mesPasado){ factAnt+=venta; }
+    // día de semana (todas las ventas, para detectar patrón)
+    const ds=new Date(v.fecha).getDay();
+    if(ds>=0&&ds<=6) diaSemana[ds]++;
+  });
+
+  // Cobros: pendiente, vencido, por vencer esta semana
+  let pendiente=0, vencido=0, venceSemana=0, cobradoMes=0;
+  const finSemana=_finDe(7);
+  DB.ventas.forEach(v=>{ ventaCuotas(v).forEach(c=>{
+    if(c.pagada){ if(c.vence && _mesDe(c.vence)===mesHoy) cobradoMes+=(c.monto||0); return; }
+    pendiente+=(c.monto||0);
+    const venc=parseD(c.vence);
+    if(venc<hoy) vencido+=(c.monto||0);
+    else if(venc<=finSemana) venceSemana+=(c.monto||0);
+  }); });
+
+  // Producto estrella (más ganancia del mes)
+  let prodTop=null, prodTopG=0;
+  Object.keys(prodGanancia).forEach(p=>{ if(prodGanancia[p]>prodTopG){ prodTopG=prodGanancia[p]; prodTop=p; } });
+
+  // Vendedor top del mes
+  let respTop=null, respTopV=0;
+  Object.keys(respVentas).forEach(r=>{ if(respVentas[r]>respTopV){ respTopV=respVentas[r]; respTop=r; } });
+
+  // Mayorista con mejor margen %
+  let mayorTop=null, mayorTopPct=-1;
+  Object.keys(mayorMargen).forEach(m=>{ const o=mayorMargen[m]; if(o.venta>0){ const pct=(o.venta-o.costo)/o.venta*100; if(pct>mayorTopPct){ mayorTopPct=pct; mayorTop=m; } } });
+
+  // Día más fuerte
+  const dias=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+  let diaTop=0; for(let i=1;i<7;i++) if(diaSemana[i]>diaSemana[diaTop]) diaTop=i;
+
+  // Variación de facturación
+  let varPct=null;
+  if(factAnt>0) varPct=Math.round((factMes-factAnt)/factAnt*100);
+
+  // Clientes que deben y con cuota vencida (para recuperar)
+  const cliVencidos=[];
+  DB.clientes.forEach(c=>{
+    let venc=0;
+    DB.ventas.filter(v=>v.clienteId===c.id).forEach(v=>{ ventaCuotas(v).forEach(cu=>{ if(!cu.pagada && parseD(cu.vence)<hoy) venc+=(cu.monto||0); }); });
+    if(venc>0) cliVencidos.push({nombre:c.nombre||'Cliente', monto:venc});
+  });
+  cliVencidos.sort((a,b)=>b.monto-a.monto);
+
+  // Pago automático: cuántos clientes lo tienen activo
+  let pagoAutoActivo=0, pagoAutoOfrecido=0, clientesConCuotas=0;
+  DB.clientes.forEach(c=>{
+    const tieneCuotas = DB.ventas.some(v=>v.clienteId===c.id && (+v.cuotas||1)>1);
+    if(tieneCuotas){
+      clientesConCuotas++;
+      if(c.pagoAuto==='activo') pagoAutoActivo++;
+      else if(c.pagoAuto==='ofrecido') pagoAutoOfrecido++;
+    }
+  });
+
+  return { factMes, factAnt, varPct, gananciaMes, cobradoMes, pendiente, vencido, venceSemana,
+    prodTop, prodTopG, respTop, respTopV, mayorTop, mayorTopPct,
+    diaTop:dias[diaTop], diaTopN:diaSemana[diaTop],
+    ventasMesN: DB.ventas.filter(v=>_mesDe(v.fecha)===mesHoy).length,
+    pagoAutoActivo, pagoAutoOfrecido, clientesConCuotas,
+    cliVencidos };
+}
+
+// Genera las "lecturas" en lenguaje natural
+function tableroLecturas(d){
+  const L=[];
+  if(d.varPct!==null){
+    if(d.varPct>0) L.push({emoji:'📈', txt:`Tus ventas subieron ${d.varPct}% respecto al mes pasado.`, tono:'bien'});
+    else if(d.varPct<0) L.push({emoji:'📉', txt:`Tus ventas bajaron ${Math.abs(d.varPct)}% respecto al mes pasado.`, tono:'ojo'});
+    else L.push({emoji:'➡️', txt:`Tus ventas están igual que el mes pasado.`, tono:'neutro'});
+  }
+  if(d.prodTop) L.push({emoji:'🏆', txt:`El que más ganancia te dejó este mes: ${d.prodTop} (+$${fmt(d.prodTopG)}).`, tono:'bien'});
+  if(d.mayorTop) L.push({emoji:'🎯', txt:`Mejor margen por mayorista: ${d.mayorTop} (${Math.round(d.mayorTopPct)}% de ganancia).`, tono:'neutro'});
+  if(d.respTop) L.push({emoji:'⭐', txt:`Vendedor top del mes: ${d.respTop} ($${fmt(d.respTopV)} facturado).`, tono:'neutro'});
+  if(d.diaTopN>0) L.push({emoji:'📅', txt:`Tu día más fuerte de ventas suele ser el ${d.diaTop}. Publicá más ese día.`, tono:'neutro'});
+  if(d.vencido>0) L.push({emoji:'🔴', txt:`Tenés $${fmt(d.vencido)} en cuotas ya vencidas. Conviene recuperar eso.`, tono:'ojo'});
+  if(d.clientesConCuotas>0){
+    if(d.pagoAutoActivo>0) L.push({emoji:'💳', txt:`${d.pagoAutoActivo} de ${d.clientesConCuotas} clientes con cuotas tienen cobro automático (cobro más seguro).`, tono:'bien'});
+    if(d.pagoAutoOfrecido>0) L.push({emoji:'🟡', txt:`A ${d.pagoAutoOfrecido} cliente(s) les ofreciste el pago automático pero falta que lo activen. Recordáselo.`, tono:'ojo'});
+    const sinAuto = d.clientesConCuotas - d.pagoAutoActivo - d.pagoAutoOfrecido;
+    if(sinAuto>0 && d.pagoAutoActivo>=0) L.push({emoji:'💡', txt:`${sinAuto} cliente(s) con cuotas todavía cobran manual. Ofreceles el pago automático para asegurar el cobro.`, tono:'neutro'});
+  }
+
+  if(d.venceSemana>0) L.push({emoji:'🟡', txt:`Esta semana vencen $${fmt(d.venceSemana)} en cuotas. Avisales antes.`, tono:'ojo'});
+  if(!L.length) L.push({emoji:'🐝', txt:`Cargá algunas ventas y acá te voy a mostrar qué está funcionando y qué no.`, tono:'neutro'});
+  return L;
+}
+
+/* ============ NOTIFICACIONES DE FECHA DE PAGO ============ */
+// Al abrir la app, revisa qué clientes tienen cuotas que vencen (hoy, mañana,
+// esta semana) o ya vencidas, y muestra un aviso con botón para recordarles por WhatsApp.
+
+function _fechaLegible(iso){
+  try{ const d=parseD(iso); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'}); }
+  catch(e){ return iso; }
+}
+
+function cuotasPorVencer(){
+  const hoy = today();
+  const en2 = addDays(hoy, 2);   // hoy, mañana, pasado
+  const en7 = addDays(hoy, 7);
+  const res = { vencidas:[], hoy:[], prontas:[], semana:[] };
+
+  DB.ventas.forEach(v=>{
+    const cli = DB.clientes.find(c=>c.id===v.clienteId);
+    (ventaCuotas(v)||[]).forEach(c=>{
+      if(c.pagada) return;
+      const venc = parseD(c.vence);
+      const item = {
+        cliente: cli? (cli.nombre||'Cliente') : 'Cliente',
+        telefono: cli? (cli.telefono||'') : '',
+        producto: v.producto||'',
+        monto: c.monto||0,
+        vence: c.vence,
+        num: c.num
+      };
+      if(venc < hoy) res.vencidas.push(item);
+      else if(venc.getTime() === hoy.getTime()) res.hoy.push(item);
+      else if(venc <= en2) res.prontas.push(item);
+      else if(venc <= en7) res.semana.push(item);
+    });
+  });
+  return res;
+}
+
+function totalNotifPago(){
+  const d = cuotasPorVencer();
+  return d.vencidas.length + d.hoy.length + d.prontas.length;  // lo urgente
+}
+
+function recordarPagoWhatsApp(nombre, telefono, producto, monto, vence){
+  const msg = `¡Hola ${nombre}! 🐝 Te recordamos que tu cuota`
+    + (producto?` del ${producto}`:'')
+    + ` de $${fmt(monto)} vence el ${_fechaLegible(vence)}. `
+    + `Cualquier duda escribinos. ¡Gracias! - AmarangoElectro`;
+  let url;
+  if(telefono){
+    const tel = (''+telefono).replace(/[^0-9]/g,'');
+    url = 'https://wa.me/'+tel+'?text='+encodeURIComponent(msg);
+  } else {
+    url = 'https://wa.me/?text='+encodeURIComponent(msg);
+  }
+  window.open(url, '_blank');
+}
+
+function _filaNotif(item, color){
+  return `<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line,#eee);">
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.cliente}</div>
+      <div style="font-size:11px;color:var(--muted);">$${fmt(item.monto)} · vence ${_fechaLegible(item.vence)}${item.producto?' · '+item.producto:''}</div>
+    </div>
+    <button class="btn btn-ghost" style="width:auto;padding:6px 12px;font-size:12px;margin:0;white-space:nowrap;"
+      onclick="recordarPagoWhatsApp('${(item.cliente||'').replace(/'/g,'')}','${item.telefono}','${(item.producto||'').replace(/'/g,'')}',${item.monto},'${item.vence}')">💬 Avisar</button>
+  </div>`;
+}
+
+function abrirNotifPago(){
+  const d = cuotasPorVencer();
+  let html = '';
+
+  function seccion(titulo, arr, color, emoji){
+    if(!arr.length) return '';
+    // ordenar por fecha
+    arr.sort((a,b)=> parseD(a.vence)-parseD(b.vence));
+    return `<div class="card" style="padding:14px;margin-bottom:10px;border-left:4px solid ${color};">
+      <div style="font-size:13px;font-weight:800;color:${color};margin-bottom:2px;">${emoji} ${titulo} (${arr.length})</div>
+      ${arr.map(x=>_filaNotif(x,color)).join('')}
+    </div>`;
+  }
+
+  html += seccion('Cuotas VENCIDAS', d.vencidas, '#dc2626', '🔴');
+  html += seccion('Vencen HOY', d.hoy, '#b35c00', '🟠');
+  html += seccion('Vencen en 1-2 días', d.prontas, '#ca8a04', '🟡');
+  html += seccion('Vencen esta semana', d.semana, '#0B2D6B', '🔵');
+
+  if(!html){
+    html = `<div class="card" style="padding:20px;text-align:center;color:var(--muted);">
+      ✅ No hay cuotas por vencer en los próximos días. ¡Todo al día! 🐝</div>`;
+  }
+
+  openModal(`<div class="modal-title">🔔 Fechas de pago</div>
+    <div class="modal-sub">Clientes con cuotas que vencen pronto</div>
+    ${html}
+    <div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;line-height:1.5;">
+      🐝 Tocá "Avisar" para mandarle el recordatorio por WhatsApp con el mensaje ya escrito.
+    </div>`);
+}
+
+
+function actualizarPagoBadge(){
+  try{
+    var b=document.getElementById('pagoBadge'); if(!b) return;
+    var n=totalNotifPago();
+    if(n>0){ b.textContent=n>99?'99+':n; b.style.display='block'; }
+    else b.style.display='none';
+  }catch(e){}
+}
+
+/* ============ AUDITORÍA POR VENDEDOR (estilo Try Controller) ============ */
+// Muestra, para cada vendedor: qué vendió, cuánto facturó/ganancia, qué cobró,
+// y su actividad reciente. Todo desde datos que ya tenés. Solo lectura.
+
+function auditoriaVendedorDatos(rangoDias){
+  const desde = Date.now() - (rangoDias||30)*24*60*60*1000;
+  const vendedores = {}; // nombre -> stats
+
+  function asegurar(nom){
+    nom = nom || '—';
+    if(!vendedores[nom]) vendedores[nom] = {
+      nombre:nom, ventas:0, facturado:0, ganancia:0, cobrado:0,
+      clientesNuevos:0, acciones:0, ultimaActividad:0, detalleAcc:{}
+    };
+    return vendedores[nom];
+  }
+
+  // Ventas por responsable
+  DB.ventas.forEach(v=>{
+    const t = new Date(v.fecha).getTime();
+    if(t < desde) return;
+    const s = asegurar(v.responsable);
+    s.ventas++;
+    s.facturado += (+v.precioVenta||0);
+    s.ganancia  += (+v.precioVenta||0) - (+v.precioCosto||0) - (+v.envio||0);
+  });
+
+  // Cobros: cuotas pagadas en el rango (usa quién registró si está, sino responsable de la venta)
+  DB.ventas.forEach(v=>{
+    (ventaCuotas(v)||[]).forEach(c=>{
+      if(c.pagada && c.fechaPago){
+        const t=new Date(c.fechaPago).getTime();
+        if(t>=desde){ const s=asegurar(v.responsable); s.cobrado += (+c.monto||0); }
+      }
+    });
+  });
+
+  // Clientes nuevos por responsable (alta en rango)
+  DB.clientes.forEach(c=>{
+    if(c.alta){ const t=new Date(c.alta).getTime(); if(t>=desde){ const s=asegurar(c.responsable); s.clientesNuevos++; } }
+  });
+
+  // Actividad (log de auditoría) por 'quien'
+  (AUDIT.vigentes()||[]).forEach(a=>{
+    if(a.ts < desde) return;
+    const s = asegurar(a.quien);
+    s.acciones++;
+    if(a.ts > s.ultimaActividad) s.ultimaActividad = a.ts;
+    const k = a.accion||'acción';
+    s.detalleAcc[k] = (s.detalleAcc[k]||0) + 1;
+  });
+
+  return Object.values(vendedores).sort((a,b)=> b.facturado - a.facturado);
+}
+
+let _auditRango = 30;
+function abrirAuditoriaVendedor(rango){
+  _auditRango = rango || _auditRango;
+  const datos = auditoriaVendedorDatos(_auditRango);
+
+  const chips = [7,30,90].map(d=>
+    `<button class="btn ${_auditRango===d?'btn-blue':'btn-ghost'}" style="width:auto;padding:6px 14px;margin:0 4px 0 0;font-size:12px;" onclick="abrirAuditoriaVendedor(${d})">${d===7?'7 días':d===30?'30 días':'90 días'}</button>`
+  ).join('');
+
+  let cards = '';
+  if(!datos.length){
+    cards = `<div class="card" style="padding:20px;text-align:center;color:var(--muted);">Sin movimientos en este período.</div>`;
+  } else {
+    cards = datos.map(s=>{
+      const ult = s.ultimaActividad ? new Date(s.ultimaActividad).toLocaleDateString()+' '+new Date(s.ultimaActividad).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '—';
+      const accTxt = Object.keys(s.detalleAcc).map(k=>`${k} ${s.detalleAcc[k]}`).join(' · ') || 'sin registro';
+      return `<div class="card" style="padding:14px;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+          <div style="font-size:15px;font-weight:900;color:var(--text);">👤 ${s.nombre}</div>
+          <div style="font-size:11px;color:var(--muted);">últ. actividad: ${ult}</div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="background:var(--bg2,rgba(0,0,0,.03));border-radius:8px;padding:8px;">
+            <div style="font-size:10px;color:var(--muted);">VENTAS</div>
+            <div style="font-size:16px;font-weight:800;color:var(--text);">${s.ventas}</div>
+          </div>
+          <div style="background:var(--bg2,rgba(0,0,0,.03));border-radius:8px;padding:8px;">
+            <div style="font-size:10px;color:var(--muted);">FACTURADO</div>
+            <div style="font-size:16px;font-weight:800;color:var(--text);">$${fmt(s.facturado)}</div>
+          </div>
+          <div style="background:var(--bg2,rgba(0,0,0,.03));border-radius:8px;padding:8px;">
+            <div style="font-size:10px;color:var(--muted);">GANANCIA</div>
+            <div style="font-size:16px;font-weight:800;color:#16a34a;">$${fmt(s.ganancia)}</div>
+          </div>
+          <div style="background:var(--bg2,rgba(0,0,0,.03));border-radius:8px;padding:8px;">
+            <div style="font-size:10px;color:var(--muted);">COBRADO</div>
+            <div style="font-size:16px;font-weight:800;color:var(--text);">$${fmt(s.cobrado)}</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;">
+          🆕 ${s.clientesNuevos} cliente(s) nuevo(s) · 📝 ${s.acciones} acciones (${accTxt})
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  openModal(`<div class="modal-title">🔍 Auditoría por vendedor</div>
+    <div class="modal-sub">Qué hizo cada uno en los últimos ${_auditRango} días</div>
+    <div style="margin-bottom:12px;">${chips}</div>
+    ${cards}
+    <div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;line-height:1.5;">
+      🐝 Datos reales de ventas, cobros y actividad. Solo lectura, no modifica nada.
+    </div>`);
+}
+
+function abrirTablero(){
+  const d=tableroDatos();
+  const lecturas=tableroLecturas(d);
+  const colorTono={bien:'#16a34a', ojo:'#b35c00', neutro:'var(--muted)', '':'var(--muted)'};
+
+  const lecturasHTML = lecturas.map(l=>`
+    <div style="display:flex;gap:10px;padding:11px 0;border-top:1px solid var(--border,#eee);align-items:flex-start;">
+      <div style="font-size:20px;line-height:1;">${l.emoji}</div>
+      <div style="font-size:13.5px;line-height:1.5;color:${colorTono[l.tono]||'var(--text)'};font-weight:${l.tono==='bien'||l.tono==='ojo'?'700':'500'};">${l.txt}</div>
+    </div>`).join('');
+
+  // Bloque de recuperación (clientes con cuota vencida)
+  let recuperarHTML='';
+  if(d.cliVencidos.length){
+    const top=d.cliVencidos.slice(0,5);
+    recuperarHTML=`<div class="card" style="padding:14px;margin-top:12px;">
+      <div class="sec-title" style="font-size:13px;margin-top:0;">🔴 Para recuperar (cuota vencida)</div>
+      ${top.map(c=>`<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;">
+        <span style="color:var(--text);">${c.nombre}</span>
+        <span style="color:#dc2626;font-weight:700;">$${fmt(c.monto)}</span></div>`).join('')}
+      ${d.cliVencidos.length>5?`<div style="font-size:11px;color:var(--muted);margin-top:6px;">…y ${d.cliVencidos.length-5} más.</div>`:''}
+    </div>`;
+  }
+
+  openModal(`<div class="modal-title">🧠 Tablero inteligente</div>
+    <div class="modal-sub">Lo que tus datos te están diciendo</div>
+
+    <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;margin-bottom:12px;">
+      <div style="color:rgba(255,255,255,.8);font-size:12px;">Ganancia de este mes</div>
+      <div style="color:#fff;font-size:30px;font-weight:900;">$${fmt(d.gananciaMes)}</div>
+      <div style="color:rgba(255,255,255,.7);font-size:12px;margin-top:4px;">${d.ventasMesN} ventas · $${fmt(d.factMes)} facturado</div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <div class="card" style="flex:1;padding:12px;text-align:center;">
+        <div style="font-size:11px;color:var(--muted);">Por cobrar</div>
+        <div style="font-size:17px;font-weight:800;color:var(--text);">$${fmt(d.pendiente)}</div>
+      </div>
+      <div class="card" style="flex:1;padding:12px;text-align:center;">
+        <div style="font-size:11px;color:var(--muted);">Vencido</div>
+        <div style="font-size:17px;font-weight:800;color:#dc2626;">$${fmt(d.vencido)}</div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:14px;">
+      <div class="sec-title" style="font-size:13px;margin-top:0;">📊 Análisis del mes</div>
+      ${lecturasHTML}
+    </div>
+    ${recuperarHTML}
+    <div style="font-size:11px;color:var(--muted);margin-top:12px;text-align:center;line-height:1.5;">🐝 El tablero se actualiza solo con cada venta que cargás.</div>`);
+}
+
 function abrirReporteMensual(){
   const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const mesNom=meses[today().getMonth()]+' '+today().getFullYear();
@@ -3464,7 +3901,7 @@ function renderPlanillaMes(){
   // meses disponibles (de las ventas que hay)
   var meses={};
   vs.forEach(function(v){ var m=mesDeVenta(v); if(m) meses[m]=true; });
-  var listaMeses=Object.keys(meses).sort().reverse(); // más nuevo primero
+  var listaMeses=Object.keys(meses).sort(); // orden ascendente: Enero, Febrero, Marzo...
   if(!listaMeses.length){
     document.getElementById('planillaMeses').innerHTML='';
     document.getElementById('planillaContent').innerHTML=emptyState('📋','Sin ventas cargadas','Cargá ventas y aparecen acá.');
@@ -3490,18 +3927,33 @@ function renderPlanillaMes(){
   var nombreMes=MESES_NOM[parseInt(partesMes[1])-1]+' '+partesMes[0];
   var html='<div class="planilla-hint">← deslizá la tabla para ver todas las columnas →</div>';
   html+='<div class="planilla-wrap"><table class="planilla">';
-  html+='<thead><tr><th>Nombre</th><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th></tr></thead><tbody>';
+  html+='<thead><tr><th>Nombre</th><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Pagar</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th></tr></thead><tbody>';
   html+=delMes.map(function(v){
     var cli=DB.clientes.find(function(c){return c.id===v.clienteId;})||{nombre:'?'};
     var inv=(v.inversionista||'').trim();
     if(!inv){ // por si están en el array de inversionistas
       try{ var li=listaInversoresVenta(v).map(function(x){return x.nombre;}).filter(Boolean); inv=li.join('/'); }catch(e){}
     }
+    var totCuotas=(v.cuotas||1);
+    var pagadas=(v.pagadas||0);
+    var todoPagado = pagadas>=totCuotas;
+    // texto de cuotas: "X de Y" (pagadas de total). Contado si es 1.
+    var txtCuotas = totCuotas>1 ? (pagadas+' de '+totCuotas) : (todoPagado?'Pagado':'Contado');
+    // monto en verde si esta todo pagado, sino color normal
+    var colorMonto = todoPagado ? '#1DB954' : 'var(--text)';
+    // boton pagar: si falta pagar cuotas, muestra boton; si esta todo pagado, tilde verde
+    var celPagar;
+    if(todoPagado){
+      celPagar = '<td style="text-align:center;color:#1DB954;font-weight:800;">✅</td>';
+    } else {
+      celPagar = '<td style="text-align:center;"><button onclick="event.stopPropagation();marcarCuotaPlanilla(\''+v.id+'\')" style="background:#1DB954;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">✔ Pagó</button></td>';
+    }
     return '<tr onclick="detalleVenta(\''+v.id+'\')" style="cursor:pointer;">'+
       '<td>'+cli.nombre+'</td>'+
       '<td><b>'+(v.producto||'')+'</b></td>'+
-      '<td class="col-num">'+(v.cuotas>1?'de '+v.cuotas:'Contado')+'</td>'+
-      '<td class="col-monto">$'+fmt(v.precioVenta||0)+'</td>'+
+      '<td class="col-num">'+txtCuotas+'</td>'+
+      '<td class="col-monto" style="color:'+colorMonto+' !important;">$'+fmt(v.precioVenta||0)+'</td>'+
+      celPagar+
       '<td>'+dispDate(v.fecha)+'</td>'+
       '<td style="color:var(--orange);font-weight:700;">'+(inv||'—')+'</td>'+
       '<td>'+(v.revendedor||'—')+'</td>'+
@@ -3518,6 +3970,20 @@ function renderPlanillaMes(){
   document.getElementById('planillaContent').innerHTML=html;
 }
 function selPlanillaMes(m){ planillaMesSel=m; renderPlanillaMes(); }
+// Marca una cuota como pagada desde la planilla (sin salir de la vista)
+async function marcarCuotaPlanilla(ventaId){
+  var v=DB.ventas.find(function(x){return x.id===ventaId;});
+  if(!v) return;
+  var tot=(v.cuotas||1), pag=(v.pagadas||0);
+  if(pag>=tot){ toast('Ya está todo pagado ✅'); return; }
+  if(!confirm('¿Registrar el pago de la cuota '+(pag+1)+' de '+tot+'?')) return;
+  v.pagadas=pag+1;
+  try{ await DB.upsertVenta(v); }catch(e){}
+  try{ if(typeof avisarInversoresCobro==='function') avisarInversoresCobro(v, v.pagadas); }catch(e){}
+  try{ if(typeof AUDIT!=='undefined') AUDIT.registrar('cobró','venta','cuota '+v.pagadas+' de '+tot+' — '+(v.producto||'')); }catch(e){}
+  toast('Pago registrado ✅');
+  renderPlanillaMes();
+}
 
 
 /* ============ CATÁLOGO DE PRODUCTOS ============ */
@@ -5122,13 +5588,22 @@ function formCliente(edit){
     <div class="field-row"><div class="field"><label>Cliente de revendedor <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="f_revend" value="${c.revendedor||''}" placeholder="Nombre revendedor"></div>
     <div class="field"><label>Inversionista <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="f_inver" value="${c.inversionista||''}" placeholder="Nombre"></div></div>
     <div class="field"><label>Observaciones</label><textarea id="f_obs" placeholder="Notas...">${c.observaciones||''}</textarea></div>
+    <div class="field"><label>💳 Pago automático</label>
+      <select id="f_pagoauto">
+        <option value="">— Sin definir —</option>
+        <option value="activo" ${c.pagoAuto==='activo'?'selected':''}>✅ Activado (cobro automático por suscripción)</option>
+        <option value="ofrecido" ${c.pagoAuto==='ofrecido'?'selected':''}>🟡 Ofrecido (le pasé el link, falta que active)</option>
+        <option value="no" ${c.pagoAuto==='no'?'selected':''}>❌ No tiene (cobro manual)</option>
+      </select>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Marcá si el cliente activó el cobro automático (Mercado Pago u otra billetera).</div>
+    </div>
     <div class="btn-guardar-fijo"><button class="btn btn-orange" onclick="saveCliente('${edit?edit.id:''}')">💾 Guardar cliente</button></div>`,
     {onGuardar:`saveCliente('${edit?edit.id:''}')`, textoGuardar:'💾 Guardar'});
 }
 async function saveCliente(id){
   const nombre=document.getElementById('f_nombre').value.trim();
   if(!nombre){ toast('Poné un nombre'); return; }
-  const data={ nombre, dni:document.getElementById('f_dni').value.trim(), telefono:document.getElementById('f_tel').value.trim(), telefono2:document.getElementById('f_tel2').value.trim(), localidad:document.getElementById('f_loc').value.trim(), direccion:document.getElementById('f_dir').value.trim(), responsable:(document.getElementById('f_resp')?document.getElementById('f_resp').value:'Maxi'), revendedor:document.getElementById('f_revend').value.trim(), inversionista:document.getElementById('f_inver').value.trim(), observaciones:document.getElementById('f_obs').value.trim() };
+  const data={ nombre, dni:document.getElementById('f_dni').value.trim(), telefono:document.getElementById('f_tel').value.trim(), telefono2:document.getElementById('f_tel2').value.trim(), localidad:document.getElementById('f_loc').value.trim(), direccion:document.getElementById('f_dir').value.trim(), responsable:(document.getElementById('f_resp')?document.getElementById('f_resp').value:'Maxi'), revendedor:document.getElementById('f_revend').value.trim(), inversionista:document.getElementById('f_inver').value.trim(), observaciones:document.getElementById('f_obs').value.trim(), pagoAuto:(document.getElementById('f_pagoauto')?document.getElementById('f_pagoauto').value:'') };
   let rec;
   if(id){ rec=DB.clientes.find(x=>x.id===id); Object.assign(rec,data); AUDIT.registrar('editó', 'cliente', `el cliente "${nombre}"`); }
   else { 
@@ -6935,23 +7410,131 @@ function waMasivo(filtro){
 }
 
 /* ============ BACKUP ============ */
+/* ============ RESPALDO AUTOMÁTICO (blindaje de datos) ============ */
+// Guarda copias automáticas dentro del celu (localStorage) cada vez que abrís la app.
+// Mantiene las últimas 5 copias. Es una red de seguridad: si algo se corrompe,
+// recuperás la data desde una de estas copias sin haber hecho nada manual.
+const AUTO_BACKUP_KEY = 'ae_autobackups';
+const AUTO_BACKUP_MAX = 5;         // cuántas copias automáticas guardar
+const BACKUP_AVISO_KEY = 'ae_ultimo_backup_archivo';  // fecha del último backup a archivo
+const BACKUP_AVISO_DIAS = 7;       // avisar si pasaron +7 días sin bajar copia
+
+function snapshotDatos(){
+  return {
+    fecha: new Date().toISOString(),
+    clientes: DB.clientes||[], ventas: DB.ventas||[],
+    productos: DB.productos||[], mensajes: DB.mensajes||[],
+    mayoristas: DB.mayoristas||[]
+  };
+}
+function autoBackupGuardar(){
+  try{
+    // No respaldar si no hay nada (evita pisar copias buenas con una vacía)
+    if((DB.clientes||[]).length===0 && (DB.ventas||[]).length===0) return;
+    let copias=[];
+    try{ copias=JSON.parse(localStorage.getItem(AUTO_BACKUP_KEY)||'[]'); }catch(e){ copias=[]; }
+    // Evitar duplicar si ya hay una copia de hoy con misma cantidad de registros
+    const snap=snapshotDatos();
+    const hoy=snap.fecha.slice(0,10);
+    const yaHoy=copias.find(c=> c.fecha && c.fecha.slice(0,10)===hoy
+        && (c.clientes||[]).length===snap.clientes.length
+        && (c.ventas||[]).length===snap.ventas.length);
+    if(yaHoy) return;
+    copias.unshift(snap);
+    if(copias.length>AUTO_BACKUP_MAX) copias=copias.slice(0,AUTO_BACKUP_MAX);
+    localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify(copias));
+  }catch(e){ console.warn('autoBackup:', e); }
+}
+function autoBackupLista(){
+  try{ return JSON.parse(localStorage.getItem(AUTO_BACKUP_KEY)||'[]'); }catch(e){ return []; }
+}
+function restaurarAutoBackup(idx){
+  const copias=autoBackupLista();
+  const c=copias[idx];
+  if(!c){ toast('No se encontró la copia'); return; }
+  if(!confirm('¿Restaurar la copia del '+new Date(c.fecha).toLocaleString()+'?\n\n'
+      +(c.clientes||[]).length+' clientes · '+(c.ventas||[]).length+' ventas\n\n'
+      +'Antes de restaurar se guarda una copia de lo que tenés ahora, por las dudas.')) return;
+  // Red de seguridad: snapshot del estado actual ANTES de pisar nada
+  autoBackupGuardar();
+  try{
+    let nuevos=0;
+    (c.clientes||[]).forEach(x=>{ if(!DB.clientes.find(y=>y.id===x.id)){ DB.clientes.push(x); DB.upsertCliente&&DB.upsertCliente(x); nuevos++; } });
+    (c.ventas||[]).forEach(x=>{ if(!DB.ventas.find(y=>y.id===x.id)){ DB.ventas.push(x); DB.upsertVenta&&DB.upsertVenta(x); nuevos++; } });
+    (c.productos||[]).forEach(x=>{ if(!DB.productos.find(y=>y.id===x.id)){ DB.productos.push(x); DB.upsertProducto&&DB.upsertProducto(x); nuevos++; } });
+    closeModal(); toast('✅ Recuperados '+nuevos+' registros'); render();
+  }catch(e){ toast('No se pudo restaurar esa copia'); }
+}
+// Marcar cuándo bajaste la última copia a archivo (se llama desde exportData)
+function marcarBackupArchivo(){
+  try{ localStorage.setItem(BACKUP_AVISO_KEY, new Date().toISOString()); }catch(e){}
+}
+// ¿Hace cuántos días que no bajás copia a archivo?
+function diasSinBackupArchivo(){
+  try{
+    const ult=localStorage.getItem(BACKUP_AVISO_KEY);
+    if(!ult) return 999;
+    return Math.floor((Date.now()-new Date(ult).getTime())/86400000);
+  }catch(e){ return 999; }
+}
+// Aviso suave (una vez al abrir) si hace muchos dias que no bajas copia a archivo
+function avisarSiFaltaBackup(){
+  try{
+    if((DB.clientes||[]).length===0 && (DB.ventas||[]).length===0) return;
+    var dias = diasSinBackupArchivo();
+    if(dias >= BACKUP_AVISO_DIAS){
+      var txt = (dias>=999)
+        ? '🛟 Todavia no descargaste ninguna copia de seguridad. Guarda una en tu celu por las dudas.'
+        : '🛟 Hace '+dias+' dias que no descargas una copia de seguridad. Conviene bajar una nueva.';
+      // toast no intrusivo + boton
+      if(typeof toast==='function') toast(txt);
+      setTimeout(function(){
+        if(confirm(txt+'\n\n¿Abrir el respaldo ahora?')) { if(typeof abrirBackup==='function') abrirBackup(); }
+      }, 1500);
+    }
+  }catch(e){}
+}
+
 function exportData(){
   const data={clientes:DB.clientes, ventas:DB.ventas, productos:DB.productos, mensajes:DB.mensajes, exportado:new Date().toISOString(), version:'1.0'};
   const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
   const url=URL.createObjectURL(blob); const a=document.createElement('a');
   a.href=url; a.download='crm-amarango-backup-'+isoDate(today())+'.json'; a.click();
+  marcarBackupArchivo();
   toast('✅ Copia de seguridad descargada');
 }
 function abrirBackup(){
   const stats=`${DB.clientes.length} clientes · ${DB.ventas.length} ventas · ${DB.productos.length} productos`;
+  const dias=diasSinBackupArchivo();
+  const estado = dias>=999
+    ? `<div style="font-size:12px;color:#b35c00;font-weight:700;">⚠️ Nunca descargaste una copia a archivo</div>`
+    : `<div style="font-size:12px;color:var(--muted);">Última copia a archivo: hace ${dias} día${dias===1?'':'s'}</div>`;
+  // Copias automáticas guardadas en el celu
+  const copias=autoBackupLista();
+  let copiasHTML='';
+  if(copias.length){
+    copiasHTML=`<div class="card" style="padding:12px;margin-top:12px;">
+      <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px;">📦 Copias automáticas (en este celu)</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Se guardan solas cada vez que abrís la app. Si algo se pierde, restaurá desde acá.</div>`
+      + copias.map((c,i)=>{
+        const f=new Date(c.fecha);
+        const fechaTxt=f.toLocaleDateString()+' '+f.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--border,#eee);">
+          <div style="font-size:12px;color:var(--text);">🕐 ${fechaTxt}<br><span style="color:var(--muted);font-size:11px;">${(c.clientes||[]).length} clientes · ${(c.ventas||[]).length} ventas</span></div>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px;width:auto;margin:0;" onclick="restaurarAutoBackup(${i})">Restaurar</button>
+        </div>`;
+      }).join('') + `</div>`;
+  }
   openModal(`<div class="modal-title">🛟 Respaldo de datos</div><div class="modal-sub">${stats}</div>
     <div class="card" style="padding:14px;margin-bottom:12px;">
       <div style="font-size:13px;color:var(--muted);line-height:1.6;">Descargá una copia de todo tu CRM. Guardala en tu celu o mandátela por WhatsApp. Si algún día pasa algo, la restaurás y recuperás todo.</div>
+      <div style="margin-top:8px;">${estado}</div>
     </div>
     <button class="btn btn-blue" onclick="exportData()">⤓ Descargar copia de seguridad</button>
-    <button class="btn btn-ghost" style="margin-top:8px;" onclick="document.getElementById('fileRestore').click()">⤒ Restaurar desde una copia</button>
+    <button class="btn btn-ghost" style="margin-top:8px;" onclick="document.getElementById('fileRestore').click()">⤒ Restaurar desde un archivo</button>
     <input type="file" id="fileRestore" accept=".json" style="display:none;" onchange="importData(this)">
-    <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">Restaurar agrega los datos que falten, no borra lo que ya tenés.</div>`);
+    <div style="font-size:11px;color:var(--muted);margin-top:10px;text-align:center;">Restaurar agrega los datos que falten, no borra lo que ya tenés.</div>
+    ${copiasHTML}`);
 }
 async function importData(input){
   const file=input.files[0]; if(!file) return;
@@ -6979,10 +7562,9 @@ function renderLoginPersonas(){
   const cont=document.getElementById('loginPersonas'); if(!cont) return;
   const us=getUsuarios();
   cont.innerHTML=us.map(u=>{
-    const col=nombreColor(u.nombre);
     return `<div class="login-persona" onclick="elegirPersona('${u.nombre}')">
-      <div class="lp-av" style="background:${col};display:flex;align-items:center;justify-content:center;font-size:30px;">🐝</div>
-      <div class="lp-name">${u.nombre}${u.admin?' <span style="font-size:9px;color:var(--orange);">★</span>':''}</div>
+      <div class="lp-av">🐝</div>
+      <div class="lp-name">${apodoDe(u.nombre)}${u.admin?' <span style="font-size:9px;color:var(--orange);">★</span>':''}</div>
     </div>`;
   }).join('');
 }
@@ -7008,8 +7590,8 @@ function doLogin(){
   if(!u){ document.getElementById('loginErr').textContent='Elegí tu usuario primero'; return; }
   // SOLO acepta el PIN exacto de la persona elegida
   if(v && v===String(u.pin)){
-    sessionStorage.setItem('ae_auth','1');
-    sessionStorage.setItem('ae_user', loginSel);
+    localStorage.setItem('ae_auth','1');
+    localStorage.setItem('ae_user', loginSel);
     document.getElementById('loginScreen').classList.add('hide');
     startApp();
   } else {
@@ -7018,7 +7600,7 @@ function doLogin(){
     setTimeout(()=>{ const p=document.getElementById('loginPass'); if(p) p.focus(); },50);
   }
 }
-function logout(){ sessionStorage.removeItem('ae_auth'); sessionStorage.removeItem('ae_user'); location.reload(); }
+function logout(){ localStorage.removeItem('ae_auth'); localStorage.removeItem('ae_user'); sessionStorage.removeItem('ae_auth'); sessionStorage.removeItem('ae_user'); location.reload(); }
 /* ============ MENÚ CONFIGURACIÓN ============ */
 function toggleMenuConfig(e){
   if(e) e.stopPropagation();
@@ -7123,6 +7705,9 @@ async function startApp(){
   // Con nube activa jamás metemos demo: evita pisar tus clientes reales por un parpadeo de carga.
   if(!CLOUD && !DB.clientes.length && !DB.ventas.length){ seedDemo(); await DB.load(); }
   render();
+  autoBackupGuardar();      // red de seguridad: copia automática al abrir la app
+  avisarSiFaltaBackup();    // aviso suave si hace días que no bajás copia a archivo
+  setTimeout(function(){ try{ if(totalNotifPago()>0) abrirNotifPago(); }catch(e){} }, 2500); // aviso de fechas de pago
   iniciarPresencia();
   pedirPermisoNotif();
   actualizarTareaBadge();   // mostrar puntito si hay tareas pendientes
@@ -7328,7 +7913,7 @@ function revisarYNotificar(){
 
 window.addEventListener('DOMContentLoaded',()=>{
   renderLoginPersonas();
-  if(sessionStorage.getItem('ae_auth')==='1'){ document.getElementById('loginScreen').classList.add('hide'); startApp(); }
+  if(localStorage.getItem('ae_auth')==='1' || sessionStorage.getItem('ae_auth')==='1'){ document.getElementById('loginScreen').classList.add('hide'); startApp(); }
 });
 </script>
 </body>
