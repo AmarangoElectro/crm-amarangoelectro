@@ -559,7 +559,7 @@
     <span onclick="abrirNotifPago()" title="Fechas de pago" style="position:relative;color:#fff;"><span data-ico="calendar" data-size="22"></span><span id="pagoBadge" style="display:none;position:absolute;top:-6px;right:-8px;background:#dc2626;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:8px;padding:0 3px;">0</span></span>
     <span onclick="toggleOcultar()" id="btnOjito" title="Ocultar montos" style="color:#fff;"><span data-ico="eye" data-size="22"></span></span>
     <span onclick="toggleMenuConfig(event)" title="Configuración" style="position:relative;color:#fff;background:rgba(255,255,255,.16);border-radius:10px;"><span data-ico="gear" data-size="22"></span><span id="tareaBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;border:2px solid var(--blue);"></span></span>
-    <span onclick="logout()" title="Salir">⏻</span>
+    <span onclick="salirCRM()" title="Salir">⏻</span>
   </div>
   <!-- menú desplegable de configuración -->
   <div id="menuConfig" class="menu-config" style="display:none;">
@@ -569,6 +569,7 @@
     <div class="mc-item" onclick="toggleModoOscuro();"><span id="darkIco">🌙</span> <span id="darkLabel">Modo oscuro</span></div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirPapelera();"><span data-ico="trash" data-size="18"></span> Papelera</div>
     <div class="mc-item" onclick="cerrarMenuConfig();recargarDesdeNube();" style="color:var(--green);">🔄 Recargar desde la nube</div>
+    <div class="mc-item" onclick="cerrarMenuConfig();logout();" style="color:#dc2626;font-weight:700;">🔒 Cerrar sesión</div>
   </div>
 </div>
 <div id="presenciaBar" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:8px 14px;background:var(--card);border-bottom:1px solid var(--border);"></div>
@@ -4116,10 +4117,17 @@ function renderPlanillaMes(){
     '<div style="flex:1;text-align:center;font-size:15px;font-weight:900;color:var(--blue);">'+nombreMes+'</div>'+
     '<button onclick="planillaMesNav(1)" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:16px;font-weight:800;cursor:pointer;">▶</button>'+
   '</div>';
-  html+='<div class="planilla-hint">👉 Deslizá al costado para cambiar de mes · verde ✓ = pagado</div>';
+  html+='<div class="planilla-hint">👉 Deslizá al costado para cambiar de mes</div>';
+  // Leyenda de colores (guía de estados)
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px;font-size:9px;">'
+    +'<span style="background:#e6f8ee;color:#1DB954;border:1px solid #1DB954;padding:2px 7px;border-radius:10px;font-weight:800;">✓ Pagado</span>'
+    +'<span style="background:transparent;color:var(--text);border:1px solid var(--muted);padding:2px 7px;border-radius:10px;font-weight:800;">• Pendiente</span>'
+    +'<span style="background:#fef8e0;color:#b8860b;border:1px solid #b8860b;padding:2px 7px;border-radius:10px;font-weight:800;">⏰ Por vencer</span>'
+    +'<span style="background:#fdeaea;color:#e63946;border:1px solid #e63946;padding:2px 7px;border-radius:10px;font-weight:800;">⚠️ Atrasado</span>'
+    +'</div>';
   html+='<div class="planilla-wrap" ontouchstart="planillaTouchStart(event)" ontouchend="planillaTouchEnd(event)"><table class="planilla">';
-  html+='<colgroup><col style="width:20%"><col style="width:22%"><col style="width:10%"><col style="width:14%"><col style="width:12%"><col style="width:10%"><col style="width:6%"><col style="width:6%"></colgroup>';
-  html+='<thead><tr><th>Nombre</th><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Pagar</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th></tr></thead><tbody>';
+  html+='<colgroup><col style="width:17%"><col style="width:19%"><col style="width:9%"><col style="width:13%"><col style="width:9%"><col style="width:13%"><col style="width:9%"><col style="width:5.5%"><col style="width:5.5%"></colgroup>';
+  html+='<thead><tr><th>Nombre</th><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Pagar</th><th>Estado</th><th>Fecha</th><th>Inv.</th><th>Rev.</th></tr></thead><tbody>';
   html+=delMes.map(function(v){
     var cli=DB.clientes.find(function(c){return c.id===v.clienteId;})||{nombre:'?'};
     var inv=(v.inversionista||'').trim();
@@ -4131,31 +4139,32 @@ function renderPlanillaMes(){
     var todoPagado = pagadas>=totCuotas;
     var txtCuotas = totCuotas>1 ? (pagadas+' de '+totCuotas) : (todoPagado?'Pagado':'Contado');
 
-    // ¿La próxima cuota está pronta a vencer? (2-3 días) o vencida
-    var estadoVenc=''; // '', 'pronto', 'vencido'
-    if(!todoPagado){
+    // Estado de pago con los colores oficiales del CRM:
+    // verde=pagado, amarillo=por vencer (cerca), rojo=vencido/atrasado, gris=pendiente (falta)
+    var estado='pendiente'; // pagado | pendiente | porvencer | vencido
+    if(todoPagado){
+      estado='pagado';
+    } else {
       try{
         var prox=proxVencimiento(v);
         if(prox && prox.vence){
           var vd=parseD(prox.vence); var h=today();
           var difDias=Math.round((vd-h)/86400000);
-          if(difDias<0) estadoVenc='vencido';
-          else if(difDias<=3) estadoVenc='pronto';
+          if(difDias<0) estado='vencido';
+          else if(difDias<=3) estado='porvencer';
+          else estado='pendiente';
         }
       }catch(e){}
     }
-
-    // Celda MONTO: verde+tilde si pagado; fondo clarito si pronto/vencido
-    var celMonto;
-    if(todoPagado){
-      celMonto = '<td class="col-monto" style="background:#e6f8ee;color:#1DB954 !important;font-weight:800;">✓ $'+fmt(v.precioVenta||0)+'</td>';
-    } else if(estadoVenc==='vencido'){
-      celMonto = '<td class="col-monto" style="background:#fdeaea;color:#dc2626 !important;">$'+fmt(v.precioVenta||0)+'</td>';
-    } else if(estadoVenc==='pronto'){
-      celMonto = '<td class="col-monto" style="background:#fff7e0;color:#b35c00 !important;">$'+fmt(v.precioVenta||0)+'</td>';
-    } else {
-      celMonto = '<td class="col-monto" style="color:var(--text) !important;">$'+fmt(v.precioVenta||0)+'</td>';
-    }
+    // Colores oficiales del semáforo del CRM
+    var COL={
+      pagado:   {bg:'#e6f8ee', txt:'#1DB954', et:'✓ Pagado'},
+      porvencer:{bg:'#fef8e0', txt:'#b8860b', et:'⏰ Por vencer'},
+      vencido:  {bg:'#fdeaea', txt:'#e63946', et:'⚠️ Atrasado'},
+      pendiente:{bg:'transparent', txt:'var(--text)', et:'• Pendiente'}
+    };
+    var c=COL[estado]||COL.pendiente;
+    var celMonto = '<td class="col-monto" style="background:'+c.bg+';color:'+c.txt+' !important;font-weight:800;">'+(estado==='pagado'?'✓ ':'')+'$'+fmt(v.precioVenta||0)+'</td>';
 
     // Celda PAGAR: tilde verde si pagado, botón si falta
     var celPagar;
@@ -4170,6 +4179,7 @@ function renderPlanillaMes(){
       '<td class="col-num">'+txtCuotas+'</td>'+
       celMonto+
       celPagar+
+      '<td style="text-align:center;"><span style="display:inline-block;background:'+c.bg+';color:'+c.txt+';font-size:8px;font-weight:800;padding:2px 6px;border-radius:10px;white-space:nowrap;border:1px solid '+c.txt+';">'+c.et+'</span></td>'+
       '<td>'+dispDate(v.fecha)+'</td>'+
       '<td style="color:var(--orange);font-weight:700;">'+(inv||'—')+'</td>'+
       '<td>'+(v.revendedor||'—')+'</td>'+
@@ -7810,6 +7820,16 @@ function renderLoginPersonas(){
 }
 function elegirPersona(nombre){
   loginSel=nombre;
+  // Si la sesión sigue guardada para este usuario (salió sin cerrar sesión), entra directo sin PIN
+  try{
+    var authOk = (localStorage.getItem('ae_auth')==='1');
+    var userOk = (localStorage.getItem('ae_user')===nombre);
+    if(authOk && userOk){
+      document.getElementById('loginScreen').classList.add('hide');
+      if(typeof startApp==='function' && !window._appIniciada){ startApp(); window._appIniciada=true; }
+      return;
+    }
+  }catch(e){}
   document.getElementById('loginPersonas').style.display='none';
   document.getElementById('loginPinBox').style.display='block';
   document.getElementById('loginSub').textContent='Ingresá tu PIN';
@@ -7840,7 +7860,28 @@ function doLogin(){
     setTimeout(()=>{ const p=document.getElementById('loginPass'); if(p) p.focus(); },50);
   }
 }
-function logout(){ localStorage.removeItem('ae_auth'); localStorage.removeItem('ae_user'); sessionStorage.removeItem('ae_auth'); sessionStorage.removeItem('ae_user'); location.reload(); }
+// CERRAR SESIÓN de verdad: borra la sesión guardada. Al volver, pide contraseña.
+function logout(){
+  localStorage.removeItem('ae_auth'); localStorage.removeItem('ae_user');
+  sessionStorage.removeItem('ae_auth'); sessionStorage.removeItem('ae_user');
+  location.reload();
+}
+// SALIR del CRM: muestra diálogo visual con opciones
+function salirCRM(){
+  openModal(`<div class="modal-title">👋 ¿Salir del CRM?</div>
+    <div class="modal-sub" style="margin-bottom:16px;">Elegí una opción:</div>
+    <button class="btn btn-blue" style="margin-bottom:10px;" onclick="salirDejandoSesion()">🚪 Salir (no me pide contraseña al volver)</button>
+    <button class="btn" style="margin-bottom:10px;background:#dc2626;color:#fff;" onclick="closeModal();logout();">🔒 Cerrar sesión (pide contraseña al volver)</button>
+    <button class="btn btn-ghost" onclick="closeModal();">Cancelar</button>`);
+}
+// Salir dejando la sesión guardada: vuelve a la pantalla de login sin borrar la sesión,
+// así el usuario puede cerrar la app tranquilo y al volver entra directo.
+function salirDejandoSesion(){
+  closeModal();
+  var ls=document.getElementById('loginScreen');
+  if(ls) ls.classList.remove('hide');   // muestra el login, pero la sesión sigue guardada
+  try{ window.scrollTo(0,0); }catch(e){}
+}
 /* ============ MENÚ CONFIGURACIÓN ============ */
 function toggleMenuConfig(e){
   if(e) e.stopPropagation();
