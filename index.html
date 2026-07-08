@@ -355,7 +355,7 @@
   .chat-pins{background:#fff8f0;border-bottom:1px solid var(--border);padding:8px 14px;max-height:120px;overflow-y:auto;}
   .chat-pin{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0;color:#7a4a00;}
   .chat-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
-  .msg{max-width:78%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.35;position:relative;word-wrap:break-word;}
+  .msg{max-width:100%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.35;position:relative;word-wrap:break-word;white-space:pre-wrap;cursor:pointer;}
   .msg-mine{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:4px;}
   .msg-other{align-self:flex-start;background:#fff;color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;}
   .msg-autor{font-size:11px;font-weight:800;margin-bottom:2px;opacity:.85;}
@@ -372,6 +372,45 @@
   .msg-aviso.azul{background:#eef4ff;border-color:var(--blue);color:var(--blue);}
   .msg-aviso.verde{background:#f0fbf4;border-color:var(--green);color:#0a7c3a;}
   .msg-aviso.naranja{background:#fff7ec;border-color:var(--orange);color:#b35c00;}
+  /* ===== MENSAJERÍA ESTILO WHATSAPP ===== */
+  .msg-row{display:flex;flex-direction:column;max-width:78%;}
+  .msg-row.mine{align-self:flex-end;align-items:flex-end;}
+  .msg-row.other{align-self:flex-start;align-items:flex-start;}
+  .msg.grouped{margin-top:-6px;border-top-right-radius:14px;border-top-left-radius:14px;}
+  .msg-quote{border-left:3px solid var(--orange);background:rgba(0,0,0,.06);border-radius:6px;padding:4px 8px;margin-bottom:5px;font-size:12px;line-height:1.3;cursor:pointer;}
+  .msg-mine .msg-quote{background:rgba(255,255,255,.18);border-left-color:var(--orange-light);}
+  .msg-quote-autor{font-weight:800;font-size:11px;opacity:.9;}
+  .msg-quote-txt{opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
+  .msg-time .tick{margin-left:3px;font-size:11px;font-weight:700;}
+  .tick.read{color:#4fc3f7;}
+  .msg-edit-tag{font-size:9px;opacity:.6;font-style:italic;margin-right:3px;}
+  .msg-reacts{display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;padding:0 4px;}
+  .msg-react{background:#fff;border:1px solid var(--border);border-radius:12px;font-size:12px;padding:1px 7px;box-shadow:0 1px 3px rgba(0,0,0,.12);display:flex;align-items:center;gap:2px;cursor:pointer;}
+  .msg-react .cnt{font-size:10px;font-weight:800;color:var(--muted);}
+  .day-sep{align-self:center;background:rgba(11,45,107,.1);color:var(--blue);font-size:11px;font-weight:800;padding:3px 12px;border-radius:12px;margin:4px 0;}
+  .typing-row{align-self:flex-start;background:#fff;border:1px solid var(--border);border-radius:14px;padding:9px 14px;font-size:12px;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px;}
+  .typing-dots{display:inline-flex;gap:3px;}
+  .typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:typBlink 1.2s infinite;}
+  .typing-dots span:nth-child(2){animation-delay:.2s;}
+  .typing-dots span:nth-child(3){animation-delay:.4s;}
+  @keyframes typBlink{0%,60%,100%{opacity:.3;}30%{opacity:1;}}
+  /* menú al mantener presionado */
+  .msg-menu-bg{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:400;display:none;align-items:center;justify-content:center;}
+  .msg-menu-bg.show{display:flex;}
+  .msg-menu{background:#fff;border-radius:16px;padding:6px;min-width:230px;box-shadow:0 8px 30px rgba(0,0,0,.3);animation:slideUp .2s ease;}
+  .msg-menu-reacts{display:flex;justify-content:space-around;padding:8px 6px 10px;border-bottom:1px solid var(--border);margin-bottom:4px;}
+  .msg-menu-reacts button{font-size:26px;background:none;border:none;cursor:pointer;transition:transform .1s;}
+  .msg-menu-reacts button:active{transform:scale(1.3);}
+  .msg-menu-item{display:flex;align-items:center;gap:12px;padding:11px 14px;font-size:15px;font-weight:600;color:var(--text);cursor:pointer;border-radius:10px;}
+  .msg-menu-item:active{background:var(--bg);}
+  .msg-menu-item.danger{color:var(--red);}
+  /* barra de respuesta arriba del input */
+  .reply-bar{display:none;align-items:center;gap:10px;padding:8px 14px;background:#eef4ff;border-top:1px solid var(--border);border-left:3px solid var(--orange);}
+  .reply-bar.show{display:flex;}
+  .reply-bar-body{flex:1;min-width:0;}
+  .reply-bar-autor{font-size:11px;font-weight:800;color:var(--blue);}
+  .reply-bar-txt{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .reply-bar-x{font-size:20px;color:var(--muted);cursor:pointer;background:none;border:none;flex-shrink:0;}
 
   .modal-bg{position:fixed;inset:0;background:rgba(11,45,107,.45);z-index:100;display:none;align-items:flex-end;backdrop-filter:blur(2px);}
   .modal-bg.show{display:flex;}
@@ -555,10 +594,10 @@
   </div>
   <div class="topbar-actions">
     <span onclick="abrirChat()" title="Mensajes" style="position:relative;color:#fff;"><span data-ico="chat" data-size="22"></span><span id="chatBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--red);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
-    <span onclick="abrirAvisos()" title="Avisos" style="position:relative;color:#fff;"><span data-ico="alert" data-size="22"></span><span id="avisoBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;"></span></span>
+    <span onclick="abrirAvisos()" title="Avisos" style="position:relative;color:#fff;"><span data-ico="alert" data-size="22"></span><span id="avisoBadge" style="display:none;position:absolute;top:-2px;right:-3px;background:var(--red);width:10px;height:10px;border-radius:50%;border:2px solid var(--blue);"></span></span>
     <span onclick="abrirNotifPago()" title="Fechas de pago" style="position:relative;color:#fff;"><span data-ico="calendar" data-size="22"></span><span id="pagoBadge" style="display:none;position:absolute;top:-6px;right:-8px;background:#dc2626;color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;line-height:16px;text-align:center;border-radius:8px;padding:0 3px;">0</span></span>
     <span onclick="toggleOcultar()" id="btnOjito" title="Ocultar montos" style="color:#fff;"><span data-ico="eye" data-size="22"></span></span>
-    <span onclick="toggleMenuConfig(event)" title="Configuración" style="position:relative;color:#fff;background:rgba(255,255,255,.16);border-radius:10px;"><span data-ico="gear" data-size="22"></span><span id="tareaBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:var(--orange);color:#fff;font-size:10px;font-weight:800;min-width:16px;height:16px;border-radius:8px;line-height:16px;text-align:center;padding:0 3px;border:2px solid var(--blue);"></span></span>
+    <span onclick="toggleMenuConfig(event)" title="Configuración" style="position:relative;color:#fff;background:rgba(255,255,255,.16);border-radius:10px;"><span data-ico="gear" data-size="22"></span><span id="tareaBadge" style="display:none;position:absolute;top:-2px;right:-3px;background:var(--red);width:10px;height:10px;border-radius:50%;border:2px solid var(--blue);"></span></span>
     <span onclick="salirCRM()" title="Salir">⏻</span>
   </div>
   <!-- menú desplegable de configuración -->
@@ -566,7 +605,7 @@
     <div class="mc-item" onclick="cerrarMenuConfig();abrirMiCuenta();"><span data-ico="user" data-size="18"></span> Mi cuenta / Contraseña</div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirTareas();">📝 Mis tareas <span id="tareaMenuBadge" style="display:none;background:var(--orange);color:#fff;font-size:11px;font-weight:800;padding:1px 7px;border-radius:10px;margin-left:4px;"></span></div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirBackup();"><span data-ico="download" data-size="18"></span> Respaldo de datos</div>
-    <div class="mc-item" onclick="toggleModoOscuro();"><span id="darkIco">🌙</span> <span id="darkLabel">Modo oscuro</span></div>
+    <!-- Modo oscuro quitado por pedido (no se usaba y no quedaba prolijo) -->
     <div class="mc-item" onclick="cerrarMenuConfig();abrirPapelera();"><span data-ico="trash" data-size="18"></span> Papelera</div>
     <div class="mc-item" onclick="cerrarMenuConfig();recargarDesdeNube();" style="color:var(--green);">🔄 Recargar desde la nube</div>
     <div class="mc-item" onclick="cerrarMenuConfig();logout();" style="color:#dc2626;font-weight:700;">🔒 Cerrar sesión</div>
@@ -816,11 +855,35 @@
     <div class="chat-body" id="chatBody"></div>
     <div class="chat-emojis" id="chatEmojis"></div>
     <div class="chat-avisos" id="chatAvisos"></div>
+    <div class="reply-bar" id="replyBar">
+      <div class="reply-bar-body">
+        <div class="reply-bar-autor" id="replyBarAutor"></div>
+        <div class="reply-bar-txt" id="replyBarTxt"></div>
+      </div>
+      <button class="reply-bar-x" onclick="cancelarRespuesta()">✕</button>
+    </div>
     <div class="chat-input-bar">
-      <input id="chatInput" placeholder="Escribí un mensaje..." onkeydown="if(event.key==='Enter')enviarChat()">
+      <input type="file" id="chatFotoInput" accept="image/*" style="display:none;" onchange="enviarFotoChat(this)">
+      <button class="chat-send" onclick="document.getElementById('chatFotoInput').click()" title="Enviar foto o captura" style="background:#eef4ff;color:var(--blue);">📎</button>
+      <input id="chatInput" placeholder="Escribí un mensaje..." oninput="marcarEscribiendo()" onkeydown="if(event.key==='Enter')enviarChat()">
       <button class="chat-send" onclick="enviarChat()">➤</button>
     </div>
   </div>
+</div>
+<div class="msg-menu-bg" id="msgMenuBg" onclick="if(event.target===this)cerrarMsgMenu()">
+  <div class="msg-menu" id="msgMenu"></div>
+</div>
+<div id="planillaAnchoBg" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:500;flex-direction:column;">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--blue);color:#fff;flex-shrink:0;">
+    <div id="planillaAnchoTit" style="font-weight:900;font-size:14px;">📋 Planilla</div>
+    <div style="display:flex;gap:6px;align-items:center;">
+      <button onclick="planillaAnchoNav(-1)" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:15px;font-weight:800;cursor:pointer;">◀</button>
+      <button onclick="planillaAnchoNav(1)" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:15px;font-weight:800;cursor:pointer;">▶</button>
+      <button onclick="cerrarPlanillaAncho()" style="background:var(--orange);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:800;cursor:pointer;">✕ Salir</button>
+    </div>
+  </div>
+  <div id="planillaAnchoAviso" style="display:none;text-align:center;padding:6px;background:#fff7ec;color:#b35c00;font-size:12px;font-weight:700;flex-shrink:0;">🔄 Girá el celu de costado para ver todo el tablero</div>
+  <div id="planillaAnchoContent" style="flex:1;overflow:auto;padding:10px;-webkit-overflow-scrolling:touch;"></div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -960,7 +1023,7 @@ const AUDIT={
 function actualizarAvisoBadge(){
   const b=document.getElementById('avisoBadge'); if(!b) return;
   const n=AUDIT.noVistos().length;
-  if(n>0){ b.style.display='block'; b.textContent=n>9?'9+':n; } else b.style.display='none';
+  if(n>0){ b.style.display='block'; } else b.style.display='none';
 }
 async function abrirAvisos(){
   await AUDIT.recargar();   // traer avisos de TODOS desde la nube
@@ -990,17 +1053,33 @@ async function abrirAvisos(){
 let sb = null, CLOUD = false;
 /* ============ PRESENCIA (quién está en línea) ============ */
 let PRESENCIA_USERS=[];
+let PRESENCIA_RAW=[];
+let ESCRIBIENDO_HASTA=0; // timestamp hasta cuándo cuento que estoy escribiendo
 async function latido(){
   if(!CLOUD || !sb) return;
   const yo=usuarioActual(); if(!yo) return;
-  try{ await sb.from('presencia').upsert({nombre:yo, ultimo_visto:new Date().toISOString()}); }catch(e){}
+  const escribo = Date.now()<ESCRIBIENDO_HASTA;
+  try{ await sb.from('presencia').upsert({nombre:yo, ultimo_visto:new Date().toISOString(), escribiendo: escribo?new Date().toISOString():null}); }catch(e){}
   procesarPendientes(); // aprovechar el latido para reintentar lo pendiente
+}
+// se llama en cada tecla del chat; avisa "escribiendo" por unos segundos
+let _escTimer=null;
+function marcarEscribiendo(){
+  ESCRIBIENDO_HASTA=Date.now()+4000;
+  if(!_escTimer){ latido(); _escTimer=setTimeout(()=>{ _escTimer=null; latido(); }, 2000); }
+}
+// devuelve el nombre de quien está escribiendo (que no sea yo), o null
+function quienEscribe(){
+  const yo=miNombre(); const ahora=Date.now();
+  const p=(PRESENCIA_RAW||[]).find(x=>x.nombre!==yo && x.escribiendo && (ahora-new Date(x.escribiendo).getTime())<6000);
+  return p?p.nombre:null;
 }
 async function leerPresencia(){
   if(!CLOUD || !sb) return;
   try{
     const {data}=await sb.from('presencia').select('*');
     if(!data) return;
+    PRESENCIA_RAW=data;
     const ahora=Date.now();
     // en línea = visto en el último minuto
     PRESENCIA_USERS=data.filter(p=>{
@@ -1008,6 +1087,8 @@ async function leerPresencia(){
       return (ahora-t)<60000;
     }).map(p=>p.nombre);
     renderPresencia();
+    // si el chat está abierto, refrescar el "escribiendo…"
+    if(document.getElementById('chatBg') && document.getElementById('chatBg').classList.contains('show') && typeof pintarEscribiendo==='function') pintarEscribiendo();
   }catch(e){}
 }
 function renderPresencia(){
@@ -1234,6 +1315,18 @@ const DB = {
   },
   async recargarMensajes(){
     if(CLOUD){ try{ const {data}=await sb.from('mensajes').select('*'); this.mensajes=data||[]; }catch(e){} }
+    this.saveLocal();
+  },
+  // marca como leídos (por mí) todos los mensajes de otros que aún no lo tengan
+  async marcarLeidos(){
+    const yo=miNombre(); if(!yo) return;
+    const pendientes=this.mensajes.filter(m=>m.autor!==yo && !(Array.isArray(m.leido_por)&&m.leido_por.includes(yo)));
+    if(!pendientes.length) return;
+    for(const m of pendientes){
+      m.leido_por=Array.isArray(m.leido_por)?m.leido_por:[];
+      if(!m.leido_por.includes(yo)) m.leido_por.push(yo);
+    }
+    if(CLOUD){ try{ await sb.from('mensajes').upsert(pendientes); }catch(e){} }
     this.saveLocal();
   }
 };
@@ -4117,6 +4210,7 @@ function renderPlanillaMes(){
     '<div style="flex:1;text-align:center;font-size:15px;font-weight:900;color:var(--blue);">'+nombreMes+'</div>'+
     '<button onclick="planillaMesNav(1)" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:16px;font-weight:800;cursor:pointer;">▶</button>'+
   '</div>';
+  html+='<div style="text-align:center;margin-bottom:8px;"><button onclick="abrirPlanillaAncho()" style="background:var(--orange);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(255,122,0,.3);">🔄 Ver a lo ancho (pantalla completa)</button></div>';
   html+='<div class="planilla-hint">👉 Deslizá al costado para cambiar de mes</div>';
   // Leyenda de colores (guía de estados)
   html+='<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px;font-size:9px;">'
@@ -4207,7 +4301,66 @@ function planillaMesNav(dir){
   if(ni<0 || ni>=lista.length) return; // no hay más meses
   planillaMesSel=lista[ni];
   renderPlanillaMes();
+  // si está abierta la vista a lo ancho, refrescarla también
+  if(document.getElementById('planillaAnchoBg') && document.getElementById('planillaAnchoBg').style.display==='flex') pintarPlanillaAncho();
 }
+// ===== PLANILLA A LO ANCHO (pantalla completa) =====
+async function abrirPlanillaAncho(){
+  const bg=document.getElementById('planillaAnchoBg');
+  bg.style.display='flex';
+  pintarPlanillaAncho();
+  // 1) intentar pantalla completa
+  try{
+    const el=document.documentElement;
+    if(el.requestFullscreen) await el.requestFullscreen();
+    else if(el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+  }catch(e){}
+  // 2) intentar girar a horizontal (solo funciona en fullscreen y en algunos celus)
+  let giroOk=false;
+  try{
+    if(screen.orientation && screen.orientation.lock){
+      await screen.orientation.lock('landscape');
+      giroOk=true;
+    }
+  }catch(e){ giroOk=false; }
+  // 3) si no se pudo girar solo, mostrar el cartelito
+  document.getElementById('planillaAnchoAviso').style.display = giroOk ? 'none' : 'block';
+}
+function cerrarPlanillaAncho(){
+  document.getElementById('planillaAnchoBg').style.display='none';
+  try{ if(screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); }catch(e){}
+  try{
+    if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen();
+    else if(document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }catch(e){}
+}
+function planillaAnchoNav(dir){ planillaMesNav(dir); }
+// arma la tabla grande usando el mismo HTML de la planilla normal, pero a ancho completo
+function pintarPlanillaAncho(){
+  const cont=document.getElementById('planillaAnchoContent'); if(!cont) return;
+  const src=document.getElementById('planillaContent');
+  // clonar la tabla ya renderizada
+  const wrap=src.querySelector('.planilla-wrap');
+  const tit=document.getElementById('planillaAnchoTit');
+  const partes=(planillaMesSel||'').split('-');
+  if(partes.length===2) tit.textContent='📋 Planilla · '+MESES_NOM[parseInt(partes[1])-1]+' '+partes[0];
+  if(!wrap){ cont.innerHTML='<div style="text-align:center;color:var(--muted);padding:30px;">Sin datos este mes.</div>'; return; }
+  // copiar la tabla y agrandar fuente para aprovechar el ancho
+  cont.innerHTML='<div style="min-width:100%;">'+wrap.innerHTML+'</div>';
+  const tabla=cont.querySelector('table.planilla');
+  if(tabla){ tabla.style.fontSize='13px'; tabla.style.tableLayout='auto'; tabla.style.minWidth='900px'; }
+  // los th/td en modo ancho: sin recorte, se ve todo
+  cont.querySelectorAll('table.planilla td, table.planilla th').forEach(function(c){
+    c.style.whiteSpace='nowrap'; c.style.maxWidth='none'; c.style.overflow='visible'; c.style.textOverflow='clip'; c.style.padding='8px 10px';
+  });
+}
+// si el usuario sale del fullscreen con el botón atrás del celu, cerrar la vista
+document.addEventListener('fullscreenchange', function(){
+  if(!document.fullscreenElement){
+    const bg=document.getElementById('planillaAnchoBg');
+    if(bg && bg.style.display==='flex'){ /* dejar la vista abierta pero sin fullscreen, con el aviso */ }
+  }
+});
 // Swipe horizontal en la planilla: izquierda = mes siguiente, derecha = mes anterior
 var _plSwipeX=0, _plSwipeY=0;
 function planillaTouchStart(e){ var t=e.touches[0]; _plSwipeX=t.clientX; _plSwipeY=t.clientY; }
@@ -4233,6 +4386,7 @@ async function marcarCuotaPlanilla(ventaId){
   try{ if(typeof AUDIT!=='undefined') AUDIT.registrar('cobró','venta','cuota '+v.pagadas+' de '+tot+' — '+(v.producto||'')); }catch(e){}
   toast('Pago registrado ✅');
   renderPlanillaMes();
+  if(document.getElementById('planillaAnchoBg') && document.getElementById('planillaAnchoBg').style.display==='flex') pintarPlanillaAncho();
 }
 
 
@@ -7388,7 +7542,7 @@ function actualizarTareaBadge(){
   const pend=cargarTareas().filter(t=>!t.hecha).length;
   const b=document.getElementById('tareaBadge');
   const bm=document.getElementById('tareaMenuBadge');
-  if(b){ if(pend>0){ b.style.display='block'; b.textContent=pend>9?'9+':pend; } else b.style.display='none'; }
+  if(b){ if(pend>0){ b.style.display='block'; } else b.style.display='none'; }
   if(bm){ if(pend>0){ bm.style.display='inline-block'; bm.textContent=pend; } else bm.style.display='none'; }
 }
 /* Aviso suave una vez al día si hay tareas pendientes (toast + notificación si está permitida) */
@@ -7897,23 +8051,12 @@ function cerrarMenuConfig(){
   const m=document.getElementById('menuConfig'); if(m) m.style.display='none';
   document.removeEventListener('click', cerrarMenuConfigFuera);
 }
-// ===== MODO OSCURO =====
-function toggleModoOscuro(){
-  const oscuro=document.body.classList.toggle('dark');
-  try{ localStorage.setItem('ae_modo_oscuro', oscuro?'1':'0'); }catch(e){}
-  actualizarLabelDark();
-  toast(oscuro?'🌙 Modo oscuro activado':'☀️ Modo claro activado');
-}
-function actualizarLabelDark(){
-  const oscuro=document.body.classList.contains('dark');
-  const ico=document.getElementById('darkIco'), lbl=document.getElementById('darkLabel');
-  if(ico) ico.textContent=oscuro?'☀️':'🌙';
-  if(lbl) lbl.textContent=oscuro?'Modo claro':'Modo oscuro';
-}
-// aplicar la preferencia guardada al cargar
-(function aplicarModoOscuroGuardado(){
-  try{ if(localStorage.getItem('ae_modo_oscuro')==='1'){ document.body.classList.add('dark'); } }catch(e){}
-  setTimeout(actualizarLabelDark, 100);
+// ===== MODO OSCURO — DESACTIVADO (quitado por pedido) =====
+function toggleModoOscuro(){ /* desactivado */ }
+function actualizarLabelDark(){ /* desactivado */ }
+// Asegurar modo claro siempre, incluso si quedó la preferencia vieja guardada
+(function quitarModoOscuro(){
+  try{ document.body.classList.remove('dark'); localStorage.removeItem('ae_modo_oscuro'); }catch(e){}
 })();
 function cerrarMenuConfigFuera(ev){
   const m=document.getElementById('menuConfig');
@@ -7986,16 +8129,15 @@ async function startApp(){
   // Con nube activa jamás metemos demo: evita pisar tus clientes reales por un parpadeo de carga.
   if(!CLOUD && !DB.clientes.length && !DB.ventas.length){ seedDemo(); await DB.load(); }
   render();
-  autoBackupGuardar();      // red de seguridad: copia automática al abrir la app
-  avisarSiFaltaBackup();    // aviso suave si hace días que no bajás copia a archivo
-  setTimeout(function(){ try{ if(totalNotifPago()>0) abrirNotifPago(); }catch(e){} }, 2500); // aviso de fechas de pago
+  autoBackupGuardar();      // red de seguridad: copia automática al abrir la app (silenciosa)
+  // Los avisos ya NO se abren solos al arrancar (interrumpían). Siguen disponibles
+  // en sus íconos (🔔 avisos, campana de pagos, tareas). Solo se actualizan los contadores.
   iniciarPresencia();
   pedirPermisoNotif();
-  actualizarTareaBadge();   // mostrar puntito si hay tareas pendientes
-  recordarTareasDelDia();   // aviso suave una vez al día si hay pendientes
+  actualizarTareaBadge();   // mostrar puntito si hay tareas pendientes (sin popup)
   iniciarRecordatorioHorario();  // recordatorio cada hora si hay tareas
   armarBotonAtras();        // evitar salir de la app con el gesto "atrás"
-  AUDIT.recargar().then(()=>actualizarAvisoBadge());  // traer avisos de todos al iniciar
+  AUDIT.recargar().then(()=>actualizarAvisoBadge());  // traer avisos de todos al iniciar (solo badge)
   // Revisar mensajes nuevos cada 20s (para el puntito rojo), solo si el chat está cerrado
   setInterval(async()=>{
     if(document.getElementById('chatBg') && document.getElementById('chatBg').classList.contains('show')) return;
@@ -8045,16 +8187,18 @@ async function abrirChat(){
   if(typeof empujarHistorial==='function') empujarHistorial();
   pintarChat();
   // cargar mensajes después, sin bloquear la apertura
-  try{ await DB.recargarMensajes(); pintarChat(); }catch(e){ console.error('chat:', e); }
+  try{ await DB.recargarMensajes(); await DB.marcarLeidos(); pintarChat(); }catch(e){ console.error('chat:', e); }
   localStorage.setItem('ae_chat_visto', Date.now());
   actualizarBadge();
-  // refresco automático cada 5 segundos mientras está abierto
+  // refresco automático cada 3 segundos mientras está abierto
   if(chatTimer) clearInterval(chatTimer);
-  chatTimer=setInterval(async()=>{ try{ await DB.recargarMensajes(); pintarChat(); }catch(e){} }, 5000);
+  chatTimer=setInterval(async()=>{ try{ await DB.recargarMensajes(); await DB.marcarLeidos(); pintarChat(); }catch(e){} }, 3000);
 }
 function cerrarChat(){
   document.getElementById('chatBg').classList.remove('show');
   if(chatTimer){ clearInterval(chatTimer); chatTimer=null; }
+  ESCRIBIENDO_HASTA=0; latido(); // avisar que dejé de escribir
+  cancelarRespuesta();
   localStorage.setItem('ae_chat_visto', Date.now());
   actualizarBadge();
 }
@@ -8068,6 +8212,22 @@ async function enviarAviso(idx){
   localStorage.setItem('ae_chat_visto', Date.now());
   toast('Aviso enviado 📨');
 }
+// separador de día ("Hoy" / "Ayer" / fecha)
+function etiquetaDia(ts){
+  const d=new Date(ts); d.setHours(0,0,0,0);
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const dif=Math.round((hoy-d)/86400000);
+  if(dif===0) return 'Hoy';
+  if(dif===1) return 'Ayer';
+  return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+// cuenta reacciones agrupadas por emoji -> [{emoji, cnt, quienes}]
+function agruparReacciones(r){
+  if(!r||typeof r!=='object') return [];
+  const out={};
+  Object.keys(r).forEach(nombre=>{ const e=r[nombre]; if(!e) return; if(!out[e]) out[e]={emoji:e,cnt:0,quienes:[]}; out[e].cnt++; out[e].quienes.push(nombre); });
+  return Object.values(out);
+}
 function pintarChat(){
   const body=document.getElementById('chatBody');
   const yo=miNombre();
@@ -8077,34 +8237,207 @@ function pintarChat(){
   const pinBox=document.getElementById('chatPins');
   if(pins.length){
     pinBox.style.display='block';
-    pinBox.innerHTML='<div style="font-weight:800;font-size:11px;color:#7a4a00;margin-bottom:2px;">📌 NOTAS FIJADAS</div>'+pins.map(m=>`<div class="chat-pin"><span>📌</span><div><b>${m.autor}:</b> ${escHtml(m.texto)} <span onclick="fijarMensaje('${m.id}',false)" style="color:var(--muted);cursor:pointer;">(quitar)</span></div></div>`).join('');
+    pinBox.innerHTML='<div style="font-weight:800;font-size:11px;color:#7a4a00;margin-bottom:2px;">📌 NOTAS FIJADAS</div>'+pins.map(m=>`<div class="chat-pin"><span>📌</span><div><b>${escHtml(m.autor)}:</b> ${escHtml(m.texto||(m.img?'📷 Foto':''))} <span onclick="fijarMensaje('${m.id}',false)" style="color:var(--muted);cursor:pointer;">(quitar)</span></div></div>`).join('');
   } else { pinBox.style.display='none'; pinBox.innerHTML=''; }
   if(!msgs.length){ body.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;margin:auto;">No hay mensajes todavía.<br>¡Escribí el primero! 🐝</div>'; return; }
-  body.innerHTML=msgs.map(m=>{
+  // cuántos usuarios activos hay (para saber si "leído por todos")
+  const otrosActivos=(PRESENCIA_USERS||[]).filter(n=>n&&n!==yo);
+  let html='';
+  let ultDia=null, ultAutor=null;
+  msgs.forEach((m,idx)=>{
+    const dia=etiquetaDia(m.ts);
+    if(dia!==ultDia){ html+=`<div class="day-sep">${dia}</div>`; ultDia=dia; ultAutor=null; }
     const mine=m.autor===yo;
     if(m.tipo==='aviso'){
       const colCls=m.color==='azul'?'azul':m.color==='verde'?'verde':m.color==='naranja'?'naranja':'';
-      return `<div class="msg-aviso ${colCls}" ondblclick="fijarMensaje('${m.id}',${!m.fijado})">${m.fijado?'📌 ':''}${escHtml(m.texto)}<div style="font-size:10px;opacity:.7;font-weight:600;margin-top:3px;">— ${escHtml(m.autor)} · ${horaMsg(m.ts)}${mine?` · <span onclick="borrarMsg('${m.id}')" style="cursor:pointer;">🗑️</span>`:''}</div></div>`;
+      html+=`<div class="msg-aviso ${colCls}">${m.fijado?'📌 ':''}${escHtml(m.texto)}<div style="font-size:10px;opacity:.7;font-weight:600;margin-top:3px;">— ${escHtml(m.autor)} · ${horaMsg(m.ts)}</div></div>`;
+      ultAutor=null; return;
     }
-    return `<div class="msg ${mine?'msg-mine':'msg-other'}" ondblclick="fijarMensaje('${m.id}',${!m.fijado})">
-      ${!mine?`<div class="msg-autor">${escHtml(m.autor)}</div>`:''}
-      ${m.texto?`<div>${escHtml(m.texto)}</div>`:''}
-      <div class="msg-time">${m.fijado?'📌 ':''}${horaMsg(m.ts)}${mine?` · <span onclick="borrarMsg('${m.id}')" style="cursor:pointer;">🗑️</span>`:''}</div>
+    // ¿agrupar con el anterior? (mismo autor, mismo día, no es respuesta)
+    const grouped = (m.autor===ultAutor && !m.reply_to);
+    ultAutor=m.autor;
+    // respuesta citada
+    let quoteHtml='';
+    if(m.reply_to){
+      const orig=DB.mensajes.find(x=>x.id===m.reply_to);
+      if(orig){
+        const t=orig.texto?escHtml(orig.texto):(orig.img?'📷 Foto':'');
+        quoteHtml=`<div class="msg-quote" onclick="irAMensaje('${orig.id}')"><div class="msg-quote-autor">${escHtml(orig.autor)}</div><div class="msg-quote-txt">${t}</div></div>`;
+      }
+    }
+    // tildes de leído (solo en los míos): gris = enviado, azul = alguien lo leyó
+    let tick='';
+    if(mine){
+      const leidoPor=Array.isArray(m.leido_por)?m.leido_por.filter(n=>n!==yo):[];
+      tick = leidoPor.length ? `<span class="tick read" title="Leído por ${escHtml(leidoPor.join(', '))}">✓✓</span>` : `<span class="tick">✓✓</span>`;
+    }
+    // reacciones
+    const reacts=agruparReacciones(m.reacciones);
+    const reactsHtml = reacts.length ? `<div class="msg-reacts">${reacts.map(r=>`<span class="msg-react" onclick="reaccionar('${m.id}','${r.emoji}')" title="${escHtml(r.quienes.join(', '))}">${r.emoji}${r.cnt>1?`<span class="cnt">${r.cnt}</span>`:''}</span>`).join('')}</div>` : '';
+    const editTag = m.editado ? `<span class="msg-edit-tag">editado</span>` : '';
+    html+=`<div class="msg-row ${mine?'mine':'other'}">
+      <div class="msg ${mine?'msg-mine':'msg-other'} ${grouped?'grouped':''}" id="msg_${m.id}" onclick="abrirMsgMenu(event,'${m.id}')">
+        ${quoteHtml}
+        ${(!mine&&!grouped)?`<div class="msg-autor" style="color:${nombreColor(m.autor)};">${escHtml(m.autor)}</div>`:''}
+        ${m.img?`<img src="${m.img}" onclick="event.stopPropagation();verFotoChat('${m.id}')" style="max-width:200px;max-height:240px;border-radius:10px;cursor:pointer;display:block;margin-bottom:${m.texto?'4px':'0'};">`:''}
+        ${m.texto?`<div>${escHtml(m.texto)}</div>`:''}
+        <div class="msg-time">${m.fijado?'📌 ':''}${editTag}${horaMsg(m.ts)}${tick}</div>
+      </div>
+      ${reactsHtml}
     </div>`;
-  }).join('');
+  });
+  body.innerHTML=html;
+  pintarEscribiendo();
   body.scrollTop=body.scrollHeight;
+}
+// indicador "está escribiendo…"
+function pintarEscribiendo(){
+  const body=document.getElementById('chatBody'); if(!body) return;
+  const prev=document.getElementById('typingRow'); if(prev) prev.remove();
+  const quien=quienEscribe();
+  if(quien){
+    const row=document.createElement('div');
+    row.className='typing-row'; row.id='typingRow';
+    row.innerHTML=`<b style="color:${nombreColor(quien)};">${escHtml(quien)}</b> escribiendo<span class="typing-dots"><span></span><span></span><span></span></span>`;
+    body.appendChild(row);
+    body.scrollTop=body.scrollHeight;
+  }
+}
+// resalta un mensaje al tocar una respuesta citada
+function irAMensaje(id){
+  const el=document.getElementById('msg_'+id); if(!el) return;
+  el.scrollIntoView({behavior:'smooth',block:'center'});
+  const orig=el.style.boxShadow;
+  el.style.boxShadow='0 0 0 3px var(--orange)';
+  setTimeout(()=>{ el.style.boxShadow=orig; }, 1200);
 }
 function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function horaMsg(ts){ const d=new Date(ts); const hoy=new Date(); const sameDay=d.toDateString()===hoy.toDateString(); const hh=d.getHours().toString().padStart(2,'0'), mm=d.getMinutes().toString().padStart(2,'0'); return sameDay?`${hh}:${mm}`:`${d.getDate()}/${d.getMonth()+1} ${hh}:${mm}`; }
+let RESPONDIENDO_A=null; // id del mensaje al que estoy respondiendo
+let EDITANDO=null;       // id del mensaje que estoy editando
 async function enviarChat(){
   const inp=document.getElementById('chatInput'); const txt=inp.value.trim();
   if(!txt) return;
   const yo=miNombre()||pedirNombre(); if(!yo) return;
+  // si estoy editando, guardo sobre el mismo mensaje
+  if(EDITANDO){
+    const m=DB.mensajes.find(x=>x.id===EDITANDO);
+    if(m){ m.texto=txt; m.editado=true; }
+    EDITANDO=null; RESPONDIENDO_A=null; inp.value=''; cancelarRespuesta();
+    pintarChat();
+    if(m) await DB.enviarMensaje(m);
+    return;
+  }
   const m={ id:'m'+Date.now()+Math.floor(Math.random()*1000), autor:yo, texto:txt, ts:Date.now(), fijado:false };
+  if(RESPONDIENDO_A) m.reply_to=RESPONDIENDO_A;
   DB.mensajes.push(m); inp.value='';
+  RESPONDIENDO_A=null; cancelarRespuesta();
+  ESCRIBIENDO_HASTA=0; latido(); // dejé de escribir
   pintarChat();
   await DB.enviarMensaje(m);
   localStorage.setItem('ae_chat_visto', Date.now());
+}
+// ===== RESPONDER =====
+function responderA(id){
+  const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
+  RESPONDIENDO_A=id; EDITANDO=null;
+  document.getElementById('replyBarAutor').textContent=m.autor;
+  document.getElementById('replyBarTxt').textContent=m.texto||(m.img?'📷 Foto':'');
+  document.getElementById('replyBar').classList.add('show');
+  const inp=document.getElementById('chatInput'); inp.placeholder='Escribí un mensaje...'; inp.focus();
+}
+function cancelarRespuesta(){
+  RESPONDIENDO_A=null; EDITANDO=null;
+  document.getElementById('replyBar').classList.remove('show');
+  const inp=document.getElementById('chatInput'); if(inp){ inp.placeholder='Escribí un mensaje...'; }
+}
+// ===== EDITAR =====
+function editarMsg(id){
+  const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
+  if(m.autor!==miNombre()){ toast('Solo podés editar tus mensajes'); return; }
+  EDITANDO=id; RESPONDIENDO_A=null;
+  document.getElementById('replyBarAutor').textContent='✏️ Editando';
+  document.getElementById('replyBarTxt').textContent=m.texto||'';
+  document.getElementById('replyBar').classList.add('show');
+  const inp=document.getElementById('chatInput'); inp.value=m.texto||''; inp.focus();
+}
+// ===== REACCIONAR =====
+async function reaccionar(id,emoji){
+  const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
+  const yo=miNombre()||pedirNombre(); if(!yo) return;
+  m.reacciones = (m.reacciones&&typeof m.reacciones==='object') ? m.reacciones : {};
+  if(m.reacciones[yo]===emoji) delete m.reacciones[yo]; // toca de nuevo = saca la reacción
+  else m.reacciones[yo]=emoji;
+  cerrarMsgMenu();
+  pintarChat();
+  await DB.enviarMensaje(m);
+}
+// ===== MENÚ AL TOCAR UN MENSAJE =====
+const MENU_REACTS=['👍','❤️','😂','😮','😢','🙏'];
+let MENU_MSG_ID=null;
+function abrirMsgMenu(ev, id){
+  ev.stopPropagation();
+  const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
+  MENU_MSG_ID=id;
+  const mine=m.autor===miNombre();
+  const menu=document.getElementById('msgMenu');
+  menu.innerHTML=`
+    <div class="msg-menu-reacts">
+      ${MENU_REACTS.map(e=>`<button onclick="reaccionar('${id}','${e}')">${e}</button>`).join('')}
+    </div>
+    <div class="msg-menu-item" onclick="cerrarMsgMenu();responderA('${id}')"><span>↩️</span> Responder</div>
+    ${(m.texto)?`<div class="msg-menu-item" onclick="copiarMsg('${id}')"><span>📋</span> Copiar</div>`:''}
+    ${(mine&&m.texto)?`<div class="msg-menu-item" onclick="cerrarMsgMenu();editarMsg('${id}')"><span>✏️</span> Editar</div>`:''}
+    <div class="msg-menu-item" onclick="cerrarMsgMenu();fijarMensaje('${id}',${!m.fijado})"><span>📌</span> ${m.fijado?'Quitar de fijados':'Fijar'}</div>
+    ${mine?`<div class="msg-menu-item danger" onclick="cerrarMsgMenu();borrarMsg('${id}')"><span>🗑️</span> Borrar</div>`:''}
+  `;
+  document.getElementById('msgMenuBg').classList.add('show');
+}
+function cerrarMsgMenu(){ document.getElementById('msgMenuBg').classList.remove('show'); MENU_MSG_ID=null; }
+function copiarMsg(id){
+  const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
+  const t=m.texto||'';
+  try{ navigator.clipboard.writeText(t); toast('📋 Copiado'); }catch(e){
+    const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); toast('📋 Copiado'); }catch(e2){} ta.remove();
+  }
+  cerrarMsgMenu();
+}
+// Enviar una foto/captura en el chat (se comprime igual que los comprobantes)
+async function enviarFotoChat(input){
+  const file=input.files&&input.files[0];
+  input.value=''; // permitir volver a elegir la misma foto
+  if(!file) return;
+  const yo=miNombre()||pedirNombre(); if(!yo) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=async ()=>{
+      const max=1000; let w=img.width, h=img.height;
+      if(w>max){ h=Math.round(h*max/w); w=max; }
+      const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      const data=canvas.toDataURL('image/jpeg',0.7);
+      const m={ id:'m'+Date.now()+Math.floor(Math.random()*1000), autor:yo, texto:'', img:data, ts:Date.now(), fijado:false };
+      if(RESPONDIENDO_A){ m.reply_to=RESPONDIENDO_A; RESPONDIENDO_A=null; cancelarRespuesta(); }
+      DB.mensajes.push(m);
+      pintarChat();
+      toast('📷 Enviando foto...');
+      try{ await DB.enviarMensaje(m); toast('📷 Foto enviada'); }catch(e){ toast('⚠️ La foto quedó en el celu, se sube al volver la señal'); }
+      localStorage.setItem('ae_chat_visto', Date.now());
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+// Ver una imagen del chat en grande
+function verFotoChat(id){
+  const m=DB.mensajes.find(x=>x.id===id); if(!m||!m.img) return;
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.onclick=()=>ov.remove();
+  ov.innerHTML='<img src="'+m.img+'" style="max-width:100%;max-height:90%;border-radius:8px;"><div style="position:absolute;top:16px;right:20px;color:#fff;font-size:28px;">✕</div>';
+  document.body.appendChild(ov);
 }
 async function fijarMensaje(id,estado){
   const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
