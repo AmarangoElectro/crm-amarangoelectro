@@ -354,11 +354,11 @@
   .chat-close{font-size:22px;cursor:pointer;background:none;border:none;color:#fff;}
   .chat-pins{background:#fff8f0;border-bottom:1px solid var(--border);padding:8px 14px;max-height:120px;overflow-y:auto;}
   .chat-pin{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0;color:#7a4a00;}
-  .chat-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;}
-  .msg{max-width:100%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.35;position:relative;word-wrap:break-word;white-space:pre-wrap;cursor:pointer;}
+  .chat-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:6px;}
+  .msg{width:fit-content;max-width:100%;padding:8px 12px;border-radius:14px;font-size:14px;line-height:1.35;position:relative;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-wrap;cursor:pointer;}
   .msg-mine{align-self:flex-end;background:var(--blue);color:#fff;border-bottom-right-radius:4px;}
   .msg-other{align-self:flex-start;background:#fff;color:var(--text);border:1px solid var(--border);border-bottom-left-radius:4px;}
-  .msg-autor{font-size:11px;font-weight:800;margin-bottom:2px;opacity:.85;}
+  .msg-autor{font-size:11px;font-weight:800;margin-bottom:2px;}
   .msg-time{font-size:10px;opacity:.6;margin-top:3px;text-align:right;}
   .chat-input-bar{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid var(--border);align-items:center;}
   .chat-input-bar input{flex:1;border:1px solid var(--border);border-radius:20px;padding:10px 14px;font-size:15px;outline:none;}
@@ -373,7 +373,7 @@
   .msg-aviso.verde{background:#f0fbf4;border-color:var(--green);color:#0a7c3a;}
   .msg-aviso.naranja{background:#fff7ec;border-color:var(--orange);color:#b35c00;}
   /* ===== MENSAJERÍA ESTILO WHATSAPP ===== */
-  .msg-row{display:flex;flex-direction:column;max-width:78%;}
+  .msg-row{display:flex;flex-direction:column;max-width:82%;}
   .msg-row.mine{align-self:flex-end;align-items:flex-end;}
   .msg-row.other{align-self:flex-start;align-items:flex-start;}
   .msg.grouped{margin-top:-6px;border-top-right-radius:14px;border-top-left-radius:14px;}
@@ -8275,10 +8275,13 @@ function pintarChat(){
     const reacts=agruparReacciones(m.reacciones);
     const reactsHtml = reacts.length ? `<div class="msg-reacts">${reacts.map(r=>`<span class="msg-react" onclick="reaccionar('${m.id}','${r.emoji}')" title="${escHtml(r.quienes.join(', '))}">${r.emoji}${r.cnt>1?`<span class="cnt">${r.cnt}</span>`:''}</span>`).join('')}</div>` : '';
     const editTag = m.editado ? `<span class="msg-edit-tag">editado</span>` : '';
+    const col = nombreColor(m.autor);
+    // burbuja de otros: barra de color a la izquierda + nombre en color (fácil de distinguir a simple vista)
+    const estiloOtro = !mine ? `border-left:4px solid ${col};` : '';
     html+=`<div class="msg-row ${mine?'mine':'other'}">
-      <div class="msg ${mine?'msg-mine':'msg-other'} ${grouped?'grouped':''}" id="msg_${m.id}" onclick="abrirMsgMenu(event,'${m.id}')">
+      <div class="msg ${mine?'msg-mine':'msg-other'} ${grouped?'grouped':''}" id="msg_${m.id}" style="${estiloOtro}" onclick="abrirMsgMenu(event,'${m.id}')">
         ${quoteHtml}
-        ${(!mine&&!grouped)?`<div class="msg-autor" style="color:${nombreColor(m.autor)};">${escHtml(m.autor)}</div>`:''}
+        ${!mine?`<div class="msg-autor" style="color:${col};">${escHtml(m.autor)}</div>`:''}
         ${m.img?`<img src="${m.img}" onclick="event.stopPropagation();verFotoChat('${m.id}')" style="max-width:200px;max-height:240px;border-radius:10px;cursor:pointer;display:block;margin-bottom:${m.texto?'4px':'0'};">`:''}
         ${m.texto?`<div>${escHtml(m.texto)}</div>`:''}
         <div class="msg-time">${m.fijado?'📌 ':''}${editTag}${horaMsg(m.ts)}${tick}</div>
