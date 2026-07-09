@@ -859,6 +859,7 @@
       <div style="display:flex;align-items:center;gap:14px;">
         <button class="chat-close" onclick="toggleBuscadorChat()" title="Buscar" style="font-size:19px;">🔍</button>
         <button class="chat-close" onclick="verDestacados()" title="Destacados" style="font-size:19px;">⭐</button>
+        <button class="chat-close" onclick="activarNotificaciones()" title="Activar notificaciones" style="font-size:19px;">🔔</button>
         <button class="chat-close" onclick="cerrarChat()">✕</button>
       </div>
     </div>
@@ -8326,7 +8327,7 @@ function pedirNombre(){
 async function abrirChat(){
   let yo=miNombre();
   if(!yo){ yo=pedirNombre(); if(!yo) return; }
-  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v10 ✨';
+  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v11 ✨';
   // emojis rápidos
   document.getElementById('chatEmojis').innerHTML=CHAT_EMOJIS.map(e=>`<button class="chat-emoji" onclick="addEmoji('${e}')">${e}</button>`).join('');
   // avisos rápidos
@@ -8829,20 +8830,45 @@ function pedirPermisoNotif(){
     Notification.requestPermission().catch(()=>{});
   }
 }
+// Activar notificaciones desde un botón (con aviso al usuario)
+function activarNotificaciones(){
+  if(!('Notification' in window)){ toast('Tu navegador no soporta notificaciones'); return; }
+  if(Notification.permission==='granted'){ toast('✅ Las notificaciones ya están activas'); notificar('🔔 Notificaciones activas','Te avisaremos de mensajes nuevos'); return; }
+  if(Notification.permission==='denied'){ toast('⚠️ Están bloqueadas. Activalas en el candado de la barra de Chrome → Notificaciones'); return; }
+  Notification.requestPermission().then(p=>{
+    if(p==='granted'){ toast('✅ Notificaciones activadas'); notificar('🔔 Listo','Te avisaremos de mensajes nuevos'); }
+    else { toast('No se activaron. Podés hacerlo desde el candado 🔒 de Chrome'); }
+  }).catch(()=>{});
+}
 
 // Muestra una notificación del navegador
 function notificar(titulo, cuerpo){
   try{
     if(!('Notification' in window) || Notification.permission!=='granted') return;
-    const icon = (typeof LOGO_AE==='string' && LOGO_AE) ? LOGO_AE : '';
-    const opciones = { body: cuerpo||'', icon: icon||undefined, badge: icon||undefined, tag:'ae-msg', renotify:true };
+    const opciones = { body: cuerpo||'', tag:'ae-msg', renotify:true, vibrate:[200,100,200] };
+    const icon = (typeof LOGO_AE==='string' && LOGO_AE && LOGO_AE.length<300000) ? LOGO_AE : '';
+    if(icon){ opciones.icon=icon; opciones.badge=icon; }
     if(navigator.serviceWorker && navigator.serviceWorker.ready){
-      navigator.serviceWorker.ready.then(reg=>{ reg.showNotification(titulo, opciones); }).catch(()=>{ new Notification(titulo, opciones); });
+      navigator.serviceWorker.ready.then(reg=>{ reg.showNotification(titulo, opciones); }).catch(()=>{ try{ new Notification(titulo, opciones); }catch(e){} });
     } else {
       new Notification(titulo, opciones);
     }
   }catch(e){ console.warn('notif', e); }
 }
+// Parpadeo del título de la pestaña cuando hay mensajes nuevos (funciona aunque las notificaciones estén bloqueadas)
+let _tituloOriginal = document.title;
+let _tituloFlashTimer = null;
+function flashTitulo(cuantos){
+  clearInterval(_tituloFlashTimer);
+  if(!cuantos){ document.title=_tituloOriginal; return; }
+  let on=false;
+  _tituloFlashTimer=setInterval(()=>{
+    document.title = on ? _tituloOriginal : `💬 (${cuantos}) mensaje${cuantos>1?'s':''} nuevo${cuantos>1?'s':''}`;
+    on=!on;
+  }, 1000);
+}
+// cuando el usuario vuelve a la app, limpiar el parpadeo
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ flashTitulo(0); } });
 
 // Detecta mensajes nuevos y notifica (se apoya en el contador de no leídos)
 let _ultimoNotificado = +(localStorage.getItem('ae_chat_visto')||0);
@@ -8857,7 +8883,7 @@ function revisarYNotificar(){
       const titulo = nuevos.length===1 ? `💬 ${quien}` : `💬 ${nuevos.length} mensajes nuevos`;
       // Solo notificar si el chat NO está abierto en este momento
       const chatAbierto = document.getElementById('chatBg') && document.getElementById('chatBg').classList.contains('show');
-      if(!chatAbierto) notificar(titulo, texto);
+      if(!chatAbierto){ notificar(titulo, texto); if(document.hidden) flashTitulo(nuevos.length); }
       _ultimoNotificado = Math.max(_ultimoNotificado, ...nuevos.map(m=>m.ts));
     }
   }catch(e){ console.warn('revisarNotif', e); }
