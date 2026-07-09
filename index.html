@@ -354,8 +354,8 @@
   .chat-close{font-size:22px;cursor:pointer;background:none;border:none;color:#fff;}
   .chat-pins{background:#fff8f0;border-bottom:1px solid var(--border);padding:8px 14px;max-height:120px;overflow-y:auto;}
   .chat-pin{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0;color:#7a4a00;}
-  .chat-body{flex:1;overflow-y:auto;padding:14px;background:#f5f6f8;}
-  .msg{display:inline-block;max-width:82%;padding:6px 10px 4px;border-radius:16px;font-size:13.5px;line-height:1.3;position:relative;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-line;cursor:pointer;box-shadow:0 1px 1.5px rgba(0,0,0,.14);}
+  .chat-body{flex:1;overflow-y:auto;padding:12px;background:#f5f6f8;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+  .msg{display:inline-block;max-width:80%;padding:5px 9px 3px;border-radius:14px;font-size:13px;line-height:1.25;position:relative;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-line;cursor:pointer;box-shadow:0 1px 1.5px rgba(0,0,0,.14);}
   .msg-mine{background:#d6f0c8;color:#111;border-bottom-right-radius:3px;}
   .msg-other{background:#fff;color:var(--text);border-bottom-left-radius:3px;}
   .msg-autor{font-size:11.5px;font-weight:800;margin-bottom:1px;}
@@ -373,7 +373,7 @@
   .msg-aviso.verde{background:#f0fbf4;border-color:var(--green);color:#0a7c3a;}
   .msg-aviso.naranja{background:#fff7ec;border-color:var(--orange);color:#b35c00;}
   /* ===== MENSAJERÍA ESTILO WHATSAPP ===== */
-  .msg-row{display:block;margin-bottom:2px;}
+  .msg-row{display:block;margin-bottom:2px;animation:msgIn .15s ease;}
   .msg-row.mine{text-align:right;}
   .msg-row.other{text-align:left;}
   .msg-row .msg{display:inline-block;text-align:left;vertical-align:top;}
@@ -388,7 +388,6 @@
   .tick.err{color:var(--red);cursor:pointer;}
   .msg-time{font-size:10px;opacity:.55;margin-top:2px;text-align:right;display:block;}
   @keyframes msgIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
-  .msg-row{animation:msgIn .15s ease;}
   .msg-edit-tag{font-size:9px;opacity:.6;font-style:italic;margin-right:3px;}
   .msg-reacts{display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;padding:0 4px;}
   .msg-react{background:#fff;border:1px solid var(--border);border-radius:12px;font-size:12px;padding:1px 7px;box-shadow:0 1px 3px rgba(0,0,0,.12);display:flex;align-items:center;gap:2px;cursor:pointer;}
