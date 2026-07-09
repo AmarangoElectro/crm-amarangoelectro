@@ -854,7 +854,14 @@
         <button class="chat-close" onclick="cerrarChat()" style="font-size:24px;">←</button>
         <div><div class="chat-head-t">💬 Espacio AmarangoElectro</div><div class="chat-head-s" id="chatYo"></div></div>
       </div>
-      <button class="chat-close" onclick="cerrarChat()">✕</button>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <button class="chat-close" onclick="toggleBuscadorChat()" title="Buscar" style="font-size:19px;">🔍</button>
+        <button class="chat-close" onclick="verDestacados()" title="Destacados" style="font-size:19px;">⭐</button>
+        <button class="chat-close" onclick="cerrarChat()">✕</button>
+      </div>
+    </div>
+    <div id="buscadorChat" style="display:none;padding:8px 12px;background:#fff;border-bottom:1px solid var(--border);">
+      <input id="buscadorChatInput" placeholder="Buscar en el chat..." oninput="filtrarChat(this.value)" style="width:100%;border:1px solid var(--border);border-radius:20px;padding:8px 14px;font-size:14px;outline:none;">
     </div>
     <div class="chat-pins" id="chatPins" style="display:none;"></div>
     <div class="chat-body" id="chatBody"></div>
@@ -877,6 +884,12 @@
 </div>
 <div class="msg-menu-bg" id="msgMenuBg" onclick="if(event.target===this)cerrarMsgMenu()">
   <div class="msg-menu" id="msgMenu"></div>
+</div>
+<div class="msg-menu-bg" id="destacadosBg" onclick="if(event.target===this)cerrarDestacados()">
+  <div style="background:#fff;border-radius:16px;width:88%;max-width:420px;max-height:70vh;overflow:hidden;display:flex;flex-direction:column;">
+    <div style="background:var(--blue);color:#fff;padding:12px 16px;font-weight:800;display:flex;justify-content:space-between;align-items:center;">⭐ Mensajes destacados <span onclick="cerrarDestacados()" style="cursor:pointer;">✕</span></div>
+    <div id="destacadosList" style="overflow-y:auto;"></div>
+  </div>
 </div>
 <div id="planillaAnchoBg" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:500;flex-direction:column;">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:var(--blue);color:#fff;flex-shrink:0;">
@@ -8236,7 +8249,9 @@ function agruparReacciones(r){
 function pintarChat(){
   const body=document.getElementById('chatBody');
   const yo=miNombre();
-  const msgs=[...DB.mensajes].sort((a,b)=>a.ts-b.ts);
+  let msgs=[...DB.mensajes].sort((a,b)=>a.ts-b.ts);
+  // filtro del buscador
+  if(FILTRO_CHAT){ msgs=msgs.filter(m=>(m.texto||'').toLowerCase().includes(FILTRO_CHAT) || (m.autor||'').toLowerCase().includes(FILTRO_CHAT)); }
   // notas fijadas
   const pins=msgs.filter(m=>m.fijado);
   const pinBox=document.getElementById('chatPins');
@@ -8244,7 +8259,7 @@ function pintarChat(){
     pinBox.style.display='block';
     pinBox.innerHTML='<div style="font-weight:800;font-size:11px;color:#7a4a00;margin-bottom:2px;">📌 NOTAS FIJADAS</div>'+pins.map(m=>`<div class="chat-pin"><span>📌</span><div><b>${escHtml(m.autor)}:</b> ${escHtml(m.texto||(m.img?'📷 Foto':''))} <span onclick="fijarMensaje('${m.id}',false)" style="color:var(--muted);cursor:pointer;">(quitar)</span></div></div>`).join('');
   } else { pinBox.style.display='none'; pinBox.innerHTML=''; }
-  if(!msgs.length){ body.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;margin:auto;">No hay mensajes todavía.<br>¡Escribí el primero! 🐝</div>'; return; }
+  if(!msgs.length){ body.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px;">'+(FILTRO_CHAT?'No se encontraron mensajes con esa palabra.':'No hay mensajes todavía.<br>¡Escribí el primero! 🐝')+'</div>'; return; }
   // cuántos usuarios activos hay (para saber si "leído por todos")
   const otrosActivos=(PRESENCIA_USERS||[]).filter(n=>n&&n!==yo);
   let html='';
@@ -8291,6 +8306,7 @@ function pintarChat(){
     html+=`<div class="msg-row ${mine?'mine':'other'}">
       <div class="msg ${mine?'msg-mine':'msg-other'} ${grouped?'grouped':''}" id="msg_${m.id}" style="${estiloOtro}" onclick="abrirMsgMenu(event,'${m.id}')">
         ${quoteHtml}
+        ${m.reenviado?`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-bottom:2px;">↪️ Reenviado</div>`:''}
         ${!mine?`<div class="msg-autor" style="color:${col};">${escHtml(m.autor)}</div>`:''}
         ${m.img?`<img src="${m.img}" onclick="event.stopPropagation();verFotoChat('${m.id}')" style="max-width:200px;max-height:240px;border-radius:10px;cursor:pointer;display:block;margin-bottom:${m.texto?'4px':'0'};">`:''}
         ${m.texto?`<div>${escHtml((m.texto||'').replace(/^\s+|\s+$/g,'').replace(/\n{3,}/g,'\n\n'))}</div>`:''}
@@ -8406,6 +8422,7 @@ function abrirMsgMenu(ev, id){
     </div>
     <div class="msg-menu-item" onclick="cerrarMsgMenu();responderA('${id}')"><span>↩️</span> Responder</div>
     ${(m.texto)?`<div class="msg-menu-item" onclick="copiarMsg('${id}')"><span>📋</span> Copiar</div>`:''}
+    ${(m.texto||m.img)?`<div class="msg-menu-item" onclick="reenviarComoNuevo('${id}')"><span>↪️</span> Reenviar</div>`:''}
     ${(mine&&m.texto)?`<div class="msg-menu-item" onclick="cerrarMsgMenu();editarMsg('${id}')"><span>✏️</span> Editar</div>`:''}
     <div class="msg-menu-item" onclick="destacarMsg('${id}')"><span>⭐</span> ${m.destacado?'Quitar destacado':'Destacar'}</div>
     <div class="msg-menu-item" onclick="cerrarMsgMenu();fijarMensaje('${id}',${!m.fijado})"><span>📌</span> ${m.fijado?'Quitar de fijados':'Fijar'}</div>
@@ -8431,6 +8448,42 @@ async function destacarMsg(id){
   pintarChat();
   try{ await DB.enviarMensaje(m); }catch(e){}
   toast(m.destacado?'⭐ Destacado':'Quitado de destacados');
+}
+// ↪️ Reenviar: crea un mensaje nuevo con el mismo contenido
+async function reenviarComoNuevo(id){
+  const orig=DB.mensajes.find(x=>x.id===id); if(!orig) return;
+  const yo=miNombre()||pedirNombre(); if(!yo){ cerrarMsgMenu(); return; }
+  const m={ id:'m'+Date.now()+Math.floor(Math.random()*1000), autor:yo, texto:orig.texto||'', ts:Date.now(), fijado:false, reenviado:true };
+  if(orig.img) m.img=orig.img;
+  cerrarMsgMenu();
+  DB.mensajes.push(m);
+  pintarChat();
+  try{ await DB.enviarMensaje(m); }catch(e){ m._error=true; pintarChat(); }
+}
+// ⭐ Ver todos los mensajes destacados
+function verDestacados(){
+  const dest=DB.mensajes.filter(m=>m.destacado).sort((a,b)=>b.ts-a.ts);
+  if(!dest.length){ toast('No hay mensajes destacados'); return; }
+  const html=dest.map(m=>`<div onclick="cerrarMsgMenu();cerrarDestacados();setTimeout(()=>irAMensaje('${m.id}'),200);" style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;">
+    <div style="font-weight:800;font-size:12px;color:${nombreColor(m.autor)};">${escHtml(m.autor)} <span style="color:var(--muted);font-weight:600;">· ${horaMsg(m.ts)}</span></div>
+    <div style="font-size:13px;color:var(--text);margin-top:2px;">${m.img?'📷 ':''}${escHtml((m.texto||'Foto').slice(0,120))}</div>
+  </div>`).join('');
+  const bg=document.getElementById('destacadosBg');
+  document.getElementById('destacadosList').innerHTML=html;
+  bg.classList.add('show');
+}
+function cerrarDestacados(){ const bg=document.getElementById('destacadosBg'); if(bg) bg.classList.remove('show'); }
+// 🔍 Buscador dentro del chat
+let FILTRO_CHAT='';
+function toggleBuscadorChat(){
+  const b=document.getElementById('buscadorChat');
+  const abierto=b.style.display!=='none';
+  if(abierto){ b.style.display='none'; FILTRO_CHAT=''; document.getElementById('buscadorChatInput').value=''; pintarChat(); }
+  else { b.style.display='block'; setTimeout(()=>document.getElementById('buscadorChatInput').focus(),50); }
+}
+function filtrarChat(txt){
+  FILTRO_CHAT=(txt||'').trim().toLowerCase();
+  pintarChat();
 }
 // Reenviar un mensaje que quedó con error
 async function reenviarMsg(id){
