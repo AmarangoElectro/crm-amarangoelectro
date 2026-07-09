@@ -882,6 +882,7 @@
       <input type="file" id="chatDocInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,application/pdf" style="display:none;" onchange="enviarDocChat(this)">
       <button class="chat-send" onclick="toggleAdjuntos()" title="Adjuntar" style="background:#eef4ff;color:var(--blue);">＋</button>
       <input id="chatInput" placeholder="Escribí un mensaje..." oninput="marcarEscribiendo()" onkeydown="if(event.key==='Enter')enviarChat()">
+      <button class="chat-send" id="btnCancelAudio" onclick="cancelarGrabacion()" title="Cancelar audio" style="background:#ffe5e5;color:var(--red);display:none;">✕</button>
       <button class="chat-send" id="btnMicChat" onclick="toggleGrabacion()" title="Nota de voz" style="background:#eef4ff;color:var(--blue);">🎤</button>
       <button class="chat-send" id="btnSendChat" onclick="enviarChat()">➤</button>
     </div>
@@ -1440,7 +1441,7 @@ function toggleOcultar(){
 function aplicarOcultarTotal(){
   const btn=document.getElementById('btnOjito');
   if(btn) btn.innerHTML=ico(OCULTAR_DATOS?'eyeoff':'eye',22);
-  ['heroFact','heroGan'].forEach(function(id){
+  ['heroFact','heroGan','miGananciaMes'].forEach(function(id){
     const el=document.getElementById(id);
     if(!el) return;
     if(OCULTAR_DATOS) el.classList.add('secreto-oculto');
@@ -2821,18 +2822,14 @@ function renderPanelHoy(){
     <div style="color:rgba(255,255,255,.85);font-size:13px;margin-top:4px;">${fraseHoy}</div>
   </div>`;
   html+=`<div class="sec-title" style="margin-top:4px;">☀️ Hoy${yo?(' · '+yo):''}</div>`;
-  // mi ganancia del mes (privada, protegida con el PIN del capital)
+  // mi ganancia del mes (se muestra siempre; el ojito 👁️ del header la tapa junto con el total)
   window._miGananciaMes = miGananciaMes;
-  const revelada = window._gananciaRevelada===true;
   html+=`<div class="card" style="border-left:4px solid var(--green);margin-bottom:10px;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <span style="font-weight:800;color:var(--blue);">📈 Mi ganancia del mes</span>
-      ${revelada
-        ? `<span style="font-weight:900;color:var(--green);font-size:20px;">$${fmt(miGananciaMes)}</span>`
-        : `<span onclick="revelarGanancia()" style="font-weight:900;color:var(--muted);font-size:20px;cursor:pointer;">🔒 ••••</span>`}
+      <span id="miGananciaMes" class="${OCULTAR_DATOS?'secreto-oculto':''}" style="font-weight:900;color:var(--green);font-size:20px;">$${fmt(miGananciaMes)}</span>
     </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px;">${revelada?'Tu parte de todas las ventas donde participás':'Privado · tocá el candado para ver con tu PIN'}</div>
-    ${revelada?`<button class="btn btn-ghost btn-sm" style="margin-top:6px;color:var(--muted);font-size:11px;" onclick="ocultarGanancia()">🙈 Ocultar de nuevo</button>`:''}
+    <div style="font-size:11px;color:var(--muted);margin-top:4px;">Tu parte de todas las ventas donde participás</div>
   </div>`;
   // tarjeta cobrar hoy
   html+=`<div class="card" style="border-left:4px solid var(--orange);margin-bottom:10px;">
@@ -2848,17 +2845,23 @@ function renderPanelHoy(){
     html+=`<div style="font-size:12px;color:var(--green);margin-top:6px;">✅ No tenés cobranzas para hoy</div>`;
   }
   html+=`</div>`;
-  // tarjeta tareas
-  html+=`<div class="card" style="border-left:4px solid var(--blue);margin-bottom:10px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="abrirTareas()">
-      <span style="font-weight:800;color:var(--blue);">✅ Mis tareas</span>
-      <span style="font-weight:800;color:${tareas.length?'var(--orange)':'var(--green)'};">${tareas.length?tareas.length+' pendientes':'todo hecho'}</span>
+  // tarjeta tareas — tildables desde la pantalla principal y destacadas
+  html+=`<div class="card" style="border-left:4px solid var(--orange);margin-bottom:10px;background:#fff8f0;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-weight:900;color:var(--orange);font-size:15px;">✅ Mis tareas</span>
+      <span style="font-weight:800;color:${tareas.length?'var(--orange)':'var(--green)'};font-size:13px;">${tareas.length?tareas.length+' pendientes':'todo hecho 🎉'}</span>
     </div>`;
   if(tareas.length){
-    html+=`<div style="margin-top:8px;">`+tareas.slice(0,4).map(t=>
-      `<div style="font-size:13px;padding:5px 0;color:var(--text);">⬜ ${(t.texto||'').replace(/</g,'&lt;')}</div>`
-    ).join('')+(tareas.length>4?`<div style="font-size:11px;color:var(--muted);margin-top:4px;">+${tareas.length-4} más…</div>`:'')+`</div>`;
+    html+=`<div style="margin-top:10px;">`+tareas.slice(0,6).map(t=>
+      `<div onclick="toggleTareaDash('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 11px;margin-bottom:6px;background:#fff;border:1.5px solid var(--orange);border-radius:10px;cursor:pointer;box-shadow:0 1px 3px rgba(255,122,0,.15);">
+        <span style="font-size:22px;line-height:1;">⬜</span>
+        <span style="font-size:14px;font-weight:600;color:var(--text);flex:1;">${(t.texto||'').replace(/</g,'&lt;')}</span>
+      </div>`
+    ).join('')+(tareas.length>6?`<div style="font-size:11px;color:var(--muted);margin-top:2px;text-align:center;">+${tareas.length-6} más… <span onclick="abrirTareas()" style="color:var(--orange);cursor:pointer;font-weight:700;">ver todas</span></div>`:'')+`</div>`;
+  } else {
+    html+=`<div style="font-size:13px;color:var(--green);margin-top:8px;">No tenés tareas pendientes. ¡Bien ahí! 🐝</div>`;
   }
+  html+=`<button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--orange);font-weight:700;" onclick="abrirTareas()">➕ Agregar / ver tareas</button>`;
   html+=`</div>`;
   // cajón "los de mañana"
   html+=`<div class="card" style="margin-bottom:10px;">
@@ -7506,6 +7509,16 @@ function eliminarDefPapelera(idPap){
   toast('Eliminado definitivamente'); abrirPapelera();
 }
 /* ============ MIS TAREAS (bloc de notas simple, por usuario) ============ */
+// Marca una tarea como hecha desde la pantalla principal, con feedback y refresco
+function toggleTareaDash(id){
+  const arr=cargarTareas();
+  const t=arr.find(x=>x.id===id); if(!t) return;
+  t.hecha=true;
+  guardarTareas(arr);
+  try{ toast('✅ Tarea completada'); }catch(e){}
+  if(typeof renderInicio==='function') renderInicio();
+  else if(typeof render==='function') render();
+}
 function tareasKey(){ return 'ae_tareas_'+(usuarioActual()||'user'); }
 function cargarTareas(){ try{ return JSON.parse(localStorage.getItem(tareasKey())||'[]'); }catch(e){ return []; } }
 function guardarTareas(arr){ try{ localStorage.setItem(tareasKey(), JSON.stringify(arr)); }catch(e){} actualizarTareaBadge(); }
@@ -8327,7 +8340,7 @@ function pedirNombre(){
 async function abrirChat(){
   let yo=miNombre();
   if(!yo){ yo=pedirNombre(); if(!yo) return; }
-  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v11 ✨';
+  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v12 ✨';
   // emojis rápidos
   document.getElementById('chatEmojis').innerHTML=CHAT_EMOJIS.map(e=>`<button class="chat-emoji" onclick="addEmoji('${e}')">${e}</button>`).join('');
   // avisos rápidos
@@ -8736,7 +8749,7 @@ function enviarUbicacion(){
   }, err=>{ toast('No se pudo obtener la ubicación'); }, {enableHighAccuracy:true, timeout:10000});
 }
 // ===== NOTAS DE VOZ =====
-let MEDIA_REC=null, AUDIO_CHUNKS=[], GRABANDO=false, GRAB_INICIO=0, GRAB_TIMER=null;
+let MEDIA_REC=null, AUDIO_CHUNKS=[], GRABANDO=false, GRAB_INICIO=0, GRAB_TIMER=null, GRAB_CANCELADA=false;
 async function toggleGrabacion(){
   if(GRABANDO){ detenerGrabacion(); return; }
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast('Tu celu no permite grabar audio acá'); return; }
@@ -8744,9 +8757,12 @@ async function toggleGrabacion(){
     const stream=await navigator.mediaDevices.getUserMedia({audio:true});
     MEDIA_REC=new MediaRecorder(stream);
     AUDIO_CHUNKS=[];
+    GRAB_CANCELADA=false;
     MEDIA_REC.ondataavailable=e=>{ if(e.data.size>0) AUDIO_CHUNKS.push(e.data); };
     MEDIA_REC.onstop=async ()=>{
       stream.getTracks().forEach(t=>t.stop());
+      // si el usuario canceló, no se envía nada
+      if(GRAB_CANCELADA){ GRAB_CANCELADA=false; AUDIO_CHUNKS=[]; toast('Audio descartado'); return; }
       const blob=new Blob(AUDIO_CHUNKS,{type:'audio/webm'});
       if(blob.size > 3*1024*1024){ toast('⚠️ Audio muy largo (máx ~3 min)'); return; }
       const dur=Math.round((Date.now()-GRAB_INICIO)/1000);
@@ -8763,19 +8779,28 @@ async function toggleGrabacion(){
     GRABANDO=true; GRAB_INICIO=Date.now();
     ESCRIBIENDO_HASTA=0;
     const btn=document.getElementById('btnMicChat');
-    btn.textContent='⏹️'; btn.style.background='#ffe5e5'; btn.style.color='var(--red)';
+    btn.textContent='⏹️'; btn.style.background='#ffe5e5'; btn.style.color='var(--red)'; btn.title='Enviar audio';
+    // mostrar botón cancelar
+    const bc=document.getElementById('btnCancelAudio'); if(bc) bc.style.display='flex';
     // mostrar contador en el input
     const inp=document.getElementById('chatInput'); inp.disabled=true;
-    GRAB_TIMER=setInterval(()=>{ const s=Math.round((Date.now()-GRAB_INICIO)/1000); inp.placeholder=`🔴 Grabando audio... ${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`; }, 500);
-    inp.placeholder='🔴 Grabando audio... 0:00';
+    GRAB_TIMER=setInterval(()=>{ const s=Math.round((Date.now()-GRAB_INICIO)/1000); inp.placeholder=`🔴 Grabando... ${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')} · ✕ para cancelar`; }, 500);
+    inp.placeholder='🔴 Grabando... 0:00 · ✕ para cancelar';
   }catch(e){ toast('No se pudo acceder al micrófono'); }
 }
+// Cancelar la grabación en curso (descarta, no envía)
+function cancelarGrabacion(){
+  if(!GRABANDO) return;
+  GRAB_CANCELADA=true;
+  detenerGrabacion();
+}
 function detenerGrabacion(){
-  if(MEDIA_REC && GRABANDO){ MEDIA_REC.stop(); }
+  if(MEDIA_REC && GRABANDO){ try{ MEDIA_REC.stop(); }catch(e){} }
   GRABANDO=false;
   if(GRAB_TIMER){ clearInterval(GRAB_TIMER); GRAB_TIMER=null; }
   const btn=document.getElementById('btnMicChat');
-  if(btn){ btn.textContent='🎤'; btn.style.background='#eef4ff'; btn.style.color='var(--blue)'; }
+  if(btn){ btn.textContent='🎤'; btn.style.background='#eef4ff'; btn.style.color='var(--blue)'; btn.title='Nota de voz'; }
+  const bc=document.getElementById('btnCancelAudio'); if(bc) bc.style.display='none';
   const inp=document.getElementById('chatInput'); if(inp){ inp.disabled=false; inp.placeholder='Escribí un mensaje...'; }
 }
 async function fijarMensaje(id,estado){
