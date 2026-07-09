@@ -360,7 +360,7 @@
   .msg-other{background:#fff;color:var(--text);border-bottom-left-radius:3px;}
   .msg-autor{font-size:11.5px;font-weight:800;margin-bottom:1px;}
   .msg-time{font-size:10px;opacity:.55;margin-top:2px;text-align:right;}
-  .chat-input-bar{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid var(--border);align-items:center;}
+  .chat-input-bar{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid var(--border);align-items:center;position:relative;}
   .chat-input-bar input{flex:1;border:1px solid var(--border);border-radius:20px;padding:10px 14px;font-size:15px;outline:none;}
   .chat-send{background:var(--orange);color:#fff;border:none;width:42px;height:42px;border-radius:50%;font-size:18px;cursor:pointer;flex-shrink:0;}
   .chat-emojis{display:flex;gap:4px;padding:6px 12px;background:#fff;overflow-x:auto;border-top:1px solid var(--border);}
@@ -876,9 +876,16 @@
     </div>
     <div class="chat-input-bar">
       <input type="file" id="chatFotoInput" accept="image/*" style="display:none;" onchange="enviarFotoChat(this)">
-      <button class="chat-send" onclick="document.getElementById('chatFotoInput').click()" title="Enviar foto o captura" style="background:#eef4ff;color:var(--blue);">📎</button>
+      <input type="file" id="chatDocInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,application/pdf" style="display:none;" onchange="enviarDocChat(this)">
+      <button class="chat-send" onclick="toggleAdjuntos()" title="Adjuntar" style="background:#eef4ff;color:var(--blue);">＋</button>
       <input id="chatInput" placeholder="Escribí un mensaje..." oninput="marcarEscribiendo()" onkeydown="if(event.key==='Enter')enviarChat()">
-      <button class="chat-send" onclick="enviarChat()">➤</button>
+      <button class="chat-send" id="btnMicChat" onclick="toggleGrabacion()" title="Nota de voz" style="background:#eef4ff;color:var(--blue);">🎤</button>
+      <button class="chat-send" id="btnSendChat" onclick="enviarChat()">➤</button>
+    </div>
+    <div id="adjuntosMenu" style="display:none;position:absolute;bottom:70px;left:12px;background:#fff;border-radius:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);padding:6px;z-index:10;">
+      <div onclick="cerrarAdjuntos();document.getElementById('chatFotoInput').click()" style="display:flex;align-items:center;gap:12px;padding:11px 16px;font-size:15px;font-weight:600;cursor:pointer;border-radius:10px;">🖼️ Foto / Imagen</div>
+      <div onclick="cerrarAdjuntos();document.getElementById('chatDocInput').click()" style="display:flex;align-items:center;gap:12px;padding:11px 16px;font-size:15px;font-weight:600;cursor:pointer;border-radius:10px;">📄 Documento / PDF</div>
+      <div onclick="cerrarAdjuntos();enviarUbicacion()" style="display:flex;align-items:center;gap:12px;padding:11px 16px;font-size:15px;font-weight:600;cursor:pointer;border-radius:10px;">📍 Ubicación</div>
     </div>
   </div>
 </div>
@@ -8215,6 +8222,8 @@ async function abrirChat(){
 function cerrarChat(){
   document.getElementById('chatBg').classList.remove('show');
   if(chatTimer){ clearInterval(chatTimer); chatTimer=null; }
+  if(GRABANDO) detenerGrabacion();
+  cerrarAdjuntos();
   ESCRIBIENDO_HASTA=0; latido(); // avisar que dejé de escribir
   cancelarRespuesta();
   localStorage.setItem('ae_chat_visto', Date.now());
@@ -8257,7 +8266,7 @@ function pintarChat(){
   const pinBox=document.getElementById('chatPins');
   if(pins.length){
     pinBox.style.display='block';
-    pinBox.innerHTML='<div style="font-weight:800;font-size:11px;color:#7a4a00;margin-bottom:2px;">📌 NOTAS FIJADAS</div>'+pins.map(m=>`<div class="chat-pin"><span>📌</span><div><b>${escHtml(m.autor)}:</b> ${escHtml(m.texto||(m.img?'📷 Foto':''))} <span onclick="fijarMensaje('${m.id}',false)" style="color:var(--muted);cursor:pointer;">(quitar)</span></div></div>`).join('');
+    pinBox.innerHTML='<div style="font-weight:800;font-size:11px;color:#7a4a00;margin-bottom:2px;">📌 NOTAS FIJADAS</div>'+pins.map(m=>`<div class="chat-pin"><span>📌</span><div><b>${escHtml(m.autor)}:</b> ${escHtml(resumenMsg(m))} <span onclick="fijarMensaje('${m.id}',false)" style="color:var(--muted);cursor:pointer;">(quitar)</span></div></div>`).join('');
   } else { pinBox.style.display='none'; pinBox.innerHTML=''; }
   if(!msgs.length){ body.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px;">'+(FILTRO_CHAT?'No se encontraron mensajes con esa palabra.':'No hay mensajes todavía.<br>¡Escribí el primero! 🐝')+'</div>'; return; }
   // cuántos usuarios activos hay (para saber si "leído por todos")
@@ -8281,7 +8290,7 @@ function pintarChat(){
     if(m.reply_to){
       const orig=DB.mensajes.find(x=>x.id===m.reply_to);
       if(orig){
-        const t=orig.texto?escHtml(orig.texto):(orig.img?'📷 Foto':'');
+        const t=escHtml(resumenMsg(orig));
         quoteHtml=`<div class="msg-quote" onclick="irAMensaje('${orig.id}')"><div class="msg-quote-autor">${escHtml(orig.autor)}</div><div class="msg-quote-txt">${t}</div></div>`;
       }
     }
@@ -8309,7 +8318,9 @@ function pintarChat(){
         ${m.reenviado?`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-bottom:2px;">↪️ Reenviado</div>`:''}
         ${!mine?`<div class="msg-autor" style="color:${col};">${escHtml(m.autor)}</div>`:''}
         ${m.img?`<img src="${m.img}" onclick="event.stopPropagation();verFotoChat('${m.id}')" style="max-width:200px;max-height:240px;border-radius:10px;cursor:pointer;display:block;margin-bottom:${m.texto?'4px':'0'};">`:''}
-        ${m.texto?`<div>${escHtml((m.texto||'').replace(/^\s+|\s+$/g,'').replace(/\n{3,}/g,'\n\n'))}</div>`:''}
+        ${m.archivo?`<div onclick="event.stopPropagation();descargarDoc('${m.id}')" style="display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.05);border-radius:8px;padding:8px 10px;cursor:pointer;margin-bottom:2px;"><span style="font-size:26px;">📄</span><div style="min-width:0;"><div style="font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;">${escHtml(m.archivoNombre||'Documento')}</div><div style="font-size:10px;color:var(--muted);">${m.archivoPeso?Math.round(m.archivoPeso/1024)+' KB · ':''}Tocá para abrir</div></div></div>`:''}
+        ${m.audio?`<div style="display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation();"><span style="font-size:20px;">🎤</span><audio controls preload="none" src="${m.audio}" style="height:34px;max-width:180px;"></audio>${m.audioDur?`<span style="font-size:10px;color:var(--muted);">${Math.floor(m.audioDur/60)}:${(m.audioDur%60).toString().padStart(2,'0')}</span>`:''}</div>`:''}
+        ${m.texto?`<div>${m.esUbicacion?linkificar(escHtml(m.texto)):escHtml((m.texto||'').replace(/^\s+|\s+$/g,'').replace(/\n{3,}/g,'\n\n'))}</div>`:''}
         <div class="msg-time">${m.fijado?'⭐ ':''}${estrella}${editTag}${horaMsg(m.ts)}${tick}</div>
       </div>
       ${reactsHtml?`<div style="margin-top:-2px;">${reactsHtml}</div>`:''}
@@ -8347,6 +8358,19 @@ function irAMensaje(id){
   setTimeout(()=>{ el.style.boxShadow=orig; }, 1200);
 }
 function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// convierte URLs en enlaces clickeables (para ubicación y links en general)
+function linkificar(txt){
+  return (txt||'').replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#0a58ca;text-decoration:underline;word-break:break-all;">$1</a>');
+}
+// texto corto para vistas previas (pins, citas, destacados)
+function resumenMsg(m){
+  if(!m) return '';
+  if(m.texto) return m.texto;
+  if(m.img) return '📷 Foto';
+  if(m.archivo) return '📄 '+(m.archivoNombre||'Documento');
+  if(m.audio) return '🎤 Audio';
+  return '';
+}
 function horaMsg(ts){ const d=new Date(ts); const hoy=new Date(); const sameDay=d.toDateString()===hoy.toDateString(); const hh=d.getHours().toString().padStart(2,'0'), mm=d.getMinutes().toString().padStart(2,'0'); return sameDay?`${hh}:${mm}`:`${d.getDate()}/${d.getMonth()+1} ${hh}:${mm}`; }
 let RESPONDIENDO_A=null; // id del mensaje al que estoy respondiendo
 let EDITANDO=null;       // id del mensaje que estoy editando
@@ -8377,7 +8401,7 @@ function responderA(id){
   const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
   RESPONDIENDO_A=id; EDITANDO=null;
   document.getElementById('replyBarAutor').textContent=m.autor;
-  document.getElementById('replyBarTxt').textContent=m.texto||(m.img?'📷 Foto':'');
+  document.getElementById('replyBarTxt').textContent=resumenMsg(m);
   document.getElementById('replyBar').classList.add('show');
   const inp=document.getElementById('chatInput'); inp.placeholder='Escribí un mensaje...'; inp.focus();
 }
@@ -8528,6 +8552,89 @@ function verFotoChat(id){
   ov.onclick=()=>ov.remove();
   ov.innerHTML='<img src="'+m.img+'" style="max-width:100%;max-height:90%;border-radius:8px;"><div style="position:absolute;top:16px;right:20px;color:#fff;font-size:28px;">✕</div>';
   document.body.appendChild(ov);
+}
+// ===== MENÚ DE ADJUNTOS =====
+function toggleAdjuntos(){ const m=document.getElementById('adjuntosMenu'); m.style.display=(m.style.display==='none'||!m.style.display)?'block':'none'; }
+function cerrarAdjuntos(){ const m=document.getElementById('adjuntosMenu'); if(m) m.style.display='none'; }
+// ===== ENVIAR DOCUMENTO / PDF =====
+async function enviarDocChat(input){
+  const file=input.files&&input.files[0];
+  input.value='';
+  if(!file) return;
+  const yo=miNombre()||pedirNombre(); if(!yo) return;
+  // límite 4 MB para no saturar la base
+  if(file.size > 4*1024*1024){ toast('⚠️ El archivo es muy pesado (máx 4 MB)'); return; }
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const m={ id:'m'+Date.now()+Math.floor(Math.random()*1000), autor:yo, texto:'', ts:Date.now(), fijado:false,
+      archivo:ev.target.result, archivoNombre:file.name, archivoTipo:file.type||'archivo', archivoPeso:file.size };
+    if(RESPONDIENDO_A){ m.reply_to=RESPONDIENDO_A; RESPONDIENDO_A=null; cancelarRespuesta(); }
+    DB.mensajes.push(m); pintarChat();
+    toast('📄 Enviando documento...');
+    try{ await DB.enviarMensaje(m); toast('📄 Documento enviado'); }catch(e){ toast('⚠️ Quedó guardado, se sube al volver la señal'); }
+  };
+  reader.readAsDataURL(file);
+}
+// descargar un documento recibido
+function descargarDoc(id){
+  const m=DB.mensajes.find(x=>x.id===id); if(!m||!m.archivo) return;
+  const a=document.createElement('a'); a.href=m.archivo; a.download=m.archivoNombre||'archivo'; document.body.appendChild(a); a.click(); a.remove();
+}
+// ===== ENVIAR UBICACIÓN =====
+function enviarUbicacion(){
+  const yo=miNombre()||pedirNombre(); if(!yo) return;
+  if(!navigator.geolocation){ toast('Tu celu no permite ubicación'); return; }
+  toast('📍 Obteniendo ubicación...');
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    const lat=pos.coords.latitude, lng=pos.coords.longitude;
+    const link=`https://maps.google.com/?q=${lat},${lng}`;
+    const m={ id:'m'+Date.now()+Math.floor(Math.random()*1000), autor:yo, texto:'📍 Mi ubicación: '+link, ts:Date.now(), fijado:false, esUbicacion:true };
+    DB.mensajes.push(m); pintarChat();
+    try{ await DB.enviarMensaje(m); toast('📍 Ubicación enviada'); }catch(e){ toast('⚠️ Quedó guardada'); }
+  }, err=>{ toast('No se pudo obtener la ubicación'); }, {enableHighAccuracy:true, timeout:10000});
+}
+// ===== NOTAS DE VOZ =====
+let MEDIA_REC=null, AUDIO_CHUNKS=[], GRABANDO=false, GRAB_INICIO=0, GRAB_TIMER=null;
+async function toggleGrabacion(){
+  if(GRABANDO){ detenerGrabacion(); return; }
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ toast('Tu celu no permite grabar audio acá'); return; }
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    MEDIA_REC=new MediaRecorder(stream);
+    AUDIO_CHUNKS=[];
+    MEDIA_REC.ondataavailable=e=>{ if(e.data.size>0) AUDIO_CHUNKS.push(e.data); };
+    MEDIA_REC.onstop=async ()=>{
+      stream.getTracks().forEach(t=>t.stop());
+      const blob=new Blob(AUDIO_CHUNKS,{type:'audio/webm'});
+      if(blob.size > 3*1024*1024){ toast('⚠️ Audio muy largo (máx ~3 min)'); return; }
+      const dur=Math.round((Date.now()-GRAB_INICIO)/1000);
+      const reader=new FileReader();
+      reader.onload=async ev=>{
+        const yo=miNombre()||pedirNombre(); if(!yo) return;
+        const m={ id:'m'+Date.now()+Math.floor(Math.random()*1000), autor:yo, texto:'', ts:Date.now(), fijado:false, audio:ev.target.result, audioDur:dur };
+        DB.mensajes.push(m); pintarChat();
+        try{ await DB.enviarMensaje(m); toast('🎤 Audio enviado'); }catch(e){ toast('⚠️ Audio guardado, se sube al volver la señal'); }
+      };
+      reader.readAsDataURL(blob);
+    };
+    MEDIA_REC.start();
+    GRABANDO=true; GRAB_INICIO=Date.now();
+    ESCRIBIENDO_HASTA=0;
+    const btn=document.getElementById('btnMicChat');
+    btn.textContent='⏹️'; btn.style.background='#ffe5e5'; btn.style.color='var(--red)';
+    // mostrar contador en el input
+    const inp=document.getElementById('chatInput'); inp.disabled=true;
+    GRAB_TIMER=setInterval(()=>{ const s=Math.round((Date.now()-GRAB_INICIO)/1000); inp.placeholder=`🔴 Grabando audio... ${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`; }, 500);
+    inp.placeholder='🔴 Grabando audio... 0:00';
+  }catch(e){ toast('No se pudo acceder al micrófono'); }
+}
+function detenerGrabacion(){
+  if(MEDIA_REC && GRABANDO){ MEDIA_REC.stop(); }
+  GRABANDO=false;
+  if(GRAB_TIMER){ clearInterval(GRAB_TIMER); GRAB_TIMER=null; }
+  const btn=document.getElementById('btnMicChat');
+  if(btn){ btn.textContent='🎤'; btn.style.background='#eef4ff'; btn.style.color='var(--blue)'; }
+  const inp=document.getElementById('chatInput'); if(inp){ inp.disabled=false; inp.placeholder='Escribí un mensaje...'; }
 }
 async function fijarMensaje(id,estado){
   const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
