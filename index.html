@@ -355,11 +355,13 @@
   .chat-pins{background:#fff8f0;border-bottom:1px solid var(--border);padding:8px 14px;max-height:120px;overflow-y:auto;}
   .chat-pin{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0;color:#7a4a00;}
   .chat-body{flex:1;overflow-y:auto;padding:12px;background:#f5f6f8;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
-  .msg{display:inline-block;max-width:80%;padding:6px 10px 4px;border-radius:14px;font-size:14.5px;line-height:1.32;letter-spacing:0;position:relative;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-line;cursor:pointer;box-shadow:0 1px 1.5px rgba(0,0,0,.14);font-family:'Segoe UI',Roboto,-apple-system,'Helvetica Neue',sans-serif;}
-  .msg-mine{background:#d6f0c8;color:#111;border-bottom-right-radius:3px;}
-  .msg-other{background:#fff;color:var(--text);border-bottom-left-radius:3px;}
-  .msg-autor{font-size:11.5px;font-weight:800;margin-bottom:1px;}
-  .msg-time{font-size:10px;opacity:.55;margin-top:2px;text-align:right;}
+  .msg{display:inline-block;max-width:78%;min-height:0!important;height:auto!important;padding:6px 10px!important;border-radius:12px;font-size:13.5px;line-height:1.3;letter-spacing:0;position:relative;word-wrap:break-word;overflow-wrap:anywhere;white-space:normal;cursor:pointer;box-shadow:0 1px 1.5px rgba(0,0,0,.14);font-family:'Segoe UI',Roboto,-apple-system,'Helvetica Neue',sans-serif;vertical-align:top;}
+  .msg *{min-height:0!important;}
+  .msg > div{margin:0!important;padding:0!important;}
+  .msg-mine{background:var(--orange);color:#fff;border-bottom-right-radius:3px;}
+  .msg-other{background:var(--blue);color:#fff;border-bottom-left-radius:3px;}
+  .msg-autor{font-size:11.5px;font-weight:800;margin-bottom:2px!important;line-height:1.2;}
+  .msg-time{font-size:10px;color:rgba(255,255,255,.8);margin-top:2px!important;text-align:right;display:block;line-height:1.1;}
   .chat-input-bar{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid var(--border);align-items:center;position:relative;}
   .chat-input-bar input{flex:1;border:1px solid var(--border);border-radius:20px;padding:10px 14px;font-size:15px;outline:none;}
   .chat-send{background:var(--orange);color:#fff;border:none;width:42px;height:42px;border-radius:50%;font-size:18px;cursor:pointer;flex-shrink:0;}
@@ -379,16 +381,16 @@
   .msg-row .msg{display:inline-block;text-align:left;vertical-align:top;}
   .msg-row .msg-reacts{display:inline-flex;}
   .msg.grouped{margin-top:-6px;border-top-right-radius:14px;border-top-left-radius:14px;}
-  .msg-quote{border-left:3px solid var(--orange);background:rgba(0,0,0,.06);border-radius:6px;padding:4px 8px;margin-bottom:5px;font-size:12px;line-height:1.3;cursor:pointer;}
-  .msg-mine .msg-quote{background:rgba(0,0,0,.06);border-left-color:var(--orange);}
+  .msg-quote{border-left:3px solid rgba(255,255,255,.8);background:rgba(255,255,255,.18);border-radius:6px;padding:4px 8px;margin-bottom:5px;font-size:12px;line-height:1.3;cursor:pointer;color:#fff;}
+  .msg-mine .msg-quote{background:rgba(255,255,255,.2);border-left-color:rgba(255,255,255,.85);}
   .msg-quote-autor{font-weight:800;font-size:11px;opacity:.9;}
   .msg-quote-txt{opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
   .msg-time .tick{margin-left:3px;font-size:11px;font-weight:700;}
-  .tick.read{color:#4fc3f7;}
-  .tick.err{color:var(--red);cursor:pointer;}
-  .msg-time{font-size:10px;opacity:.55;margin-top:2px;text-align:right;display:block;}
+  .tick.read{color:#7fd4ff;}
+  .tick.err{color:#ffd0d0;cursor:pointer;}
+  .msg-time{font-size:10px;color:rgba(255,255,255,.8);margin-top:2px;text-align:right;display:block;}
   @keyframes msgIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
-  .msg-edit-tag{font-size:9px;opacity:.6;font-style:italic;margin-right:3px;}
+  .msg-edit-tag{font-size:9px;opacity:.75;font-style:italic;margin-right:3px;}
   .msg-reacts{display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;padding:0 4px;}
   .msg-react{background:#fff;border:1px solid var(--border);border-radius:12px;font-size:12px;padding:1px 7px;box-shadow:0 1px 3px rgba(0,0,0,.12);display:flex;align-items:center;gap:2px;cursor:pointer;}
   .msg-react .cnt{font-size:10px;font-weight:800;color:var(--muted);}
@@ -8324,7 +8326,7 @@ function pedirNombre(){
 async function abrirChat(){
   let yo=miNombre();
   if(!yo){ yo=pedirNombre(); if(!yo) return; }
-  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v7 ✨';
+  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v10 ✨';
   // emojis rápidos
   document.getElementById('chatEmojis').innerHTML=CHAT_EMOJIS.map(e=>`<button class="chat-emoji" onclick="addEmoji('${e}')">${e}</button>`).join('');
   // avisos rápidos
@@ -8447,16 +8449,15 @@ function pintarChat(){
     const editTag = m.editado ? `<span class="msg-edit-tag">editado</span>` : '';
     const estrella = m.destacado ? `<span title="Destacado" style="color:#f5b800;">⭐</span>` : '';
     const col = nombreColor(m.autor);
-    // burbuja de otros: barra de color a la izquierda + nombre en color (fácil de distinguir a simple vista)
-    const estiloOtro = !mine ? `border-left:4px solid ${col};` : '';
+    const estiloOtro = '';
     html+=`<div class="msg-row ${mine?'mine':'other'}">
       <div class="msg ${mine?'msg-mine':'msg-other'} ${grouped?'grouped':''}" id="msg_${m.id}" style="${estiloOtro}" onclick="abrirMsgMenu(event,'${m.id}')">
         ${quoteHtml}
-        ${m.reenviado?`<div style="font-size:11px;color:var(--muted);font-style:italic;margin-bottom:2px;">↪️ Reenviado</div>`:''}
-        ${!mine?`<div class="msg-autor" style="color:${col};">${escHtml(m.autor)}</div>`:''}
+        ${m.reenviado?`<div style="font-size:11px;color:rgba(255,255,255,.75);font-style:italic;margin-bottom:2px;">↪️ Reenviado</div>`:''}
+        ${!mine?`<div class="msg-autor" style="color:#fff;opacity:.95;">${escHtml(m.autor)}</div>`:''}
         ${m.img?`<img src="${m.img}" onclick="event.stopPropagation();verFotoChat('${m.id}')" style="max-width:200px;max-height:240px;border-radius:10px;cursor:pointer;display:block;margin-bottom:${m.texto?'4px':'0'};">`:''}
-        ${m.archivo?`<div onclick="event.stopPropagation();descargarDoc('${m.id}')" style="display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.05);border-radius:8px;padding:8px 10px;cursor:pointer;margin-bottom:2px;"><span style="font-size:26px;">📄</span><div style="min-width:0;"><div style="font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;">${escHtml(m.archivoNombre||'Documento')}</div><div style="font-size:10px;color:var(--muted);">${m.archivoPeso?Math.round(m.archivoPeso/1024)+' KB · ':''}Tocá para abrir</div></div></div>`:''}
-        ${m.audio?`<div style="display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation();"><span style="font-size:20px;">🎤</span><audio controls preload="none" src="${m.audio}" style="height:34px;max-width:180px;"></audio>${m.audioDur?`<span style="font-size:10px;color:var(--muted);">${Math.floor(m.audioDur/60)}:${(m.audioDur%60).toString().padStart(2,'0')}</span>`:''}</div>`:''}
+        ${m.archivo?`<div onclick="event.stopPropagation();descargarDoc('${m.id}')" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.18);border-radius:8px;padding:8px 10px;cursor:pointer;margin-bottom:2px;"><span style="font-size:26px;">📄</span><div style="min-width:0;"><div style="font-weight:700;font-size:12.5px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;">${escHtml(m.archivoNombre||'Documento')}</div><div style="font-size:10px;color:rgba(255,255,255,.8);">${m.archivoPeso?Math.round(m.archivoPeso/1024)+' KB · ':''}Tocá para abrir</div></div></div>`:''}
+        ${m.audio?`<div style="display:flex;align-items:center;gap:8px;" onclick="event.stopPropagation();"><span style="font-size:20px;">🎤</span><audio controls preload="none" src="${m.audio}" style="height:34px;max-width:180px;"></audio>${m.audioDur?`<span style="font-size:10px;color:rgba(255,255,255,.8);">${Math.floor(m.audioDur/60)}:${(m.audioDur%60).toString().padStart(2,'0')}</span>`:''}</div>`:''}
         ${m.texto?`<div>${m.esUbicacion?linkificar(escHtml(m.texto)):escHtml((m.texto||'').replace(/^\s+|\s+$/g,'').replace(/\n{3,}/g,'\n\n'))}</div>`:''}
         <div class="msg-time">${m.fijado?'⭐ ':''}${estrella}${editTag}${horaMsg(m.ts)}${tick}</div>
       </div>
@@ -8500,7 +8501,7 @@ function irAMensaje(id){
 function escHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 // convierte URLs en enlaces clickeables (para ubicación y links en general)
 function linkificar(txt){
-  return (txt||'').replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#0a58ca;text-decoration:underline;word-break:break-all;">$1</a>');
+  return (txt||'').replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" rel="noopener" onclick="event.stopPropagation();" style="color:#fff;text-decoration:underline;word-break:break-all;font-weight:600;">$1</a>');
 }
 // texto corto para vistas previas (pins, citas, destacados)
 function resumenMsg(m){
