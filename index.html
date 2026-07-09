@@ -354,10 +354,10 @@
   .chat-close{font-size:22px;cursor:pointer;background:none;border:none;color:#fff;}
   .chat-pins{background:#fff8f0;border-bottom:1px solid var(--border);padding:8px 14px;max-height:120px;overflow-y:auto;}
   .chat-pin{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0;color:#7a4a00;}
-  .chat-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:3px;background:#f5f6f8;}
-  .msg{width:fit-content;max-width:100%;flex-shrink:0;padding:6px 10px;border-radius:16px;font-size:13.5px;line-height:1.3;position:relative;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-line;cursor:pointer;box-shadow:0 1px 1.5px rgba(0,0,0,.14);}
-  .msg-mine{align-self:flex-end;background:#d6f0c8;color:#111;border-bottom-right-radius:3px;}
-  .msg-other{align-self:flex-start;background:#fff;color:var(--text);border-bottom-left-radius:3px;}
+  .chat-body{flex:1;overflow-y:auto;padding:14px;background:#f5f6f8;}
+  .msg{display:inline-block;max-width:82%;padding:6px 10px 4px;border-radius:16px;font-size:13.5px;line-height:1.3;position:relative;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-line;cursor:pointer;box-shadow:0 1px 1.5px rgba(0,0,0,.14);}
+  .msg-mine{background:#d6f0c8;color:#111;border-bottom-right-radius:3px;}
+  .msg-other{background:#fff;color:var(--text);border-bottom-left-radius:3px;}
   .msg-autor{font-size:11.5px;font-weight:800;margin-bottom:1px;}
   .msg-time{font-size:10px;opacity:.55;margin-top:2px;text-align:right;}
   .chat-input-bar{display:flex;gap:8px;padding:10px 12px;background:#fff;border-top:1px solid var(--border);align-items:center;}
@@ -368,15 +368,16 @@
   .chat-avisos{display:flex;gap:6px;padding:6px 12px;background:#fff;overflow-x:auto;border-top:1px solid var(--border);}
   .chat-aviso-btn{white-space:nowrap;font-size:12px;font-weight:700;border:1px solid var(--border);background:#fff;border-radius:16px;padding:6px 11px;cursor:pointer;flex-shrink:0;}
   .chat-aviso-btn:active{transform:scale(.95);}
-  .msg-aviso{align-self:center;max-width:90%;background:#fff0f0;border:1.5px solid var(--red);border-radius:14px;padding:10px 14px;font-size:13px;color:#b3261e;font-weight:700;text-align:center;}
+  .msg-aviso{display:block;width:fit-content;max-width:90%;margin:6px auto;background:#fff0f0;border:1.5px solid var(--red);border-radius:14px;padding:10px 14px;font-size:13px;color:#b3261e;font-weight:700;text-align:center;}
   .msg-aviso.azul{background:#eef4ff;border-color:var(--blue);color:var(--blue);}
   .msg-aviso.verde{background:#f0fbf4;border-color:var(--green);color:#0a7c3a;}
   .msg-aviso.naranja{background:#fff7ec;border-color:var(--orange);color:#b35c00;}
   /* ===== MENSAJERÍA ESTILO WHATSAPP ===== */
-  .msg-row{display:flex;flex-direction:column;max-width:82%;flex-shrink:0;align-items:flex-start;}
-  .msg-row.mine{align-self:flex-end;align-items:flex-end;}
-  .msg-row.other{align-self:flex-start;align-items:flex-start;}
-  .msg-row .msg{align-self:inherit;height:auto;}
+  .msg-row{display:block;margin-bottom:2px;}
+  .msg-row.mine{text-align:right;}
+  .msg-row.other{text-align:left;}
+  .msg-row .msg{display:inline-block;text-align:left;vertical-align:top;}
+  .msg-row .msg-reacts{display:inline-flex;}
   .msg.grouped{margin-top:-6px;border-top-right-radius:14px;border-top-left-radius:14px;}
   .msg-quote{border-left:3px solid var(--orange);background:rgba(0,0,0,.06);border-radius:6px;padding:4px 8px;margin-bottom:5px;font-size:12px;line-height:1.3;cursor:pointer;}
   .msg-mine .msg-quote{background:rgba(0,0,0,.06);border-left-color:var(--orange);}
@@ -384,12 +385,16 @@
   .msg-quote-txt{opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;}
   .msg-time .tick{margin-left:3px;font-size:11px;font-weight:700;}
   .tick.read{color:#4fc3f7;}
+  .tick.err{color:var(--red);cursor:pointer;}
+  .msg-time{font-size:10px;opacity:.55;margin-top:2px;text-align:right;display:block;}
+  @keyframes msgIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+  .msg-row{animation:msgIn .15s ease;}
   .msg-edit-tag{font-size:9px;opacity:.6;font-style:italic;margin-right:3px;}
   .msg-reacts{display:flex;gap:3px;flex-wrap:wrap;margin-top:2px;padding:0 4px;}
   .msg-react{background:#fff;border:1px solid var(--border);border-radius:12px;font-size:12px;padding:1px 7px;box-shadow:0 1px 3px rgba(0,0,0,.12);display:flex;align-items:center;gap:2px;cursor:pointer;}
   .msg-react .cnt{font-size:10px;font-weight:800;color:var(--muted);}
-  .day-sep{align-self:center;background:rgba(11,45,107,.1);color:var(--blue);font-size:11px;font-weight:800;padding:3px 12px;border-radius:12px;margin:4px 0;}
-  .typing-row{align-self:flex-start;background:#fff;border:1px solid var(--border);border-radius:14px;padding:9px 14px;font-size:12px;color:var(--muted);font-weight:700;display:flex;align-items:center;gap:6px;}
+  .day-sep{display:block;width:fit-content;margin:8px auto;background:rgba(11,45,107,.1);color:var(--blue);font-size:11px;font-weight:800;padding:3px 12px;border-radius:12px;text-align:center;}
+  .typing-row{display:inline-flex;background:#fff;border:1px solid var(--border);border-radius:14px;padding:9px 14px;font-size:12px;color:var(--muted);font-weight:700;align-items:center;gap:6px;margin-top:4px;}
   .typing-dots{display:inline-flex;gap:3px;}
   .typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:typBlink 1.2s infinite;}
   .typing-dots span:nth-child(2){animation-delay:.2s;}
@@ -8178,7 +8183,7 @@ function pedirNombre(){
 async function abrirChat(){
   let yo=miNombre();
   if(!yo){ yo=pedirNombre(); if(!yo) return; }
-  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v2 ✨';
+  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v3 ✨';
   // emojis rápidos
   document.getElementById('chatEmojis').innerHTML=CHAT_EMOJIS.map(e=>`<button class="chat-emoji" onclick="addEmoji('${e}')">${e}</button>`).join('');
   // avisos rápidos
@@ -8266,16 +8271,21 @@ function pintarChat(){
         quoteHtml=`<div class="msg-quote" onclick="irAMensaje('${orig.id}')"><div class="msg-quote-autor">${escHtml(orig.autor)}</div><div class="msg-quote-txt">${t}</div></div>`;
       }
     }
-    // tildes de leído (solo en los míos): gris = enviado, azul = alguien lo leyó
+    // estado del mensaje (solo en los míos): reloj=enviando, ✓=enviado, ✓✓=entregado, ✓✓ azul=leído, ⚠️=error
     let tick='';
     if(mine){
-      const leidoPor=Array.isArray(m.leido_por)?m.leido_por.filter(n=>n!==yo):[];
-      tick = leidoPor.length ? `<span class="tick read" title="Leído por ${escHtml(leidoPor.join(', '))}">✓✓</span>` : `<span class="tick">✓✓</span>`;
+      if(m._error){ tick=`<span class="tick err" onclick="event.stopPropagation();reenviarMsg('${m.id}')" title="Error. Tocá para reenviar">⚠️</span>`; }
+      else if(m._enviando){ tick=`<span class="tick" title="Enviando">🕐</span>`; }
+      else {
+        const leidoPor=Array.isArray(m.leido_por)?m.leido_por.filter(n=>n!==yo):[];
+        tick = leidoPor.length ? `<span class="tick read" title="Leído por ${escHtml(leidoPor.join(', '))}">✓✓</span>` : `<span class="tick">✓✓</span>`;
+      }
     }
     // reacciones
     const reacts=agruparReacciones(m.reacciones);
-    const reactsHtml = reacts.length ? `<div class="msg-reacts">${reacts.map(r=>`<span class="msg-react" onclick="reaccionar('${m.id}','${r.emoji}')" title="${escHtml(r.quienes.join(', '))}">${r.emoji}${r.cnt>1?`<span class="cnt">${r.cnt}</span>`:''}</span>`).join('')}</div>` : '';
+    const reactsHtml = reacts.length ? `<div class="msg-reacts">${reacts.map(r=>`<span class="msg-react" onclick="event.stopPropagation();reaccionar('${m.id}','${r.emoji}')" title="${escHtml(r.quienes.join(', '))}">${r.emoji}${r.cnt>1?`<span class="cnt">${r.cnt}</span>`:''}</span>`).join('')}</div>` : '';
     const editTag = m.editado ? `<span class="msg-edit-tag">editado</span>` : '';
+    const estrella = m.destacado ? `<span title="Destacado" style="color:#f5b800;">⭐</span>` : '';
     const col = nombreColor(m.autor);
     // burbuja de otros: barra de color a la izquierda + nombre en color (fácil de distinguir a simple vista)
     const estiloOtro = !mine ? `border-left:4px solid ${col};` : '';
@@ -8285,9 +8295,9 @@ function pintarChat(){
         ${!mine?`<div class="msg-autor" style="color:${col};">${escHtml(m.autor)}</div>`:''}
         ${m.img?`<img src="${m.img}" onclick="event.stopPropagation();verFotoChat('${m.id}')" style="max-width:200px;max-height:240px;border-radius:10px;cursor:pointer;display:block;margin-bottom:${m.texto?'4px':'0'};">`:''}
         ${m.texto?`<div>${escHtml((m.texto||'').replace(/^\s+|\s+$/g,'').replace(/\n{3,}/g,'\n\n'))}</div>`:''}
-        <div class="msg-time">${m.fijado?'📌 ':''}${editTag}${horaMsg(m.ts)}${tick}</div>
+        <div class="msg-time">${m.fijado?'⭐ ':''}${estrella}${editTag}${horaMsg(m.ts)}${tick}</div>
       </div>
-      ${reactsHtml}
+      ${reactsHtml?`<div style="margin-top:-2px;">${reactsHtml}</div>`:''}
     </div>`;
   });
   // ¿el usuario estaba mirando el final? (con margen de 80px). Guardamos ANTES de repintar.
@@ -8383,7 +8393,7 @@ async function reaccionar(id,emoji){
   await DB.enviarMensaje(m);
 }
 // ===== MENÚ AL TOCAR UN MENSAJE =====
-const MENU_REACTS=['👍','❤️','😂','😮','😢','🙏'];
+const MENU_REACTS=['❤️','👍','👎','😂','😮','😢','🙏'];
 let MENU_MSG_ID=null;
 function abrirMsgMenu(ev, id){
   ev.stopPropagation();
@@ -8398,6 +8408,7 @@ function abrirMsgMenu(ev, id){
     <div class="msg-menu-item" onclick="cerrarMsgMenu();responderA('${id}')"><span>↩️</span> Responder</div>
     ${(m.texto)?`<div class="msg-menu-item" onclick="copiarMsg('${id}')"><span>📋</span> Copiar</div>`:''}
     ${(mine&&m.texto)?`<div class="msg-menu-item" onclick="cerrarMsgMenu();editarMsg('${id}')"><span>✏️</span> Editar</div>`:''}
+    <div class="msg-menu-item" onclick="destacarMsg('${id}')"><span>⭐</span> ${m.destacado?'Quitar destacado':'Destacar'}</div>
     <div class="msg-menu-item" onclick="cerrarMsgMenu();fijarMensaje('${id}',${!m.fijado})"><span>📌</span> ${m.fijado?'Quitar de fijados':'Fijar'}</div>
     ${mine?`<div class="msg-menu-item danger" onclick="cerrarMsgMenu();borrarMsg('${id}')"><span>🗑️</span> Borrar</div>`:''}
   `;
@@ -8413,7 +8424,24 @@ function copiarMsg(id){
   }
   cerrarMsgMenu();
 }
-// Enviar una foto/captura en el chat (se comprime igual que los comprobantes)
+// ⭐ Destacar / marcar como importante un mensaje
+async function destacarMsg(id){
+  const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
+  m.destacado=!m.destacado;
+  cerrarMsgMenu();
+  pintarChat();
+  try{ await DB.enviarMensaje(m); }catch(e){}
+  toast(m.destacado?'⭐ Destacado':'Quitado de destacados');
+}
+// Reenviar un mensaje que quedó con error
+async function reenviarMsg(id){
+  const m=DB.mensajes.find(x=>x.id===id); if(!m) return;
+  m._error=false; m._enviando=true; pintarChat();
+  try{
+    await DB.enviarMensaje(m);
+    m._enviando=false; pintarChat();
+  }catch(e){ m._enviando=false; m._error=true; pintarChat(); }
+}
 async function enviarFotoChat(input){
   const file=input.files&&input.files[0];
   input.value=''; // permitir volver a elegir la misma foto
