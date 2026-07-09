@@ -1245,6 +1245,7 @@ async function procesarPendientes(){
   if(a.length && !quedan.length){ try{ toast('☁️ Se subieron a la nube los datos pendientes ✅'); }catch(e){} }
 }
 window.addEventListener('online', procesarPendientes);
+const CHAT_LIMITE = 60; // cuántos mensajes recientes cargar en el chat (rendimiento)
 const DB = {
   clientes: [], ventas: [], mensajes: [], productos: [], mayoristas: [],
   async load(){
@@ -1339,8 +1340,42 @@ const DB = {
     this.saveLocal();
   },
   async recargarMensajes(){
-    if(CLOUD){ try{ const {data}=await sb.from('mensajes').select('*'); this.mensajes=data||[]; }catch(e){} }
+    if(CLOUD){
+      try{
+        // rendimiento: traemos solo los últimos N mensajes (los que se ven).
+        const {data}=await sb.from('mensajes').select('*').order('ts',{ascending:false}).limit(CHAT_LIMITE);
+        if(data){
+          const nube=data.slice().reverse();
+          const idsNube=new Set(nube.map(m=>m.id));
+          // conservar mensajes locales muy recientes que quizás aún no están en la nube (recién enviados u offline)
+          const ahora=Date.now();
+          const localesRecientes=this.mensajes.filter(m=>!idsNube.has(m.id) && (m._enviando || m._error || (ahora-(m.ts||0))<10000));
+          // conservar también los viejos ya cargados por scroll (más viejos que el bloque de la nube)
+          const tsMinNube=nube.length?Math.min(...nube.map(m=>m.ts||0)):0;
+          const viejosCargados=this.mensajes.filter(m=>!idsNube.has(m.id) && (m.ts||0)<tsMinNube);
+          this.mensajes=viejosCargados.concat(nube).concat(localesRecientes).sort((a,b)=>(a.ts||0)-(b.ts||0));
+        }
+      }catch(e){}
+    }
     this.saveLocal();
+  },
+  // trae un bloque más de mensajes viejos (al hacer scroll hacia arriba)
+  async cargarMasMensajes(){
+    if(!CLOUD) return false;
+    try{
+      const masViejo=this.mensajes.length ? Math.min(...this.mensajes.map(m=>m.ts||0)) : Date.now();
+      const {data}=await sb.from('mensajes').select('*').lt('ts',masViejo).order('ts',{ascending:false}).limit(40);
+      if(data && data.length){
+        const nuevos=data.slice().reverse();
+        // evitar duplicados
+        const ids=new Set(this.mensajes.map(m=>m.id));
+        const agregar=nuevos.filter(m=>!ids.has(m.id));
+        this.mensajes=agregar.concat(this.mensajes);
+        this.saveLocal();
+        return agregar.length>0;
+      }
+    }catch(e){}
+    return false;
   },
   // marca como leídos (por mí) todos los mensajes de otros que aún no lo tengan
   async marcarLeidos(){
@@ -8202,7 +8237,7 @@ function pedirNombre(){
 async function abrirChat(){
   let yo=miNombre();
   if(!yo){ yo=pedirNombre(); if(!yo) return; }
-  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v3 ✨';
+  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v7 ✨';
   // emojis rápidos
   document.getElementById('chatEmojis').innerHTML=CHAT_EMOJIS.map(e=>`<button class="chat-emoji" onclick="addEmoji('${e}')">${e}</button>`).join('');
   // avisos rápidos
@@ -8210,6 +8245,20 @@ async function abrirChat(){
   // ABRIR PRIMERO (a prueba de fallos: si la nube tarda o falla, el chat abre igual)
   document.getElementById('chatBg').classList.add('show');
   if(typeof empujarHistorial==='function') empujarHistorial();
+  // enganchar "cargar más al subir" una sola vez
+  const bodyEl=document.getElementById('chatBody');
+  if(bodyEl && !bodyEl._scrollHook){
+    bodyEl._scrollHook=true;
+    bodyEl.addEventListener('scroll', async function(){
+      if(bodyEl.scrollTop<40 && !bodyEl._cargandoMas){
+        bodyEl._cargandoMas=true;
+        const altoAntes=bodyEl.scrollHeight;
+        const hubo=await DB.cargarMasMensajes();
+        if(hubo){ bodyEl._ultimoHTML=null; pintarChat(); bodyEl.scrollTop=bodyEl.scrollHeight-altoAntes; }
+        bodyEl._cargandoMas=false;
+      }
+    });
+  }
   pintarChat();
   // cargar mensajes después, sin bloquear la apertura
   try{ await DB.recargarMensajes(); await DB.marcarLeidos(); pintarChat(); }catch(e){ console.error('chat:', e); }
@@ -8328,6 +8377,9 @@ function pintarChat(){
   });
   // ¿el usuario estaba mirando el final? (con margen de 80px). Guardamos ANTES de repintar.
   const estabaAbajo = (body.scrollHeight - body.scrollTop - body.clientHeight) < 80;
+  // rendimiento: si el contenido es idéntico al anterior, no tocamos el DOM (evita parpadeo y ahorra CPU)
+  if(body._ultimoHTML===html && !FILTRO_CHAT){ pintarEscribiendo(); return; }
+  body._ultimoHTML=html;
   body.innerHTML=html;
   pintarEscribiendo();
   // solo bajamos solos si ya estaba abajo, o si el último mensaje es mío (recién enviado)
