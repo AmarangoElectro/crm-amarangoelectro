@@ -355,7 +355,7 @@
   .chat-pins{background:#fff8f0;border-bottom:1px solid var(--border);padding:8px 14px;max-height:120px;overflow-y:auto;}
   .chat-pin{display:flex;gap:8px;align-items:flex-start;font-size:12px;padding:4px 0;color:#7a4a00;}
   .chat-body{flex:1;overflow-y:auto;padding:12px;background:#f5f6f8;-webkit-text-size-adjust:100%;text-size-adjust:100%;}
-  .msg{display:inline-block;max-width:80%;padding:5px 9px 3px;border-radius:14px;font-size:13px;line-height:1.25;position:relative;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-line;cursor:pointer;box-shadow:0 1px 1.5px rgba(0,0,0,.14);}
+  .msg{display:inline-block;max-width:80%;padding:6px 10px 4px;border-radius:14px;font-size:14.5px;line-height:1.32;letter-spacing:0;position:relative;word-wrap:break-word;overflow-wrap:anywhere;white-space:pre-line;cursor:pointer;box-shadow:0 1px 1.5px rgba(0,0,0,.14);font-family:'Segoe UI',Roboto,-apple-system,'Helvetica Neue',sans-serif;}
   .msg-mine{background:#d6f0c8;color:#111;border-bottom-right-radius:3px;}
   .msg-other{background:#fff;color:var(--text);border-bottom-left-radius:3px;}
   .msg-autor{font-size:11.5px;font-weight:800;margin-bottom:1px;}
@@ -1332,7 +1332,19 @@ const DB = {
     this.saveLocal();
   },
   async enviarMensaje(m){
-    if(CLOUD){ await sb.from('mensajes').upsert(m); }
+    if(CLOUD){
+      const { error } = await sb.from('mensajes').upsert(m);
+      if(error){
+        // no se pudo guardar en la nube (ej: falta una columna). Marcamos el mensaje
+        // con error para que NO desaparezca y se pueda reintentar, y avisamos.
+        m._error = true;
+        console.warn('enviarMensaje:', error.message||error);
+        try{ toast('⚠️ No se pudo guardar en la nube. Revisá que la base tenga las columnas nuevas.'); }catch(e){}
+        this.saveLocal();
+        throw error;
+      }
+      m._error = false; m._enviando = false;
+    }
     this.saveLocal();
   },
   async borrarMensaje(id){
@@ -8425,7 +8437,8 @@ function pintarChat(){
       else if(m._enviando){ tick=`<span class="tick" title="Enviando">🕐</span>`; }
       else {
         const leidoPor=Array.isArray(m.leido_por)?m.leido_por.filter(n=>n!==yo):[];
-        tick = leidoPor.length ? `<span class="tick read" title="Leído por ${escHtml(leidoPor.join(', '))}">✓✓</span>` : `<span class="tick">✓✓</span>`;
+        // ✓✓ azul = el otro lo leyó ; ✓✓ gris = entregado (guardado en la nube)
+        tick = leidoPor.length ? `<span class="tick read" title="Leído por ${escHtml(leidoPor.join(', '))}">✓✓</span>` : `<span class="tick" title="Entregado">✓✓</span>`;
       }
     }
     // reacciones
