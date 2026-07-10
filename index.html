@@ -611,6 +611,7 @@
   <div id="menuConfig" class="menu-config" style="display:none;">
     <div class="mc-item" onclick="cerrarMenuConfig();abrirMiCuenta();"><span data-ico="user" data-size="18"></span> Mi cuenta / Contraseña</div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirTareas();">📝 Mis tareas <span id="tareaMenuBadge" style="display:none;background:var(--orange);color:#fff;font-size:11px;font-weight:800;padding:1px 7px;border-radius:10px;margin-left:4px;"></span></div>
+    <div class="mc-item" onclick="cerrarMenuConfig();abrirCalendario();">📅 Calendario <span id="calMenuBadge" style="display:none;background:var(--blue);color:#fff;font-size:11px;font-weight:800;padding:1px 7px;border-radius:10px;margin-left:4px;"></span></div>
     <div class="mc-item" onclick="cerrarMenuConfig();abrirBackup();"><span data-ico="download" data-size="18"></span> Respaldo de datos</div>
     <!-- Modo oscuro quitado por pedido (no se usaba y no quedaba prolijo) -->
     <div class="mc-item" onclick="cerrarMenuConfig();abrirPapelera();"><span data-ico="trash" data-size="18"></span> Papelera</div>
@@ -7767,11 +7768,16 @@ function renderTareas(){
   }
   cont.innerHTML=html;
 }
+let _tareaAddLock=false;
 function agregarTarea(){
+  if(_tareaAddLock) return;            // anti doble-disparo (voz-a-texto / doble Enter)
   const inp=document.getElementById('nuevaTarea'); if(!inp) return;
   const texto=(inp.value||'').trim(); if(!texto) return;
+  _tareaAddLock=true; setTimeout(()=>{_tareaAddLock=false;}, 350);
   const tareas=cargarTareas();
-  tareas.unshift({ id:'t'+Date.now()+Math.floor(Math.random()*999), texto, hecha:false, ts:Date.now() });
+  // id único garantizado (nunca colisiona aunque toques + muy rápido)
+  const id='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  tareas.unshift({ id, texto, hecha:false, ts:Date.now() });
   guardarTareas(tareas); inp.value=''; renderTareas(); inp.focus();
 }
 function toggleTarea(id){
@@ -7787,6 +7793,145 @@ function limpiarHechas(){
   if(!confirm('¿Borrar todas las tareas hechas?')) return;
   let tareas=cargarTareas(); tareas=tareas.filter(x=>!x.hecha);
   guardarTareas(tareas); renderTareas();
+}
+
+/* ============ 📅 CALENDARIO (eventos propios + cobros de cuotas + tareas) ============ */
+// Eventos manuales, guardados por usuario en localStorage
+function eventosKey(){ return 'ae_eventos_'+(usuarioActual()||'user'); }
+function cargarEventos(){ try{ return JSON.parse(localStorage.getItem(eventosKey())||'[]'); }catch(e){ return []; } }
+function guardarEventos(arr){ try{ localStorage.setItem(eventosKey(), JSON.stringify(arr)); }catch(e){} }
+
+let _calMes=null; // {y, m}  m=0-11
+
+function abrirCalendario(){
+  const d=today();
+  if(!_calMes) _calMes={ y:d.getFullYear(), m:d.getMonth() };
+  openModal(`<div class="modal-title">📅 Calendario</div>
+    <div class="modal-sub">Cobros, tareas y tus eventos · tocá un día para ver o agregar</div>
+    <div id="calWrap"></div>`);
+  renderCalendario();
+}
+
+// Junta todos los "eventos" de un día ISO: cobros de cuotas + eventos manuales + tareas con fecha
+function eventosDelDia(iso){
+  const items=[];
+  // 1) cobros de cuotas que vencen ese día (y no están pagadas)
+  (DB.ventas||[]).forEach(v=>{
+    let cuotas; try{ cuotas=ventaCuotas(v); }catch(e){ cuotas=[]; }
+    cuotas.forEach(c=>{
+      if(c.vence===iso && !c.pagada){
+        const cli=(DB.clientes||[]).find(x=>x.id===v.clienteId);
+        items.push({ tipo:'cobro', color:'var(--green)', ico:'💰',
+          texto:`Cobrar $${fmt(c.resta||c.monto)} · ${cli?cli.nombre:'Cliente'} (${v.producto}, cuota ${c.num}/${v.cuotas||1})` });
+      }
+    });
+  });
+  // 2) tareas del usuario que tengan fecha asignada
+  cargarTareas().forEach(t=>{ if(t.fecha===iso && !t.hecha) items.push({ tipo:'tarea', color:'var(--orange)', ico:'📝', texto:t.texto }); });
+  // 3) eventos manuales
+  cargarEventos().forEach(ev=>{ if(ev.fecha===iso) items.push({ tipo:'evento', id:ev.id, color:'var(--blue)', ico:'📌', texto:(ev.hora?ev.hora+' · ':'')+ev.texto }); });
+  return items;
+}
+
+function renderCalendario(){
+  const cont=document.getElementById('calWrap'); if(!cont) return;
+  const {y,m}=_calMes;
+  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const primero=new Date(y,m,1);
+  const arranque=(primero.getDay()+6)%7; // lunes=0
+  const diasMes=new Date(y,m+1,0).getDate();
+  const hoyIso=isoDate(today());
+
+  let cells='';
+  for(let i=0;i<arranque;i++) cells+=`<div class="cal-cell cal-empty"></div>`;
+  for(let dNum=1;dNum<=diasMes;dNum++){
+    const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(dNum).padStart(2,'0')}`;
+    const evs=eventosDelDia(iso);
+    const puntos=[...new Set(evs.map(e=>e.color))].slice(0,3)
+      .map(c=>`<span style="width:6px;height:6px;border-radius:50%;background:${c};display:inline-block;"></span>`).join('');
+    const esHoy=iso===hoyIso;
+    cells+=`<div class="cal-cell" onclick="verDia('${iso}')" style="${esHoy?'border:2px solid var(--orange);':''}">
+      <div style="font-weight:${esHoy?'900':'600'};font-size:14px;color:${esHoy?'var(--orange)':'var(--text)'};">${dNum}</div>
+      <div style="display:flex;gap:3px;justify-content:center;min-height:8px;margin-top:2px;">${puntos}</div>
+    </div>`;
+  }
+
+  cont.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+      <button class="btn btn-ghost btn-sm" onclick="cambiarMesCal(-1)" style="font-size:20px;padding:4px 12px;">‹</button>
+      <div style="font-weight:900;font-size:16px;color:var(--blue);">${meses[m]} ${y}</div>
+      <button class="btn btn-ghost btn-sm" onclick="cambiarMesCal(1)" style="font-size:20px;padding:4px 12px;">›</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center;font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;">
+      <div>L</div><div>M</div><div>M</div><div>J</div><div>V</div><div>S</div><div>D</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">${cells}</div>
+    <div style="display:flex;gap:14px;justify-content:center;margin-top:14px;font-size:11px;color:var(--muted);">
+      <span>💰 Cobros</span><span>📝 Tareas</span><span>📌 Eventos</span>
+    </div>
+    <button class="btn btn-orange" style="margin-top:14px;width:100%;" onclick="verDia('${hoyIso}')">Ver hoy</button>`;
+}
+
+function cambiarMesCal(delta){
+  _calMes.m+=delta;
+  if(_calMes.m<0){ _calMes.m=11; _calMes.y--; }
+  if(_calMes.m>11){ _calMes.m=0; _calMes.y++; }
+  renderCalendario();
+}
+
+function verDia(iso){
+  const [y,m,d]=iso.split('-');
+  const meses=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const evs=eventosDelDia(iso);
+  const lista=evs.length
+    ? evs.map(e=>`<div class="card" style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:8px;">
+        <span style="font-size:20px;">${e.ico}</span>
+        <span style="flex:1;font-size:14px;color:var(--text);">${(e.texto||'').replace(/</g,'&lt;')}</span>
+        ${e.tipo==='evento'?`<span onclick="borrarEvento('${e.id}','${iso}')" style="cursor:pointer;color:var(--red);font-size:16px;padding:4px;">🗑️</span>`:''}
+      </div>`).join('')
+    : `<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px;">Sin nada agendado este día 📭</div>`;
+
+  openModal(`<div class="modal-title">📅 ${d} de ${meses[+m-1]} ${y}</div>
+    <div class="modal-sub">Lo que tenés este día</div>
+    ${lista}
+    <div style="margin-top:14px;border-top:1.5px solid var(--border);padding-top:14px;">
+      <div style="font-weight:800;color:var(--blue);font-size:14px;margin-bottom:8px;">➕ Agregar evento</div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <input id="evHora" placeholder="Hora (opcional)" style="width:120px;">
+        <input id="evTexto" placeholder="¿Qué pasa este día?" style="flex:1;" onkeydown="if(event.key==='Enter')agregarEvento('${iso}')">
+      </div>
+      <button class="btn btn-blue" style="width:100%;" onclick="agregarEvento('${iso}')">Agregar al ${d}/${m}</button>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:10px;width:100%;" onclick="abrirCalendario()">‹ Volver al calendario</button>`);
+  setTimeout(()=>{ const i=document.getElementById('evTexto'); if(i) i.focus(); }, 200);
+}
+
+let _evAddLock=false;
+function agregarEvento(iso){
+  if(_evAddLock) return;
+  const it=document.getElementById('evTexto'); const ih=document.getElementById('evHora');
+  if(!it) return;
+  const texto=(it.value||'').trim(); if(!texto) return;
+  _evAddLock=true; setTimeout(()=>{_evAddLock=false;}, 350);
+  const arr=cargarEventos();
+  arr.push({ id:'e'+Date.now().toString(36)+Math.random().toString(36).slice(2,8), fecha:iso, hora:(ih&&ih.value||'').trim(), texto, ts:Date.now() });
+  guardarEventos(arr);
+  try{ toast('📌 Evento agregado'); }catch(e){}
+  actualizarCalBadge();
+  verDia(iso);
+}
+function borrarEvento(id, iso){
+  let arr=cargarEventos(); arr=arr.filter(e=>e.id!==id);
+  guardarEventos(arr); actualizarCalBadge(); verDia(iso);
+}
+
+/* Badge: cuántos eventos/cobros hay HOY */
+function actualizarCalBadge(){
+  try{
+    const n=eventosDelDia(isoDate(today())).length;
+    const bm=document.getElementById('calMenuBadge');
+    if(bm){ bm.textContent=n; bm.style.display=n?'inline-block':'none'; }
+  }catch(e){}
 }
 function abrirPapelera(){
   PAPELERA.load();
@@ -8298,6 +8443,7 @@ async function startApp(){
   iniciarPresencia();
   pedirPermisoNotif();
   actualizarTareaBadge();   // mostrar puntito si hay tareas pendientes (sin popup)
+  try{ actualizarCalBadge(); }catch(e){}  // badge de cobros/eventos de hoy en el calendario
   iniciarRecordatorioHorario();  // recordatorio cada hora si hay tareas
   armarBotonAtras();        // evitar salir de la app con el gesto "atrás"
   AUDIT.recargar().then(()=>actualizarAvisoBadge());  // traer avisos de todos al iniciar (solo badge)
@@ -8340,7 +8486,7 @@ function pedirNombre(){
 async function abrirChat(){
   let yo=miNombre();
   if(!yo){ yo=pedirNombre(); if(!yo) return; }
-  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v12 ✨';
+  document.getElementById('chatYo').textContent='Sos: '+yo+'  ·  v13 ✨';
   // emojis rápidos
   document.getElementById('chatEmojis').innerHTML=CHAT_EMOJIS.map(e=>`<button class="chat-emoji" onclick="addEmoji('${e}')">${e}</button>`).join('');
   // avisos rápidos
