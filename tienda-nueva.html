@@ -568,22 +568,67 @@ function mostrarBotonInstalar(){
 }
 
 /* ═══════════════════════════════════════════════════════════
+   🚦 EL PORTERO — controla si la tienda está habilitada
+   Cada tienda, al abrir, pregunta si está al día.
+   Si Max la marca como vencida → se bloquea.
+   La tienda de Max (amarango) NUNCA se bloquea.
+   ═══════════════════════════════════════════════════════════ */
+var TIENDA_BLOQUEADA = false;
+
+function verificarSuscripcion(cb){
+  // la tienda de Max nunca se bloquea
+  if(TIENDA==='amarango'){ cb(true); return; }
+  if(!sb){ cb(true); return; }   // sin conexión: la deja pasar (no la castigues por mala señal)
+
+  sb.from('amarango_subs').select('datos').eq('id','lista').maybeSingle()
+    .then(function(r){
+      var lista=(r && r.data && r.data.datos) ? r.data.datos : [];
+      var mia=lista.find(function(s){
+        return String(s.tienda||'').toLowerCase()===TIENDA;
+      });
+      // si no está en la lista → la deja pasar (todavía no la diste de alta)
+      if(!mia){ cb(true); return; }
+      // si está y figura como vencida → BLOQUEAR
+      cb(mia.estado==='ok');
+    })
+    .catch(function(){ cb(true); });   // ante la duda, la deja pasar
+}
+
+function bloquearTienda(){
+  TIENDA_BLOQUEADA=true;
+  document.body.innerHTML=
+     '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(160deg,#020c2e,#0B2D6B);font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif">'
+    +'<div style="max-width:400px;width:100%;background:#fff;border-radius:20px;padding:32px 24px;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)">'
+      +'<div style="font-size:3.5rem;margin-bottom:12px">🔒</div>'
+      +'<div style="font-weight:900;color:#0B2D6B;font-size:1.3rem;margin-bottom:8px">Tienda pausada</div>'
+      +'<div style="font-size:.92rem;color:#6B7280;line-height:1.6;margin-bottom:22px">'
+        +'Tu suscripción a Amarango está vencida.<br><br>'
+        +'Tus productos, clientes y pedidos <b style="color:#0B2D6B">están guardados</b>. Apenas regularices, todo vuelve como estaba.'
+      +'</div>'
+      +'<button onclick="window.open(\'https://wa.me/'+AMARANGO_WA+'?text='+encodeURIComponent('Hola! Quiero reactivar mi tienda 🐝\n\nCódigo: '+TIENDA)+'\',\'_blank\')" style="width:100%;background:#25D366;color:#fff;border:none;border-radius:14px;padding:16px;font-size:1rem;font-weight:900;cursor:pointer;font-family:inherit;margin-bottom:12px">💬 Quiero reactivarla</button>'
+      +'<div style="font-size:.74rem;color:#9CA3AF">🐝 Amarango · Estamos para ayudarte</div>'
+    +'</div></div>';
+}
+
+/* ═══════════════════════════════════════════════════════════
    🏪 MULTI-TIENDA — el motor de Amarango
    Cada tienda tiene su CÓDIGO, y sus datos se guardan separados.
    Se elige con la dirección:  ...tienda-nueva.html?t=marcelo
    Sin código = 'amarango' (la tienda de Max, por compatibilidad).
    ═══════════════════════════════════════════════════════════ */
 function tiendaID(){
+  // 🔒 La tienda se define ÚNICAMENTE por la dirección (?t=...).
+  // NUNCA por lo que quedó guardado en el teléfono — eso cruzaba las tiendas.
   try{
     var p=new URLSearchParams(window.location.search);
     var t=(p.get('t')||'').toLowerCase().replace(/[^a-z0-9_-]/g,'');
-    if(t) { try{ localStorage.setItem('ae_tienda_id', t); }catch(e){} return t; }
-    var guardada=localStorage.getItem('ae_tienda_id');
-    if(guardada) return guardada;
+    if(t) return t;
   }catch(e){}
-  return 'amarango';   // la de Max por defecto
+  return 'amarango';   // sin ?t= → siempre la tienda de Max
 }
 var TIENDA = tiendaID();
+/* limpia el rastro viejo que causaba el cruce */
+try{ localStorage.removeItem('ae_tienda_id'); }catch(e){}
 /* claves de guardado, separadas por tienda */
 function keyConfig(){  return TIENDA==='amarango' ? 'config'   : 'config_'+TIENDA; }
 function keyCatalogo(){return TIENDA==='amarango' ? 'catalogo' : 'catalogo_'+TIENDA; }
@@ -620,8 +665,8 @@ function abrirCargarDirecto(){
 /* ═══════ CARRITO — que el cliente arme una compra de varias cosas ═══════
    Se guarda en su teléfono. Al pedir, va TODO junto por WhatsApp con las
    cuotas del total calculadas. Sin pedirle datos antes (menos fricción = más ventas). */
-function cargarCarrito(){ try{ return JSON.parse(localStorage.getItem('ae_carrito')||'[]'); }catch(e){ return []; } }
-function guardarCarrito(a){ try{ localStorage.setItem('ae_carrito', JSON.stringify(a)); }catch(e){} actualizarBadgeCarrito(); }
+function cargarCarrito(){ try{ return JSON.parse(localStorage.getItem(lsKey('ae_carrito'))||'[]'); }catch(e){ return []; } }
+function guardarCarrito(a){ try{ localStorage.setItem(lsKey('ae_carrito'), JSON.stringify(a)); }catch(e){} actualizarBadgeCarrito(); }
 function agregarAlCarrito(idx){
   var p=PRODUCTOS[idx]; if(!p)return;
   var c=cargarCarrito();
@@ -845,8 +890,8 @@ var PIN_REVENDEDOR = "1234";   // clave revendedor
 var _toquesAbeja = 0, _toqueTimer = null;
 
 /* ROL actual: null (cliente) | 'admin' | 'revendedor' */
-function rolActual(){ try{ return localStorage.getItem('ae_rol')||null; }catch(e){ return null; } }
-function setRol(r){ try{ if(r) localStorage.setItem('ae_rol',r); else localStorage.removeItem('ae_rol'); }catch(e){} try{ actualizarBeeFab(); }catch(e){} }
+function rolActual(){ try{ return localStorage.getItem(lsKey('ae_rol'))||null; }catch(e){ return null; } }
+function setRol(r){ try{ if(r) localStorage.setItem(lsKey('ae_rol'),r); else localStorage.removeItem(lsKey('ae_rol')); }catch(e){} try{ actualizarBeeFab(); }catch(e){} }
 function haySesion(){ return rolActual()!==null; }
 function esAdmin(){ return rolActual()==='admin'; }
 function esRevendedor(){ return rolActual()==='revendedor'; }
@@ -1059,27 +1104,34 @@ function renderSubs(){
 }
 
 function editarSub(i){
-  var s = i>=0 ? SUBS[i] : {nombre:'',negocio:'',vende:'',whatsapp:'',pagaHasta:'',monto:'',nota:'',estado:'ok'};
+  var s = i>=0 ? SUBS[i] : {nombre:'',tienda:'',negocio:'',vende:'',whatsapp:'',pagaHasta:'',monto:'',nota:'',estado:'ok'};
   function campo(lbl,id,val,ph){ return '<div style="margin-bottom:10px"><div style="font-size:.66rem;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">'+lbl+'</div><input id="'+id+'" value="'+(val||'').replace(/"/g,'&quot;')+'" placeholder="'+(ph||'')+'" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px;font-family:inherit;font-size:.86rem;outline:none"></div>'; }
-  document.getElementById('adminBody').innerHTML =
-     '<div style="font-weight:900;color:var(--az);font-size:1rem;margin-bottom:14px">'+(i>=0?'✏️ Editar suscriptor':'➕ Nuevo suscriptor')+'</div>'
-    +campo('Nombre','sb_nombre',s.nombre,'Ej: Marcelo Gómez')
+  document.getElementById('adminBody').innerHTML=
+     '<div style="font-weight:900;color:var(--az);font-size:1rem;margin-bottom:14px">'+(i>=0?'Editar suscriptor':'Nuevo suscriptor')+'</div>'
+    +campo('Nombre','sb_nombre',s.nombre,'Ej: Marcelo Gomez')
+    +'<div style="background:#FFF9F0;border:1.5px solid var(--nar);border-radius:11px;padding:11px;margin-bottom:11px">'
+      +'<div style="font-size:.66rem;font-weight:800;color:var(--nar);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Codigo de su tienda</div>'
+      +'<input id="sb_tienda" value="'+(s.tienda||'').replace(/"/g,'&quot;')+'" placeholder="Ej: marcelo" style="width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px;font-family:inherit;font-size:.86rem;outline:none;margin-bottom:6px">'
+      +'<div style="font-size:.7rem;color:var(--sub);line-height:1.4">Sin espacios ni acentos. Este codigo es el que le da acceso.</div>'
+    +'</div>'
     +campo('Negocio','sb_negocio',s.negocio,'Ej: Marcelo Hogar')
-    +campo('¿Qué vende?','sb_vende',s.vende,'Ej: Electro / Ropa / Comida')
+    +campo('Que vende','sb_vende',s.vende,'Ej: Electro / Ropa')
     +campo('WhatsApp','sb_whatsapp',s.whatsapp,'Ej: 5491122334455')
-    +campo('Pagó hasta','sb_pagaHasta',s.pagaHasta,'Ej: 31/08/2026')
-    +campo('Cuánto paga por mes','sb_monto',s.monto,'Ej: 20000')
+    +campo('Pago hasta','sb_pagaHasta',s.pagaHasta,'Ej: 31/08/2026')
+    +campo('Cuanto paga por mes','sb_monto',s.monto,'Ej: 20000')
     +campo('Nota','sb_nota',s.nota,'Lo que quieras anotar')
     +'<div style="display:flex;gap:8px;margin-top:6px">'
-    +'<button onclick="guardarSub('+i+')" style="flex:1;background:var(--nar);color:#fff;border:none;border-radius:11px;padding:13px;font-weight:900;cursor:pointer;font-family:inherit">💾 Guardar</button>'
-    +(i>=0?'<button onclick="borrarSub('+i+')" style="background:#FEF2F2;color:#DC2626;border:none;border-radius:11px;padding:13px 16px;font-weight:800;cursor:pointer;font-family:inherit">🗑️</button>':'')
+    +'<button onclick="guardarSub('+i+')" style="flex:1;background:var(--nar);color:#fff;border:none;border-radius:12px;padding:14px;font-weight:900;cursor:pointer;font-family:inherit">Guardar</button>'
+    +(i>=0?'<button onclick="borrarSub('+i+')" style="background:#FEF2F2;color:#DC2626;border:none;border-radius:12px;padding:14px 16px;font-weight:800;cursor:pointer;font-family:inherit">Borrar</button>':'')
     +'</div>'
-    +'<button onclick="renderSubs()" style="width:100%;background:none;border:1.5px solid var(--line);color:var(--az);border-radius:11px;padding:11px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:8px">‹ Cancelar</button>';
+    +'<button onclick="renderSubs()" style="width:100%;background:none;border:1.5px solid var(--line);color:var(--sub);border-radius:11px;padding:11px;font-weight:700;cursor:pointer;font-family:inherit;margin-top:8px">Cancelar</button>';
 }
 function guardarSub(i){
   var g=function(id){ var e=document.getElementById(id); return e?e.value.trim():''; };
-  var obj={ nombre:g('sb_nombre'), negocio:g('sb_negocio'), vende:g('sb_vende'), whatsapp:g('sb_whatsapp'), pagaHasta:g('sb_pagaHasta'), monto:g('sb_monto'), nota:g('sb_nota'), estado: i>=0?SUBS[i].estado:'ok' };
-  if(!obj.nombre){ alert('Poné al menos el nombre.'); return; }
+  var tienda=g('sb_tienda').toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  var obj={ nombre:g('sb_nombre'), tienda:tienda, negocio:g('sb_negocio'), vende:g('sb_vende'), whatsapp:g('sb_whatsapp'), pagaHasta:g('sb_pagaHasta'), monto:g('sb_monto'), nota:g('sb_nota'), estado: i>=0?SUBS[i].estado:'ok' };
+  if(!obj.nombre){ alert('Pone al menos el nombre.'); return; }
+  if(!obj.tienda){ alert('Pone el CODIGO de su tienda. Sin eso no podes prenderle ni apagarle la tienda.'); return; }
   if(i>=0) SUBS[i]=obj; else SUBS.push(obj);
   subsGuardar(); renderSubs();
 }
@@ -1439,7 +1491,7 @@ function abrirBackup(){
 
 function descargarBackup(){
   var cliente=null;
-  try{ cliente=JSON.parse(localStorage.getItem('ae_cliente')||'null'); }catch(e){}
+  try{ cliente=JSON.parse(localStorage.getItem(lsKey('ae_cliente'))||'null'); }catch(e){}
   var data={
     version: 1,
     tienda: TIENDA,
@@ -1827,7 +1879,7 @@ var PEDIDOS=[];
 
 function guardarPedido(items, total, contacto){
   var cli=null;
-  try{ cli=JSON.parse(localStorage.getItem('ae_cliente')||'null'); }catch(e){}
+  try{ cli=JSON.parse(localStorage.getItem(lsKey('ae_cliente'))||'null'); }catch(e){}
   var ped={
     id:'ped'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),
     fecha: Date.now(),
@@ -2424,13 +2476,13 @@ function guardarEnPapelera(prods){
   if(!prods || !prods.length) return;
   try{
     var pap={ fecha:Date.now(), productos:JSON.parse(JSON.stringify(prods)) };
-    localStorage.setItem('ae_papelera', JSON.stringify(pap));
+    localStorage.setItem(lsKey('ae_papelera'), JSON.stringify(pap));
     if(sb) sb.from('tienda_catalogo').upsert({id:'papelera', datos:pap.productos}).then(function(){}).catch(function(){});
   }catch(e){}
 }
 function abrirPapelera(){
   var pap=null;
-  try{ pap=JSON.parse(localStorage.getItem('ae_papelera')||'null'); }catch(e){}
+  try{ pap=JSON.parse(localStorage.getItem(lsKey('ae_papelera'))||'null'); }catch(e){}
   var html='<div style="font-weight:900;color:var(--az);font-size:1rem;margin-bottom:10px">🗑️ Papelera</div>';
   if(!pap || !pap.productos || !pap.productos.length){
     html+='<div style="text-align:center;color:var(--sub);padding:30px 20px;font-size:.85rem">La papelera está vacía.<br><span style="font-size:.75rem">Acá van los productos si reemplazás todo el catálogo, por si te arrepentís. 🐝</span></div>';
@@ -2447,7 +2499,7 @@ function abrirPapelera(){
 }
 function restaurarPapelera(){
   var pap=null;
-  try{ pap=JSON.parse(localStorage.getItem('ae_papelera')||'null'); }catch(e){}
+  try{ pap=JSON.parse(localStorage.getItem(lsKey('ae_papelera'))||'null'); }catch(e){}
   if(!pap || !pap.productos) return;
   if(!confirm('¿Recuperar '+pap.productos.length+' productos de la papelera?')) return;
   pap.productos.forEach(function(p){ PRODUCTOS.push(p); });
@@ -2745,8 +2797,12 @@ function conectar(){
   if(!SB_KEY){ cargarConfig(); mostrarSetup(); return; }
   try{
     sb = window.supabase.createClient(SB_URL, SB_KEY);
-    cargarConfig();
-    bajarCatalogo();
+    // 🚦 EL PORTERO: primero verifica si la tienda está habilitada
+    verificarSuscripcion(function(habilitada){
+      if(!habilitada){ bloquearTienda(); return; }
+      cargarConfig();
+      bajarCatalogo();
+    });
   }catch(e){ mostrarError('No pude conectar. Revisá que la key esté bien pegada.'); }
 }
 function bajarCatalogo(){
@@ -2895,8 +2951,8 @@ function toggleSoloOfertas(){
 
 /* ===== FAVORITOS (guardados en el teléfono del cliente) ===== */
 function idProd(p){ return p.id!=null ? String(p.id) : (p.nombre||''); }
-function cargarFavs(){ try{ return JSON.parse(localStorage.getItem('ae_favoritos')||'[]'); }catch(e){ return []; } }
-function guardarFavs(a){ try{ localStorage.setItem('ae_favoritos', JSON.stringify(a)); }catch(e){} }
+function cargarFavs(){ try{ return JSON.parse(localStorage.getItem(lsKey('ae_favoritos'))||'[]'); }catch(e){ return []; } }
+function guardarFavs(a){ try{ localStorage.setItem(lsKey('ae_favoritos'), JSON.stringify(a)); }catch(e){} }
 function esFav(p){ return cargarFavs().indexOf(idProd(p))>=0; }
 function toggleFav(idx, ev){
   if(ev){ ev.stopPropagation(); }
@@ -3352,7 +3408,7 @@ function renderBotonesDetalle(idx){
 
 /* ═══════ BIENVENIDA / REGISTRO del cliente (una sola vez) ═══════
    Usa el nombre del negocio de la CONFIG (así Marcelo ve "Marcelo Hogar"). */
-function clienteRegistrado(){ try{ return !!localStorage.getItem('ae_cliente'); }catch(e){ return false; } }
+function clienteRegistrado(){ try{ return !!localStorage.getItem(lsKey('ae_cliente')); }catch(e){ return false; } }
 function mostrarBienvenida(){
   if(rolActual()) return;              // admin/revendedor no ven esto
   if(clienteRegistrado()) return;      // ya se registró
@@ -3384,7 +3440,7 @@ function guardarRegistro(){
   var nom=g('rg_nombre'), wa=g('rg_wa').replace(/[^0-9]/g,''), loc=g('rg_loc');
   if(!nom || !wa){ alert('Poné al menos tu nombre y WhatsApp.'); return; }
   var cli={ nombre:nom, wa:wa, loc:loc, fecha:Date.now() };
-  try{ localStorage.setItem('ae_cliente', JSON.stringify(cli)); }catch(e){}
+  try{ localStorage.setItem(lsKey('ae_cliente'), JSON.stringify(cli)); }catch(e){}
   // lo suma a la lista de clientes del dueño
   cargarClientes(function(){
     var ya=CLIENTES.find(function(c){ return String(c.wa).replace(/[^0-9]/g,'')===wa; });
