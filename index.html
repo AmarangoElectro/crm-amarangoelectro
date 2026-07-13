@@ -7396,11 +7396,27 @@ function detalleVenta(id){
 }
 async function cobrarCuota(id){
   const v=DB.ventas.find(x=>x.id===id);
-  v.pagadas=(v.pagadas||0)+1;
+  if(!v){ toast('❌ No encontré esa venta'); return; }        // 🔒 valida que exista
+
+  const total = parseInt(v.cuotas,10) || 0;
+  const yaPagadas = parseInt(v.pagadas,10) || 0;
+
+  // 🔒 no se puede cobrar más cuotas de las que tiene la venta
+  if(total && yaPagadas >= total){
+    toast('✅ Esta venta ya está saldada ('+total+'/'+total+')');
+    return;
+  }
+
+  // 🔒 confirmación (para que no se cobre de más por un toque sin querer)
+  const nro = yaPagadas + 1;
+  const monto = v.valorCuota ? fmt(v.valorCuota) : '';
+  if(!confirm('¿Registrar el pago de la cuota '+nro+' de '+total+'?'+(monto?'\n\n'+monto:''))) return;
+
+  v.pagadas = nro;
   await DB.upsertVenta(v);
-  // avisar a los inversionistas cuánto les corresponde de esta cuota
   avisarInversoresCobro(v, v.pagadas);
-  toast('Pago registrado ✅');
+  AUDIT.registrar('cobró', 'cuota', 'la cuota '+nro+'/'+total+(monto?' de '+monto:''));
+  toast('✅ Cuota '+nro+'/'+total+' registrada');
   detalleVenta(id);
 }
 // registra un aviso para cada inversionista con cuánto le toca de la cuota cobrada
@@ -7539,14 +7555,22 @@ async function archivarVenta(id){
 async function toggleCuota(id, num){
   const v=DB.ventas.find(x=>x.id===id); if(!v)return;
   const pagadas=v.pagadas||0;
-  // Si la cuota tocada ya estaba pagada -> desmarca desde ahí (quedan pagadas las anteriores)
-  // Si no estaba pagada -> marca esta y todas las anteriores como pagadas
-  if(num<=pagadas){ v.pagadas=num-1; }
-  else { v.pagadas=num; }
+  const total=parseInt(v.cuotas,10)||0;
+
+  // 🔒 DESMARCAR es peligroso: borra pagos ya registrados → pide confirmación
+  if(num<=pagadas){
+    const seVan = pagadas - (num-1);
+    if(!confirm('⚠️ Vas a QUITAR '+seVan+' pago(s) ya registrado(s).\n\nQuedarían '+(num-1)+' de '+total+' cuotas pagas.\n\n¿Seguro?')) return;
+    v.pagadas=num-1;
+    AUDIT.registrar('quitó', 'pago', seVan+' pago(s) de la venta');
+  } else {
+    v.pagadas=num;
+    AUDIT.registrar('cobró', 'cuota', 'hasta la cuota '+num+'/'+total);
+  }
   if(v.pagadas<0) v.pagadas=0;
-  if(v.pagadas>v.cuotas) v.pagadas=v.cuotas;
+  if(total && v.pagadas>total) v.pagadas=total;
   await DB.upsertVenta(v);
-  toast(num<=pagadas?'Pago quitado':'Pago registrado ✅');
+  toast(num<=pagadas?'✅ Pago quitado':'✅ Pago registrado');
   detalleVenta(id);
 }
 async function delVenta(id){
@@ -8541,6 +8565,7 @@ async function startApp(){
   AUDIT.recargar().then(()=>actualizarAvisoBadge());  // traer avisos de todos al iniciar (solo badge)
   // Revisar mensajes nuevos cada 20s (para el puntito rojo), solo si el chat está cerrado
   setInterval(async()=>{
+    if(document.hidden) return;   // 🔋 app en segundo plano: no gasta datos ni batería
     if(document.getElementById('chatBg') && document.getElementById('chatBg').classList.contains('show')) return;
     await DB.recargarMensajes();
     if(typeof actualizarBadge==='function') actualizarBadge();
@@ -8605,9 +8630,12 @@ async function abrirChat(){
   try{ await DB.recargarMensajes(); await DB.marcarLeidos(); pintarChat(); }catch(e){ console.error('chat:', e); }
   localStorage.setItem('ae_chat_visto', Date.now());
   actualizarBadge();
-  // refresco automático cada 3 segundos mientras está abierto
+  // refresco automático mientras está abierto (6s: ahorra datos y batería, imperceptible)
   if(chatTimer) clearInterval(chatTimer);
-  chatTimer=setInterval(async()=>{ try{ await DB.recargarMensajes(); await DB.marcarLeidos(); pintarChat(); }catch(e){} }, 3000);
+  chatTimer=setInterval(async()=>{
+    if(document.hidden) return;   // 🔋 si la app está en segundo plano, no gasta datos
+    try{ await DB.recargarMensajes(); await DB.marcarLeidos(); pintarChat(); }catch(e){}
+  }, 6000);
 }
 function cerrarChat(){
   document.getElementById('chatBg').classList.remove('show');
