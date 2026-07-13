@@ -1152,6 +1152,71 @@ function initCloud(){
 }
 
 /* ============ DATOS ============ */
+/* ═══════════════════════════════════════════════════════════
+   📴 MODO SIN CONEXIÓN
+   · Todo se guarda en el celular siempre (nunca se pierde nada)
+   · Cuando vuelve la señal, sube solo lo pendiente
+   · Un cartelito avisa el estado
+   ═══════════════════════════════════════════════════════════ */
+function actualizarEstadoConexion(){
+  let box=document.getElementById('estadoConexion');
+  const pend=PENDIENTES.load().length;
+  const online=navigator.onLine;
+
+  if(online && !pend){ if(box) box.remove(); return; }
+
+  if(!box){
+    box=document.createElement('div');
+    box.id='estadoConexion';
+    box.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;padding:9px 14px;font-size:.76rem;font-weight:800;text-align:center;font-family:inherit;cursor:pointer';
+    box.onclick=function(){ if(navigator.onLine) reintentarPendientes(); };
+    document.body.appendChild(box);
+  }
+  if(!online){
+    box.style.background='#DC2626'; box.style.color='#fff';
+    box.innerHTML='📴 Sin conexión — todo se guarda en el celular'+(pend?' · '+pend+' por subir':'');
+  } else if(pend){
+    box.style.background='#F59E0B'; box.style.color='#fff';
+    box.innerHTML='☁️ '+pend+' dato(s) esperando subir — tocá para reintentar';
+  }
+}
+async function reintentarPendientes(){
+  toast('☁️ Subiendo…');
+  await procesarPendientes();
+  const quedan=PENDIENTES.load().length;
+  if(!quedan) toast('✅ Todo subido a la nube');
+  else toast('⚠️ Quedan '+quedan+' sin subir');
+  actualizarEstadoConexion();
+}
+window.addEventListener('online', function(){
+  toast('📶 Volvió la señal');
+  setTimeout(reintentarPendientes, 800);
+});
+window.addEventListener('offline', function(){
+  actualizarEstadoConexion();
+});
+// revisa el estado cada 15 segundos
+setInterval(function(){ try{ actualizarEstadoConexion(); }catch(e){} }, 15000);
+
+/* ═══════════════════════════════════════════════════════════
+   🔀 FUSIÓN SEGURA — nunca se pierde un cliente ni una venta
+   Antes: la nube PISABA todo → si un cliente no había subido, desaparecía.
+   Ahora: la nube manda, PERO lo que solo está en el celu se conserva.
+   ═══════════════════════════════════════════════════════════ */
+function fusionar(deLaNube, delCelular){
+  const nube = Array.isArray(deLaNube) ? deLaNube : [];
+  const local = Array.isArray(delCelular) ? delCelular : [];
+  const mapa = new Map();
+
+  // 1) primero todo lo del celular (así nada se pierde)
+  local.forEach(x=>{ if(x && x.id) mapa.set(x.id, x); });
+
+  // 2) después la nube PISA lo del celu (la nube es la verdad para lo que ya subió)
+  nube.forEach(x=>{ if(x && x.id) mapa.set(x.id, x); });
+
+  return Array.from(mapa.values());
+}
+
 /* Cola de pendientes: si la nube falla (sin señal), lo guardado se reintenta solo */
 const PENDIENTES={
   load(){ try{ return JSON.parse(localStorage.getItem('ae_pendientes')||'[]'); }catch(e){ return []; } },
@@ -1254,35 +1319,46 @@ const CHAT_LIMITE = 60; // cuántos mensajes recientes cargar en el chat (rendim
 const DB = {
   clientes: [], ventas: [], mensajes: [], productos: [], mayoristas: [],
   async load(){
+    // 🔒 SIEMPRE lee primero lo del celular (nunca se pierde nada)
+    let localCli=[], localVen=[];
+    try{ localCli = JSON.parse(localStorage.getItem('ae_clientes')||'[]'); }catch(e){}
+    try{ localVen = JSON.parse(localStorage.getItem('ae_ventas')||'[]'); }catch(e){}
+
     if(CLOUD){
       try{
         const {data:cli} = await sb.from('clientes').select('*').order('num',{ascending:true}).limit(100000);
         const {data:ven} = await sb.from('ventas').select('*').limit(100000);
-        this.clientes = cli||[]; this.ventas = ven||[];
+
+        // 🔀 FUSIÓN SEGURA: la nube manda, pero lo que solo está en el celu NO se pierde
+        this.clientes = fusionar(cli||[], localCli);
+        this.ventas   = fusionar(ven||[], localVen);
+
         try{ const {data:msg} = await sb.from('mensajes').select('*').limit(100000); this.mensajes = msg||[]; }catch(e){ this.mensajes=[]; }
         try{ const {data:prod} = await sb.from('productos').select('*').limit(100000); this.productos = prod||[]; }catch(e){ this.productos=[]; }
         try{ this.mayoristas = JSON.parse(localStorage.getItem('ae_mayoristas')||'[]'); }catch(e){ this.mayoristas=[]; }
-        // 1º intentar subir lo pendiente (así la nube queda al día ANTES de mostrar nada)
+
+        // intenta subir lo pendiente
         await procesarPendientes();
-        // 2º reinyectar SOLO lo que realmente no logró subir (sigue en la cola tras el intento).
-        //    Si un pendiente ya subió, la nube ya lo tiene y NO lo pisamos con la versión vieja.
+        // reinyecta lo que no logró subir
         PENDIENTES.load().forEach(p=>{
           if(!p.dato || !p.dato.id) return;
           if(p.tabla==='clientes' && !this.clientes.find(x=>x.id===p.dato.id)) this.clientes.push(p.dato);
           if(p.tabla==='ventas' && !this.ventas.find(x=>x.id===p.dato.id)) this.ventas.push(p.dato);
           if(p.tabla==='productos' && !this.productos.find(x=>x.id===p.dato.id)) this.productos.push(p.dato);
         });
+        this.saveLocal();          // guarda la fusión
         this.semillaMayoristas();
         return;
-      }catch(e){ console.error(e); }
+      }catch(e){ console.error('load:', e); }
     }
+    // sin nube: solo lo del celular
+    this.clientes = localCli;
+    this.ventas   = localVen;
     try{
-      this.clientes = JSON.parse(localStorage.getItem('ae_clientes')||'[]');
-      this.ventas   = JSON.parse(localStorage.getItem('ae_ventas')||'[]');
       this.mensajes = JSON.parse(localStorage.getItem('ae_mensajes')||'[]');
       this.productos = JSON.parse(localStorage.getItem('ae_productos')||'[]');
       this.mayoristas = JSON.parse(localStorage.getItem('ae_mayoristas')||'[]');
-    }catch(e){ this.clientes=[]; this.ventas=[]; this.mensajes=[]; this.productos=[]; this.mayoristas=[]; }
+    }catch(e){ this.mensajes=[]; this.productos=[]; this.mayoristas=[]; }
     this.semillaMayoristas();
   },
   // Carga la lista base de mayoristas la primera vez (si está vacía)
@@ -1319,14 +1395,30 @@ const DB = {
     this.saveLocal();
   },
   async upsertCliente(c){
-    this.saveLocal(); // primero el celu: nunca se pierde nada
+    this.saveLocal();                          // 1) el celu primero: NUNCA se pierde
     const r=await subirNube('clientes', c);
-    if(!r.ok){ PENDIENTES.agregar('clientes', c); toast('⚠️ Sin señal: el cliente quedó en el celu y se sube solo cuando vuelva'); console.warn('upsertCliente:', r.msg); }
+    if(!r.ok){
+      PENDIENTES.agregar('clientes', c);       // 2) a la cola, se reintenta solo
+      this.saveLocal();
+      toast('💾 Guardado en el celu. Se sube a la nube cuando vuelva la señal.');
+      try{ actualizarEstadoConexion(); }catch(e){}
+      console.warn('upsertCliente:', r.msg);
+      return false;
+    }
+    return true;                               // ✅ subió de verdad
   },
   async upsertVenta(v){
-    this.saveLocal(); // primero el celu: nunca se pierde nada
+    this.saveLocal();
     const r=await subirNube('ventas', v);
-    if(!r.ok){ PENDIENTES.agregar('ventas', v); toast('⚠️ Sin señal: la venta quedó en el celu y se sube sola cuando vuelva'); console.warn('upsertVenta:', r.msg); }
+    if(!r.ok){
+      PENDIENTES.agregar('ventas', v);
+      this.saveLocal();
+      toast('💾 Guardado en el celu. Se sube a la nube cuando vuelva la señal.');
+      try{ actualizarEstadoConexion(); }catch(e){}
+      console.warn('upsertVenta:', r.msg);
+      return false;
+    }
+    return true;
   },
   async delCliente(id){
     if(CLOUD){ try{ await sb.from('ventas').delete().eq('clienteId',id); await sb.from('clientes').delete().eq('id',id); }catch(e){ console.warn(e); } }
