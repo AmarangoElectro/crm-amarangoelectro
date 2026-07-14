@@ -1713,7 +1713,12 @@ function datosDashboard(){
   const meses = {};             // proyección de los próximos 6 meses
   const morosos = [];
 
-  DB.ventas.forEach(v => {
+  // 👤 respeta el ámbito: si estás en "Maxi", ves solo TUS números
+  const ventasVer = (AMBITO === 'mio')
+    ? DB.ventas.filter(v => ventaEsMia(v))
+    : DB.ventas;
+
+  ventasVer.forEach(v => {
     const cli = DB.clientes.find(c => c.id === v.clienteId);
     if(!cli) return;
     (ventaCuotas(v) || []).forEach(c => {
@@ -1803,8 +1808,12 @@ function renderDashboardInicio(){
   let html = '';
 
   // ═══ 💰 ESTE MES
+  const deQuien = (AMBITO === 'mio') ? (usuarioActual() || 'vos') : 'todo el equipo';
   html += `<div style="background:linear-gradient(160deg,#0a1f4d,#0B2D6B);border-radius:16px;padding:16px;color:#fff;margin-bottom:10px">
-    <div style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.8px">A cobrar en ${mesNom}</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:1px">
+      <span style="font-size:10px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.8px;flex:1">A cobrar en ${mesNom}</span>
+      <span style="font-size:9px;font-weight:800;background:rgba(255,255,255,.18);padding:3px 8px;border-radius:12px;color:#fff">${AMBITO==='mio' ? '👤 '+deQuien : '👥 General'}</span>
+    </div>
     <div style="font-size:28px;font-weight:900;letter-spacing:-1px;margin:2px 0 9px">${fmt(d.cobrarMes)}</div>
     <div style="background:rgba(255,255,255,.15);border-radius:5px;height:8px;overflow:hidden;margin-bottom:8px">
       <div style="width:${d.pctMes}%;height:100%;background:#34D399"></div>
