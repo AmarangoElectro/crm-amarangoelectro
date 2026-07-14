@@ -594,7 +594,7 @@
 
 <div class="topbar">
   <div class="topbar-left">
-    <img class="logo" src="" id="logoTopbar" alt="AmarangoElectro">
+    <img class="logo" src="" id="logoTopbar" alt="AmarangoElectro" onclick="abrirDashboard()" style="cursor:pointer">
     <div>
       <div class="topbar-title">AmarangoElectro <span class="ae-bee">🐝</span></div>
     </div>
@@ -627,7 +627,8 @@
 
 <!-- INICIO -->
 <div class="view active" id="view-inicio">
-  <div class="hero">
+  <div class="hero" onclick="abrirDashboard()" style="cursor:pointer;position:relative">
+    <div style="position:absolute;top:12px;right:14px;background:rgba(255,255,255,.2);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:800;color:#fff">📊 Ver todo ›</div>
     <div class="hero-label">Facturación del mes</div>
     <div class="hero-amt">$<span id="heroFact">0</span></div>
     <div class="hero-sub" id="heroSub">0 ventas registradas</div>
@@ -639,14 +640,16 @@
   </div>
   <button class="btn-placas-star" onclick="go('finanzas');setTimeout(()=>abrirSeccionFin('placas'),80);">🎨 Armar precios y placas <span style="font-size:11px;font-weight:600;opacity:.85;">· tu herramienta estrella</span></button>
   <div id="panelHoy"></div>
-  <div class="sec-title">💰 Caja y capital</div>
-  <div class="card" id="cajaBox" style="margin-bottom:14px;"></div>
+  <div class="sec-title">📋 Mis tareas</div>
+  <div id="tareasInicio" style="margin-bottom:14px;"></div>
   <div class="quick-grid">
     <div class="quick" onclick="go('cobranzas')"><div class="quick-ico">🔴</div><div class="quick-val" id="qAtrasados">0</div><div class="quick-lbl">Cuotas vencidas</div></div>
     <div class="quick" onclick="go('cobranzas')"><div class="quick-ico">📅</div><div class="quick-val" id="qHoy">0</div><div class="quick-lbl">Vencen hoy</div></div>
     <div class="quick" onclick="go('ventas')"><div class="quick-ico">💰</div><div class="quick-val" id="qVentas">0</div><div class="quick-lbl">Ventas del mes</div></div>
     <div class="quick" onclick="go('clientes')"><div class="quick-ico">👥</div><div class="quick-val" id="qClientes">0</div><div class="quick-lbl">Clientes totales</div></div>
   </div>
+  <div class="sec-title">💰 Caja y capital</div>
+  <div class="card" id="cajaBox" style="margin-bottom:14px;"></div>
   <div class="sec-title">📋 Resumen del día</div>
   <div class="card" id="resumenDia" style="margin-bottom:14px;"></div>
   <div class="sec-title">Cobranzas pendientes</div>
@@ -1152,71 +1155,6 @@ function initCloud(){
 }
 
 /* ============ DATOS ============ */
-/* ═══════════════════════════════════════════════════════════
-   📴 MODO SIN CONEXIÓN
-   · Todo se guarda en el celular siempre (nunca se pierde nada)
-   · Cuando vuelve la señal, sube solo lo pendiente
-   · Un cartelito avisa el estado
-   ═══════════════════════════════════════════════════════════ */
-function actualizarEstadoConexion(){
-  let box=document.getElementById('estadoConexion');
-  const pend=PENDIENTES.load().length;
-  const online=navigator.onLine;
-
-  if(online && !pend){ if(box) box.remove(); return; }
-
-  if(!box){
-    box=document.createElement('div');
-    box.id='estadoConexion';
-    box.style.cssText='position:fixed;top:0;left:0;right:0;z-index:9999;padding:9px 14px;font-size:.76rem;font-weight:800;text-align:center;font-family:inherit;cursor:pointer';
-    box.onclick=function(){ if(navigator.onLine) reintentarPendientes(); };
-    document.body.appendChild(box);
-  }
-  if(!online){
-    box.style.background='#DC2626'; box.style.color='#fff';
-    box.innerHTML='📴 Sin conexión — todo se guarda en el celular'+(pend?' · '+pend+' por subir':'');
-  } else if(pend){
-    box.style.background='#F59E0B'; box.style.color='#fff';
-    box.innerHTML='☁️ '+pend+' dato(s) esperando subir — tocá para reintentar';
-  }
-}
-async function reintentarPendientes(){
-  toast('☁️ Subiendo…');
-  await procesarPendientes();
-  const quedan=PENDIENTES.load().length;
-  if(!quedan) toast('✅ Todo subido a la nube');
-  else toast('⚠️ Quedan '+quedan+' sin subir');
-  actualizarEstadoConexion();
-}
-window.addEventListener('online', function(){
-  toast('📶 Volvió la señal');
-  setTimeout(reintentarPendientes, 800);
-});
-window.addEventListener('offline', function(){
-  actualizarEstadoConexion();
-});
-// revisa el estado cada 15 segundos
-setInterval(function(){ try{ actualizarEstadoConexion(); }catch(e){} }, 15000);
-
-/* ═══════════════════════════════════════════════════════════
-   🔀 FUSIÓN SEGURA — nunca se pierde un cliente ni una venta
-   Antes: la nube PISABA todo → si un cliente no había subido, desaparecía.
-   Ahora: la nube manda, PERO lo que solo está en el celu se conserva.
-   ═══════════════════════════════════════════════════════════ */
-function fusionar(deLaNube, delCelular){
-  const nube = Array.isArray(deLaNube) ? deLaNube : [];
-  const local = Array.isArray(delCelular) ? delCelular : [];
-  const mapa = new Map();
-
-  // 1) primero todo lo del celular (así nada se pierde)
-  local.forEach(x=>{ if(x && x.id) mapa.set(x.id, x); });
-
-  // 2) después la nube PISA lo del celu (la nube es la verdad para lo que ya subió)
-  nube.forEach(x=>{ if(x && x.id) mapa.set(x.id, x); });
-
-  return Array.from(mapa.values());
-}
-
 /* Cola de pendientes: si la nube falla (sin señal), lo guardado se reintenta solo */
 const PENDIENTES={
   load(){ try{ return JSON.parse(localStorage.getItem('ae_pendientes')||'[]'); }catch(e){ return []; } },
@@ -1319,46 +1257,35 @@ const CHAT_LIMITE = 60; // cuántos mensajes recientes cargar en el chat (rendim
 const DB = {
   clientes: [], ventas: [], mensajes: [], productos: [], mayoristas: [],
   async load(){
-    // 🔒 SIEMPRE lee primero lo del celular (nunca se pierde nada)
-    let localCli=[], localVen=[];
-    try{ localCli = JSON.parse(localStorage.getItem('ae_clientes')||'[]'); }catch(e){}
-    try{ localVen = JSON.parse(localStorage.getItem('ae_ventas')||'[]'); }catch(e){}
-
     if(CLOUD){
       try{
         const {data:cli} = await sb.from('clientes').select('*').order('num',{ascending:true}).limit(100000);
         const {data:ven} = await sb.from('ventas').select('*').limit(100000);
-
-        // 🔀 FUSIÓN SEGURA: la nube manda, pero lo que solo está en el celu NO se pierde
-        this.clientes = fusionar(cli||[], localCli);
-        this.ventas   = fusionar(ven||[], localVen);
-
+        this.clientes = cli||[]; this.ventas = ven||[];
         try{ const {data:msg} = await sb.from('mensajes').select('*').limit(100000); this.mensajes = msg||[]; }catch(e){ this.mensajes=[]; }
         try{ const {data:prod} = await sb.from('productos').select('*').limit(100000); this.productos = prod||[]; }catch(e){ this.productos=[]; }
         try{ this.mayoristas = JSON.parse(localStorage.getItem('ae_mayoristas')||'[]'); }catch(e){ this.mayoristas=[]; }
-
-        // intenta subir lo pendiente
+        // 1º intentar subir lo pendiente (así la nube queda al día ANTES de mostrar nada)
         await procesarPendientes();
-        // reinyecta lo que no logró subir
+        // 2º reinyectar SOLO lo que realmente no logró subir (sigue en la cola tras el intento).
+        //    Si un pendiente ya subió, la nube ya lo tiene y NO lo pisamos con la versión vieja.
         PENDIENTES.load().forEach(p=>{
           if(!p.dato || !p.dato.id) return;
           if(p.tabla==='clientes' && !this.clientes.find(x=>x.id===p.dato.id)) this.clientes.push(p.dato);
           if(p.tabla==='ventas' && !this.ventas.find(x=>x.id===p.dato.id)) this.ventas.push(p.dato);
           if(p.tabla==='productos' && !this.productos.find(x=>x.id===p.dato.id)) this.productos.push(p.dato);
         });
-        this.saveLocal();          // guarda la fusión
         this.semillaMayoristas();
         return;
-      }catch(e){ console.error('load:', e); }
+      }catch(e){ console.error(e); }
     }
-    // sin nube: solo lo del celular
-    this.clientes = localCli;
-    this.ventas   = localVen;
     try{
+      this.clientes = JSON.parse(localStorage.getItem('ae_clientes')||'[]');
+      this.ventas   = JSON.parse(localStorage.getItem('ae_ventas')||'[]');
       this.mensajes = JSON.parse(localStorage.getItem('ae_mensajes')||'[]');
       this.productos = JSON.parse(localStorage.getItem('ae_productos')||'[]');
       this.mayoristas = JSON.parse(localStorage.getItem('ae_mayoristas')||'[]');
-    }catch(e){ this.mensajes=[]; this.productos=[]; this.mayoristas=[]; }
+    }catch(e){ this.clientes=[]; this.ventas=[]; this.mensajes=[]; this.productos=[]; this.mayoristas=[]; }
     this.semillaMayoristas();
   },
   // Carga la lista base de mayoristas la primera vez (si está vacía)
@@ -1395,30 +1322,14 @@ const DB = {
     this.saveLocal();
   },
   async upsertCliente(c){
-    this.saveLocal();                          // 1) el celu primero: NUNCA se pierde
+    this.saveLocal(); // primero el celu: nunca se pierde nada
     const r=await subirNube('clientes', c);
-    if(!r.ok){
-      PENDIENTES.agregar('clientes', c);       // 2) a la cola, se reintenta solo
-      this.saveLocal();
-      toast('💾 Guardado en el celu. Se sube a la nube cuando vuelva la señal.');
-      try{ actualizarEstadoConexion(); }catch(e){}
-      console.warn('upsertCliente:', r.msg);
-      return false;
-    }
-    return true;                               // ✅ subió de verdad
+    if(!r.ok){ PENDIENTES.agregar('clientes', c); toast('⚠️ Sin señal: el cliente quedó en el celu y se sube solo cuando vuelva'); console.warn('upsertCliente:', r.msg); }
   },
   async upsertVenta(v){
-    this.saveLocal();
+    this.saveLocal(); // primero el celu: nunca se pierde nada
     const r=await subirNube('ventas', v);
-    if(!r.ok){
-      PENDIENTES.agregar('ventas', v);
-      this.saveLocal();
-      toast('💾 Guardado en el celu. Se sube a la nube cuando vuelva la señal.');
-      try{ actualizarEstadoConexion(); }catch(e){}
-      console.warn('upsertVenta:', r.msg);
-      return false;
-    }
-    return true;
+    if(!r.ok){ PENDIENTES.agregar('ventas', v); toast('⚠️ Sin señal: la venta quedó en el celu y se sube sola cuando vuelva'); console.warn('upsertVenta:', r.msg); }
   },
   async delCliente(id){
     if(CLOUD){ try{ await sb.from('ventas').delete().eq('clienteId',id); await sb.from('clientes').delete().eq('id',id); }catch(e){ console.warn(e); } }
@@ -1766,6 +1677,415 @@ function planCuotas(precio, n){
   const cuota = Math.round((total/n)/1000)*1000; // cuotas redondeadas a $1.000
   return Array(n).fill(cuota);
 }
+
+
+/* ═══════════════════════════════════════════════════════════
+   📊 DASHBOARD — todo lo que necesitás, en una pantalla
+   Basta de abrir el Excel de Drive. Acá está TODO.
+   ═══════════════════════════════════════════════════════════ */
+function datosDashboard(){
+  const hoy = new Date();
+  const dia = 86400000;
+  const t = hoy.getTime();
+
+  const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).getTime();
+  const finMes = new Date(hoy.getFullYear(), hoy.getMonth()+1, 0, 23, 59, 59).getTime();
+
+  let cobrarMes = 0, cobradoMes = 0;
+  let vencido = 0, vencidasCant = 0;
+  const semana = [];            // cuotas de los próximos 7 días
+  const meses = {};             // proyección de los próximos 6 meses
+  const morosos = [];
+
+  DB.ventas.forEach(v => {
+    const cli = DB.clientes.find(c => c.id === v.clienteId);
+    if(!cli) return;
+    (ventaCuotas(v) || []).forEach(c => {
+      if(!c.fecha) return;
+      const venc = new Date(c.fecha).getTime();
+      const monto = c.monto || 0;
+      const resta = c.resta != null ? c.resta : monto;
+
+      // ── este mes
+      if(venc >= inicioMes && venc <= finMes){
+        cobrarMes += monto;
+        if(c.pagada) cobradoMes += monto;
+        else cobradoMes += (monto - resta);   // abonos parciales
+      }
+
+      if(c.pagada) return;
+
+      // ── vencidas
+      if(venc < t){
+        vencido += resta;
+        vencidasCant++;
+        const diasAtraso = Math.floor((t - venc)/dia);
+        morosos.push({ cliente: cli, monto: resta, dias: diasAtraso, cuota: c });
+        return;
+      }
+
+      // ── próximos 7 días
+      const faltan = Math.ceil((venc - t)/dia);
+      if(faltan <= 7){
+        semana.push({ cliente: cli, monto: resta, fecha: venc, faltan: faltan });
+      }
+
+      // ── proyección por mes (los próximos 6)
+      const d = new Date(venc);
+      const k = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      if(!meses[k]) meses[k] = { total: 0, cant: 0, nombre: d.toLocaleDateString('es-AR',{month:'long', year:'numeric'}) };
+      meses[k].total += resta;
+      meses[k].cant++;
+    });
+  });
+
+  semana.sort((a,b) => a.fecha - b.fecha);
+  morosos.sort((a,b) => b.dias - a.dias);
+
+  const listaMeses = Object.keys(meses).sort().slice(0,6).map(k => meses[k]);
+  const faltaMes = Math.max(0, cobrarMes - cobradoMes);
+  const pctMes = cobrarMes ? Math.round(cobradoMes/cobrarMes*100) : 0;
+
+  return { cobrarMes, cobradoMes, faltaMes, pctMes, vencido, vencidasCant, semana, morosos, listaMeses };
+}
+
+
+/* 📊 Botón del dashboard — siempre visible */
+function mostrarBotonDashboard(){
+  if(document.getElementById('btnDash')) return;
+  const b = document.createElement('button');
+  b.id = 'btnDash';
+  b.onclick = abrirDashboard;
+  b.innerHTML = '📊';
+  b.title = 'Tu negocio hoy';
+  b.style.cssText = 'position:fixed;bottom:80px;right:16px;z-index:400;width:56px;height:56px;border-radius:50%;'
+    + 'background:linear-gradient(135deg,#0B2D6B,#1e5bc8);border:3px solid #fff;color:#fff;font-size:1.5rem;'
+    + 'cursor:pointer;box-shadow:0 4px 18px rgba(11,45,107,.4);padding:0;font-family:inherit';
+  document.body.appendChild(b);
+
+  // el puntito rojo si hay vencidas
+  try{
+    const d = datosDashboard();
+    if(d.vencido > 0){
+      const p = document.createElement('span');
+      p.style.cssText = 'position:absolute;top:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:#DC2626;border:2px solid #fff';
+      b.style.position = 'fixed';
+      b.appendChild(p);
+    }
+  }catch(e){}
+}
+
+function abrirDashboard(){
+  const d = datosDashboard();
+  const hoy = new Date();
+  const mesNom = hoy.toLocaleDateString('es-AR', {month:'long'});
+
+  let html = '';
+
+  // ═══ 💰 ESTE MES (lo primero que ves)
+  html += `<div style="background:linear-gradient(160deg,#0a1f4d,#0B2D6B);border-radius:18px;padding:18px;color:#fff;margin-bottom:12px">
+    <div style="font-size:.64rem;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">Tenés que cobrar en ${mesNom}</div>
+    <div style="font-size:2rem;font-weight:900;letter-spacing:-1px;margin-bottom:10px">${fmt(d.cobrarMes)}</div>
+    <div style="background:rgba(255,255,255,.15);border-radius:6px;height:9px;overflow:hidden;margin-bottom:9px">
+      <div style="width:${d.pctMes}%;height:100%;background:#34D399;transition:width .5s"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:.76rem">
+      <span style="color:#34D399;font-weight:800">✅ Cobrado: ${fmt(d.cobradoMes)}</span>
+      <span style="color:#ffb968;font-weight:800">Falta: ${fmt(d.faltaMes)}</span>
+    </div>
+  </div>`;
+
+  // ═══ 🔴 VENCIDO (la alarma)
+  if(d.vencido > 0){
+    html += `<div onclick="abrirAvisosVencimiento()" style="background:#FEF2F2;border:2px solid #FECACA;border-radius:14px;padding:14px;margin-bottom:12px;cursor:pointer">
+      <div style="display:flex;align-items:center;gap:9px">
+        <span style="font-size:1.6rem">🔴</span>
+        <div style="flex:1">
+          <div style="font-weight:900;color:#DC2626;font-size:1.1rem">${fmt(d.vencido)}</div>
+          <div style="font-size:.74rem;color:#DC2626;font-weight:700">${d.vencidasCant} cuota(s) vencida(s) — tocá para gestionar</div>
+        </div>
+        <span style="color:#DC2626;font-size:1.2rem">›</span>
+      </div>
+    </div>`;
+  }
+
+  // ═══ 📅 ESTA SEMANA (lo que se viene)
+  html += `<div style="background:#fff;border:1px solid var(--bor);border-radius:14px;padding:14px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
+      <span style="font-weight:900;color:var(--az);font-size:.92rem;flex:1">📅 Esta semana</span>
+      ${d.semana.length ? `<span style="font-size:.86rem;font-weight:900;color:var(--nar)">${fmt(d.semana.reduce((s,x)=>s+x.monto,0))}</span>` : ''}
+    </div>`;
+
+  if(!d.semana.length){
+    html += `<div style="text-align:center;color:var(--sub);padding:16px;font-size:.82rem">No hay cuotas esta semana 🐝</div>`;
+  } else {
+    d.semana.forEach(x => {
+      const f = new Date(x.fecha);
+      const cuando = x.faltan === 0 ? 'HOY' : (x.faltan === 1 ? 'MAÑANA' : f.toLocaleDateString('es-AR',{weekday:'short', day:'numeric'}).toUpperCase());
+      const urgente = x.faltan <= 1;
+      const msg = `Hola ${x.cliente.nombre.split(' ')[0]}! 👋\n\nTe recuerdo tu cuota de ${fmt(x.monto)}${x.faltan===0?' que vence hoy':(x.faltan===1?' que vence mañana':`, vence el ${f.toLocaleDateString('es-AR')}`)}.\n\nCualquier cosa avisame. 🐝`;
+      html += `<div style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--bor)">
+        <div style="width:52px;text-align:center;flex:0 0 auto">
+          <div style="font-size:.6rem;font-weight:900;color:${urgente?'#DC2626':'var(--sub)'}">${cuando}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.82rem;font-weight:800;color:var(--az);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${x.cliente.nombre}</div>
+        </div>
+        <div style="font-size:.86rem;font-weight:900;color:var(--az)">${fmt(x.monto)}</div>
+        ${x.cliente.telefono ? `<button onclick="event.stopPropagation();window.open('https://wa.me/${String(x.cliente.telefono).replace(/[^0-9]/g,'')}?text=${encodeURIComponent(msg)}','_blank')" style="background:#25D366;border:none;color:#fff;border-radius:8px;padding:7px 9px;font-size:.7rem;cursor:pointer;font-family:inherit">💬</button>` : ''}
+      </div>`;
+    });
+  }
+  html += `</div>`;
+
+  // ═══ 📈 LO QUE YA TENÉS ASEGURADO (el flujo de caja)
+  if(d.listaMeses.length){
+    const max = Math.max(...d.listaMeses.map(m => m.total));
+    html += `<div style="background:#fff;border:1px solid var(--bor);border-radius:14px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:900;color:var(--az);font-size:.92rem;margin-bottom:3px">📈 Lo que ya tenés asegurado</div>
+      <div style="font-size:.72rem;color:var(--sub);margin-bottom:11px">Cuotas por cobrar en los próximos meses. Con esto planificás tus compras.</div>`;
+    d.listaMeses.forEach(m => {
+      const pct = max ? Math.round(m.total/max*100) : 0;
+      html += `<div style="margin-bottom:9px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:.76rem;color:var(--sub);font-weight:700;text-transform:capitalize">${m.nombre}</span>
+          <span style="font-size:.82rem;font-weight:900;color:var(--az)">${fmt(m.total)}</span>
+        </div>
+        <div style="background:#F0F4FF;border-radius:4px;height:7px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:linear-gradient(90deg,var(--az),#3b82f6)"></div>
+        </div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // ═══ ⚠️ LOS QUE MÁS DEBEN
+  if(d.morosos.length){
+    html += `<div style="background:#fff;border:1px solid var(--bor);border-radius:14px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:900;color:#DC2626;font-size:.92rem;margin-bottom:10px">⚠️ Los que más te deben</div>`;
+    d.morosos.slice(0,5).forEach(x => {
+      html += `<div onclick="closeModal();detalleCliente('${x.cliente.id}')" style="display:flex;align-items:center;gap:9px;padding:9px 0;border-bottom:1px solid var(--bor);cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.82rem;font-weight:800;color:var(--az)">${x.cliente.nombre}</div>
+          <div style="font-size:.68rem;color:#DC2626;font-weight:700">🔴 ${x.dias} días de atraso</div>
+        </div>
+        <div style="font-size:.86rem;font-weight:900;color:#DC2626">${fmt(x.monto)}</div>
+        <span style="color:var(--sub)">›</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<button onclick="closeModal()" style="width:100%;background:none;border:1.5px solid var(--bor);color:var(--az);border-radius:11px;padding:12px;font-weight:800;cursor:pointer;font-family:inherit">Cerrar</button>`;
+
+  openModal('📊 Tu negocio hoy', html);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   🚦 SEMÁFORO DE RIESGO — antes de venderle a alguien, mirá esto
+   Calculado con TUS datos reales. No adivina: mide lo que pasó.
+   ═══════════════════════════════════════════════════════════ */
+function riesgoCliente(clienteId){
+  const ventas = DB.ventas.filter(v => v.clienteId === clienteId);
+  const hoy = Date.now();
+  const dia = 86400000;
+
+  if(!ventas.length){
+    return {
+      nivel: 'nuevo', color: '#6B7280', ico: '⚪',
+      titulo: 'Cliente nuevo',
+      txt: 'No lo conocés todavía.',
+      consejo: '⚠️ Pedile 2 cuotas de entrada, no una. Y confirmá dónde trabaja.',
+      pagadas: 0, atrasadas: 0, debe: 0
+    };
+  }
+
+  let pagadas = 0, atrasadas = 0, debe = 0, cuotasTotal = 0;
+  let masAtraso = 0;
+
+  ventas.forEach(v => {
+    const cuotas = ventaCuotas(v) || [];
+    cuotasTotal += cuotas.length;
+    cuotas.forEach(c => {
+      if(c.pagada){ pagadas++; return; }
+      // no pagada: ¿está vencida?
+      if(c.fecha){
+        const venc = new Date(c.fecha).getTime();
+        if(venc < hoy){
+          atrasadas++;
+          debe += (c.resta || c.monto || 0);
+          const diasAtraso = Math.floor((hoy - venc)/dia);
+          if(diasAtraso > masAtraso) masAtraso = diasAtraso;
+        }
+      }
+    });
+  });
+
+  const cumplimiento = cuotasTotal ? Math.round(pagadas/cuotasTotal*100) : 0;
+
+  // 🔴 ROJO: te debe plata vencida
+  if(atrasadas >= 2 || masAtraso > 30){
+    return {
+      nivel: 'rojo', color: '#DC2626', ico: '🔴',
+      titulo: 'ALTO RIESGO',
+      txt: `Te debe ${atrasadas} cuota(s). Atraso de ${masAtraso} días.`,
+      consejo: '🚫 NO le vendas en cuotas. Primero que se ponga al día. Si insiste: solo contado.',
+      pagadas, atrasadas, debe, cumplimiento
+    };
+  }
+  // 🟡 AMARILLO: se atrasó alguna vez
+  if(atrasadas === 1 || masAtraso > 7){
+    return {
+      nivel: 'amarillo', color: '#EA580C', ico: '🟡',
+      titulo: 'RIESGO MEDIO',
+      txt: `Se atrasó ${atrasadas} vez. Cumplió el ${cumplimiento}%.`,
+      consejo: '⚠️ Pedile MÁS enganche (2 cuotas de entrada). Y recordale antes de cada vencimiento.',
+      pagadas, atrasadas, debe, cumplimiento
+    };
+  }
+  // 🟢 VERDE: buen pagador
+  return {
+    nivel: 'verde', color: '#059669', ico: '🟢',
+    titulo: 'BUEN PAGADOR',
+    txt: `Pagó ${pagadas} cuota(s) sin atrasos. Cumplió el ${cumplimiento}%.`,
+    consejo: '✅ Dale tranquilo. Podés ofrecerle más plazo o un producto más caro.',
+    pagadas, atrasadas, debe, cumplimiento
+  };
+}
+
+/* La tarjetita del semáforo (se muestra en la ficha del cliente) */
+function tarjetaRiesgo(clienteId){
+  const r = riesgoCliente(clienteId);
+  return `
+    <div style="background:${r.color}12;border:1.5px solid ${r.color}40;border-left:4px solid ${r.color};border-radius:12px;padding:13px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+        <span style="font-size:1.2rem">${r.ico}</span>
+        <span style="flex:1;font-weight:900;color:${r.color};font-size:.88rem">${r.titulo}</span>
+        ${r.debe ? `<span style="font-size:.78rem;font-weight:900;color:${r.color}">Debe ${fmt(r.debe)}</span>` : ''}
+      </div>
+      <div style="font-size:.78rem;color:var(--sub);margin-bottom:8px">${r.txt}</div>
+      <div style="background:#fff;border-radius:9px;padding:9px 11px;font-size:.78rem;color:var(--txt);line-height:1.45;font-weight:600">
+        ${r.consejo}
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   📅 ALERTA TEMPRANA — avisar 3 DÍAS ANTES, no después
+   El que se atrasa casi nunca es el que "se olvidó".
+   Es el que no tenía la plata. Y eso se avisa antes.
+   ═══════════════════════════════════════════════════════════ */
+function cuotasPorVencer(dias){
+  dias = dias || 3;
+  const hoy = Date.now();
+  const dia = 86400000;
+  const lista = [];
+
+  DB.ventas.forEach(v => {
+    const cli = DB.clientes.find(c => c.id === v.clienteId);
+    if(!cli) return;
+    const cuotas = ventaCuotas(v) || [];
+    cuotas.forEach(c => {
+      if(c.pagada || !c.fecha) return;
+      const venc = new Date(c.fecha).getTime();
+      const faltan = Math.ceil((venc - hoy)/dia);
+      if(faltan >= 0 && faltan <= dias){
+        lista.push({
+          cliente: cli, venta: v, cuota: c,
+          faltan: faltan,
+          monto: c.resta || c.monto || 0
+        });
+      }
+    });
+  });
+  return lista.sort((a,b) => a.faltan - b.faltan);
+}
+
+function abrirAvisosVencimiento(){
+  const porVencer = cuotasPorVencer(3);
+  const vencidas = cuotasVencidas();
+
+  let html = `<div style="font-weight:900;color:var(--az);font-size:1.05rem;margin-bottom:3px">📅 Cobranzas</div>
+    <div style="font-size:.78rem;color:var(--sub);margin-bottom:14px">Avisá ANTES de que se venza. Ahí se cobra. 🐝</div>`;
+
+  // resumen
+  const totalPorVencer = porVencer.reduce((s,x) => s + x.monto, 0);
+  const totalVencido = vencidas.reduce((s,x) => s + x.monto, 0);
+  html += `<div style="display:flex;gap:8px;margin-bottom:14px">
+    <div style="flex:1;background:#FFF7ED;border:1px solid #FED7AA;border-radius:11px;padding:11px;text-align:center">
+      <div style="font-size:1.1rem;font-weight:900;color:#EA580C">${fmt(totalPorVencer)}</div>
+      <div style="font-size:.56rem;color:#EA580C;font-weight:800">POR VENCER (3d)</div></div>
+    <div style="flex:1;background:#FEF2F2;border:1px solid #FECACA;border-radius:11px;padding:11px;text-align:center">
+      <div style="font-size:1.1rem;font-weight:900;color:#DC2626">${fmt(totalVencido)}</div>
+      <div style="font-size:.56rem;color:#DC2626;font-weight:800">YA VENCIDO</div></div>
+  </div>`;
+
+  // 🟠 POR VENCER (acá se salva la plata)
+  if(porVencer.length){
+    html += `<div style="font-weight:900;color:#EA580C;font-size:.88rem;margin-bottom:8px">🔔 Avisales HOY (${porVencer.length})</div>`;
+    porVencer.forEach(x => {
+      const cuando = x.faltan === 0 ? 'vence HOY' : (x.faltan === 1 ? 'vence mañana' : `en ${x.faltan} días`);
+      const msg = `Hola ${x.cliente.nombre.split(' ')[0]}! 👋\n\nTe recuerdo que tu cuota de ${fmt(x.monto)} ${cuando}.\n\nCualquier cosa avisame y lo vemos. 🐝`;
+      html += `<div style="background:#fff;border:1px solid var(--bor);border-left:3px solid #EA580C;border-radius:11px;padding:11px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+          <span style="flex:1;font-weight:900;color:var(--az);font-size:.86rem">${x.cliente.nombre}</span>
+          <span style="font-size:.86rem;font-weight:900;color:#EA580C">${fmt(x.monto)}</span>
+        </div>
+        <div style="font-size:.72rem;color:var(--sub);margin-bottom:8px">🕐 ${cuando}</div>
+        ${x.cliente.telefono ? `<button onclick="window.open('https://wa.me/${String(x.cliente.telefono).replace(/[^0-9]/g,'')}?text=${encodeURIComponent(msg)}','_blank')" style="width:100%;background:#25D366;color:#fff;border:none;border-radius:9px;padding:9px;font-size:.74rem;font-weight:800;cursor:pointer;font-family:inherit">💬 Recordarle (amable)</button>` : ''}
+      </div>`;
+    });
+  }
+
+  // 🔴 VENCIDAS
+  if(vencidas.length){
+    html += `<div style="font-weight:900;color:#DC2626;font-size:.88rem;margin:16px 0 8px">⚠️ Ya vencidas (${vencidas.length})</div>`;
+    vencidas.slice(0,15).forEach(x => {
+      const msg = `Hola ${x.cliente.nombre.split(' ')[0]} 👋\n\nTu cuota de ${fmt(x.monto)} venció hace ${x.diasAtraso} día(s).\n\n¿Podemos coordinar el pago? Si tenés algún problema, hablemos y lo resolvemos. 🐝`;
+      html += `<div style="background:#fff;border:1px solid var(--bor);border-left:3px solid #DC2626;border-radius:11px;padding:11px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+          <span style="flex:1;font-weight:900;color:var(--az);font-size:.86rem">${x.cliente.nombre}</span>
+          <span style="font-size:.86rem;font-weight:900;color:#DC2626">${fmt(x.monto)}</span>
+        </div>
+        <div style="font-size:.72rem;color:#DC2626;font-weight:700;margin-bottom:8px">🔴 ${x.diasAtraso} días de atraso</div>
+        ${x.cliente.telefono ? `<button onclick="window.open('https://wa.me/${String(x.cliente.telefono).replace(/[^0-9]/g,'')}?text=${encodeURIComponent(msg)}','_blank')" style="width:100%;background:#DC2626;color:#fff;border:none;border-radius:9px;padding:9px;font-size:.74rem;font-weight:800;cursor:pointer;font-family:inherit">💬 Escribirle</button>` : ''}
+      </div>`;
+    });
+  }
+
+  if(!porVencer.length && !vencidas.length){
+    html += `<div style="text-align:center;color:var(--sub);padding:34px 20px;font-size:.86rem">
+      <div style="font-size:2.6rem;margin-bottom:8px">✅</div>
+      <b style="color:#059669">¡Todo al día!</b><br>
+      <span style="font-size:.76rem">No hay cuotas por vencer ni vencidas. 🐝</span></div>`;
+  }
+
+  html += `<button onclick="closeModal()" style="width:100%;background:none;border:1.5px solid var(--bor);color:var(--az);border-radius:11px;padding:12px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:10px">Cerrar</button>`;
+  openModal('📅 Cobranzas', html);
+}
+
+function cuotasVencidas(){
+  const hoy = Date.now();
+  const dia = 86400000;
+  const lista = [];
+  DB.ventas.forEach(v => {
+    const cli = DB.clientes.find(c => c.id === v.clienteId);
+    if(!cli) return;
+    (ventaCuotas(v) || []).forEach(c => {
+      if(c.pagada || !c.fecha) return;
+      const venc = new Date(c.fecha).getTime();
+      if(venc < hoy){
+        lista.push({
+          cliente: cli, venta: v, cuota: c,
+          diasAtraso: Math.floor((hoy - venc)/dia),
+          monto: c.resta || c.monto || 0
+        });
+      }
+    });
+  });
+  return lista.sort((a,b) => b.diasAtraso - a.diasAtraso);
+}
+
 function ventaCuotas(v){
   const n = v.cuotas||1;
   const montos = (v.montoCuota>0) ? Array(n).fill(v.montoCuota) : planCuotas(v.precioVenta, n);
@@ -2784,6 +3104,7 @@ function armarBotonAtras(){
 
 /* ============ RENDER ROUTER ============ */
 function render(){
+  try{ renderTareasInicio(); }catch(e){}
   try{ actualizarPagoBadge(); }catch(e){}
   try{ aplicarOcultarTotal(); }catch(e){}
   if(typeof actualizarAvisoBadge==='function') actualizarAvisoBadge();
@@ -6992,6 +7313,7 @@ function detalleCliente(id){
   vsTodas.forEach(v=>ventaCuotas(v).forEach(q=>{ if(q.pagada)pagado+=q.monto; else deuda+=q.monto; }));
   openModal(`<div class="detail-head"><div class="detail-avatar" style="background:${avatarColor(c.nombre)}">${initials(c.nombre)}</div>
     <div><div class="detail-name">#${numCliente(c)} · ${c.nombre} ${(nivelVIP(c.id)?nivelVIP(c.id).ico:'')}</div><span class="rating-pill rp-${cal.cls}">${cal.ico} Cliente ${cal.label}</span> <span class="rating-pill rp-${puntualidad(c.id).cls}">${puntualidad(c.id).ico} ${puntualidad(c.id).label}</span>${nivelVIP(c.id)?` <span class="rating-pill rp-yellow">${nivelVIP(c.id).ico} ${nivelVIP(c.id).label}</span>`:''}</div></div>
+    ${tarjetaRiesgo(id)}
     <div class="info-grid">
       <div class="info-box"><div class="info-lbl">DNI</div><div class="info-val">${c.dni||'—'}</div></div>
       <div class="info-box"><div class="info-lbl">Teléfono</div><div class="info-val">${c.telefono||'—'}</div></div>
@@ -7396,27 +7718,11 @@ function detalleVenta(id){
 }
 async function cobrarCuota(id){
   const v=DB.ventas.find(x=>x.id===id);
-  if(!v){ toast('❌ No encontré esa venta'); return; }        // 🔒 valida que exista
-
-  const total = parseInt(v.cuotas,10) || 0;
-  const yaPagadas = parseInt(v.pagadas,10) || 0;
-
-  // 🔒 no se puede cobrar más cuotas de las que tiene la venta
-  if(total && yaPagadas >= total){
-    toast('✅ Esta venta ya está saldada ('+total+'/'+total+')');
-    return;
-  }
-
-  // 🔒 confirmación (para que no se cobre de más por un toque sin querer)
-  const nro = yaPagadas + 1;
-  const monto = v.valorCuota ? fmt(v.valorCuota) : '';
-  if(!confirm('¿Registrar el pago de la cuota '+nro+' de '+total+'?'+(monto?'\n\n'+monto:''))) return;
-
-  v.pagadas = nro;
+  v.pagadas=(v.pagadas||0)+1;
   await DB.upsertVenta(v);
+  // avisar a los inversionistas cuánto les corresponde de esta cuota
   avisarInversoresCobro(v, v.pagadas);
-  AUDIT.registrar('cobró', 'cuota', 'la cuota '+nro+'/'+total+(monto?' de '+monto:''));
-  toast('✅ Cuota '+nro+'/'+total+' registrada');
+  toast('Pago registrado ✅');
   detalleVenta(id);
 }
 // registra un aviso para cada inversionista con cuánto le toca de la cuota cobrada
@@ -7555,22 +7861,14 @@ async function archivarVenta(id){
 async function toggleCuota(id, num){
   const v=DB.ventas.find(x=>x.id===id); if(!v)return;
   const pagadas=v.pagadas||0;
-  const total=parseInt(v.cuotas,10)||0;
-
-  // 🔒 DESMARCAR es peligroso: borra pagos ya registrados → pide confirmación
-  if(num<=pagadas){
-    const seVan = pagadas - (num-1);
-    if(!confirm('⚠️ Vas a QUITAR '+seVan+' pago(s) ya registrado(s).\n\nQuedarían '+(num-1)+' de '+total+' cuotas pagas.\n\n¿Seguro?')) return;
-    v.pagadas=num-1;
-    AUDIT.registrar('quitó', 'pago', seVan+' pago(s) de la venta');
-  } else {
-    v.pagadas=num;
-    AUDIT.registrar('cobró', 'cuota', 'hasta la cuota '+num+'/'+total);
-  }
+  // Si la cuota tocada ya estaba pagada -> desmarca desde ahí (quedan pagadas las anteriores)
+  // Si no estaba pagada -> marca esta y todas las anteriores como pagadas
+  if(num<=pagadas){ v.pagadas=num-1; }
+  else { v.pagadas=num; }
   if(v.pagadas<0) v.pagadas=0;
-  if(total && v.pagadas>total) v.pagadas=total;
+  if(v.pagadas>v.cuotas) v.pagadas=v.cuotas;
   await DB.upsertVenta(v);
-  toast(num<=pagadas?'✅ Pago quitado':'✅ Pago registrado');
+  toast(num<=pagadas?'Pago quitado':'Pago registrado ✅');
   detalleVenta(id);
 }
 async function delVenta(id){
@@ -7863,6 +8161,49 @@ function abrirTareas(){
   renderTareas();
   setTimeout(()=>{ const i=document.getElementById('nuevaTarea'); if(i) i.focus(); }, 200);
 }
+
+/* 📋 Tareas en la pantalla de inicio (donde Max las quiere ver) */
+function renderTareasInicio(){
+  const cont = document.getElementById('tareasInicio');
+  if(!cont) return;
+  let tareas = [];
+  try{ tareas = JSON.parse(localStorage.getItem('ae_tareas') || '[]'); }catch(e){}
+  const pend = tareas.filter(t => !t.hecha);
+
+  let html = '';
+  if(!pend.length){
+    html = `<div class="card" style="text-align:center;padding:18px;color:var(--sub);font-size:13px">
+      ✅ No tenés tareas pendientes
+      <div style="margin-top:8px"><button onclick="abrirTareas()" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">➕ Agregar tarea</button></div>
+    </div>`;
+  } else {
+    html = '<div class="card" style="padding:12px">';
+    pend.slice(0,4).forEach((t, i) => {
+      const idx = tareas.indexOf(t);
+      html += `<div style="display:flex;align-items:center;gap:9px;padding:8px 0;${i < Math.min(pend.length,4)-1 ? 'border-bottom:1px solid var(--bor)' : ''}">
+        <button onclick="toggleTareaInicio(${idx})" style="width:22px;height:22px;border-radius:6px;border:2px solid var(--bor);background:#fff;cursor:pointer;flex:0 0 auto;padding:0"></button>
+        <span style="flex:1;font-size:13px;color:var(--txt);font-weight:600">${t.txt || t.texto || ''}</span>
+      </div>`;
+    });
+    if(pend.length > 4){
+      html += `<div style="text-align:center;font-size:12px;color:var(--sub);padding-top:8px">…y ${pend.length - 4} más</div>`;
+    }
+    html += `<button onclick="abrirTareas()" style="width:100%;background:none;border:1px solid var(--bor);color:var(--blue);border-radius:8px;padding:9px;font-size:12px;font-weight:700;cursor:pointer;margin-top:8px">Ver todas · ➕ Agregar</button>`;
+    html += '</div>';
+  }
+  cont.innerHTML = html;
+}
+function toggleTareaInicio(i){
+  let tareas = [];
+  try{ tareas = JSON.parse(localStorage.getItem('ae_tareas') || '[]'); }catch(e){}
+  if(tareas[i]){
+    tareas[i].hecha = !tareas[i].hecha;
+    localStorage.setItem('ae_tareas', JSON.stringify(tareas));
+    renderTareasInicio();
+    if(typeof toast === 'function') toast('✅ Tarea completada');
+  }
+}
+
 function renderTareas(){
   const cont=document.getElementById('listaTareas'); if(!cont) return;
   const tareas=cargarTareas();
@@ -8565,7 +8906,6 @@ async function startApp(){
   AUDIT.recargar().then(()=>actualizarAvisoBadge());  // traer avisos de todos al iniciar (solo badge)
   // Revisar mensajes nuevos cada 20s (para el puntito rojo), solo si el chat está cerrado
   setInterval(async()=>{
-    if(document.hidden) return;   // 🔋 app en segundo plano: no gasta datos ni batería
     if(document.getElementById('chatBg') && document.getElementById('chatBg').classList.contains('show')) return;
     await DB.recargarMensajes();
     if(typeof actualizarBadge==='function') actualizarBadge();
@@ -8630,12 +8970,9 @@ async function abrirChat(){
   try{ await DB.recargarMensajes(); await DB.marcarLeidos(); pintarChat(); }catch(e){ console.error('chat:', e); }
   localStorage.setItem('ae_chat_visto', Date.now());
   actualizarBadge();
-  // refresco automático mientras está abierto (6s: ahorra datos y batería, imperceptible)
+  // refresco automático cada 3 segundos mientras está abierto
   if(chatTimer) clearInterval(chatTimer);
-  chatTimer=setInterval(async()=>{
-    if(document.hidden) return;   // 🔋 si la app está en segundo plano, no gasta datos
-    try{ await DB.recargarMensajes(); await DB.marcarLeidos(); pintarChat(); }catch(e){}
-  }, 6000);
+  chatTimer=setInterval(async()=>{ try{ await DB.recargarMensajes(); await DB.marcarLeidos(); pintarChat(); }catch(e){} }, 3000);
 }
 function cerrarChat(){
   document.getElementById('chatBg').classList.remove('show');
