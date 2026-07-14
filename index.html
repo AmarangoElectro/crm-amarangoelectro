@@ -187,7 +187,7 @@
   .alert-x{font-size:11px;color:var(--muted);margin-top:1px;}
   .alert-go{margin-left:auto;}
 
-  .card{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--blue);border-right:3px solid var(--orange);border-radius:16px;padding:16px;box-shadow:0 4px 16px rgba(11,45,107,.05);margin-bottom:10px;}
+  .card{background:var(--wh);border:1px solid var(--bor);border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
   .list-item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--card);border:1px solid var(--border);border-left:3px solid var(--blue);border-right:3px solid var(--orange);border-radius:15px;box-shadow:0 3px 12px rgba(11,45,107,.05);margin-bottom:8px;cursor:pointer;transition:transform .1s;}
   .list-item:active{transform:scale(.98);}
   /* ===== TARJETAS DE CLIENTES ESTILO TRELLO (dos por fila, franja de color arriba) ===== */
@@ -421,7 +421,7 @@
 
   .modal-bg{position:fixed;inset:0;background:rgba(11,45,107,.45);z-index:100;display:none;align-items:flex-end;backdrop-filter:blur(2px);}
   .modal-bg.show{display:flex;}
-  .modal{background:#fff;width:100%;max-height:92vh;border-radius:22px 22px 0 0;padding:8px 18px 90px;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;animation:slideUp .3s ease;}
+  .modal{background:#fff;width:100%;height:auto;max-height:90vh;min-height:50vh;border-radius:22px 22px 0 0;padding:14px 18px calc(30px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;animation:slideUp .28s ease;display:flex;flex-direction:column;}
   /* barra superior del modal con Atrás + Guardar, fija arriba y siempre visible */
   .modal-topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;margin:0 -18px 8px;padding:6px 18px 10px;border-bottom:1px solid rgba(0,0,0,.06);}
   .modal-save-top{background:var(--orange);color:#fff;border:none;border-radius:20px;padding:10px 20px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(255,122,0,.3);-webkit-tap-highlight-color:transparent;}
@@ -568,6 +568,22 @@
     background:#000000 !important;
     border-bottom:1px solid #222 !important;
   }
+
+
+/* ✅ feedback inmediato al tocar (Max: "no se nota que cliqueé") */
+button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
+  transform: scale(.97);
+  opacity: .75;
+  transition: transform .08s, opacity .08s;
+}
+.cuota-check {
+  transition: all .15s;
+}
+.cuota-check.marcando {
+  background: #10B981 !important;
+  border-color: #10B981 !important;
+  transform: scale(1.15);
+}
 
 </style>
 </head>
@@ -1701,8 +1717,8 @@ function datosDashboard(){
     const cli = DB.clientes.find(c => c.id === v.clienteId);
     if(!cli) return;
     (ventaCuotas(v) || []).forEach(c => {
-      if(!c.fecha) return;
-      const venc = new Date(c.fecha).getTime();
+      if(!c.vence) return;
+      const venc = new Date(c.vence+"T12:00:00").getTime();
       const monto = c.monto || 0;
       const resta = c.resta != null ? c.resta : monto;
 
@@ -1996,8 +2012,8 @@ function riesgoCliente(clienteId){
     cuotas.forEach(c => {
       if(c.pagada){ pagadas++; return; }
       // no pagada: ¿está vencida?
-      if(c.fecha){
-        const venc = new Date(c.fecha).getTime();
+      if(c.vence){
+        const venc = new Date(c.vence+"T12:00:00").getTime();
         if(venc < hoy){
           atrasadas++;
           debe += (c.resta || c.monto || 0);
@@ -2073,8 +2089,8 @@ function cuotasPorVencer(dias){
     if(!cli) return;
     const cuotas = ventaCuotas(v) || [];
     cuotas.forEach(c => {
-      if(c.pagada || !c.fecha) return;
-      const venc = new Date(c.fecha).getTime();
+      if(c.pagada || !c.vence) return;
+      const venc = new Date(c.vence+"T12:00:00").getTime();
       const faltan = Math.ceil((venc - hoy)/dia);
       if(faltan >= 0 && faltan <= dias){
         lista.push({
@@ -2159,8 +2175,8 @@ function cuotasVencidas(){
     const cli = DB.clientes.find(c => c.id === v.clienteId);
     if(!cli) return;
     (ventaCuotas(v) || []).forEach(c => {
-      if(c.pagada || !c.fecha) return;
-      const venc = new Date(c.fecha).getTime();
+      if(c.pagada || !c.vence) return;
+      const venc = new Date(c.vence+"T12:00:00").getTime();
       if(venc < hoy){
         lista.push({
           cliente: cli, venta: v, cuota: c,
@@ -3319,7 +3335,7 @@ function renderPanelHoy(){
   // frase según el día del año (rota una por día)
   const diaDelAnio=Math.floor((hoy-new Date(hoy.getFullYear(),0,0))/86400000);
   const fraseHoy=frases[diaDelAnio % frases.length];
-  let html=`<div class="card" style="margin-top:6px;margin-bottom:12px;background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);">
+  let html=`<div class="card" style="margin-top:6px;margin-bottom:12px;background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;">
     <div style="color:#fff;font-size:18px;font-weight:800;">${emo} ${saludo}${yo?(', '+yo):''}! ¿Cómo estás? 😊</div>
     <div style="color:rgba(255,255,255,.85);font-size:13px;margin-top:4px;">${fraseHoy}</div>
   </div>`;
@@ -3334,7 +3350,7 @@ function renderPanelHoy(){
     <div style="font-size:11px;color:var(--muted);margin-top:4px;">Tu parte de todas las ventas donde participás</div>
   </div>`;
   // tarjeta cobrar hoy
-  html+=`<div class="card" style="border-left:4px solid var(--orange);margin-bottom:10px;">
+  html+=`<div class="card" style="margin-bottom:10px;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <span style="font-weight:800;color:var(--blue);">💰 A cobrar hoy</span>
       <span style="font-weight:900;color:var(--orange);font-size:20px;">$${fmt(cobrarHoy)}</span>
@@ -3348,7 +3364,7 @@ function renderPanelHoy(){
   }
   html+=`</div>`;
   // tarjeta tareas — tildables desde la pantalla principal y destacadas
-  html+=`<div class="card" style="border-left:4px solid var(--orange);margin-bottom:10px;background:#fff8f0;">
+  html+=`<div class="card" style="margin-bottom:10px;background:#fff8f0;">
     <div style="display:flex;justify-content:space-between;align-items:center;">
       <span style="font-weight:900;color:var(--orange);font-size:15px;">✅ Mis tareas</span>
       <span style="font-weight:800;color:${tareas.length?'var(--orange)':'var(--green)'};font-size:13px;">${tareas.length?tareas.length+' pendientes':'todo hecho 🎉'}</span>
@@ -4178,7 +4194,7 @@ function renderCobranzas(){
     if(!html){ cont.innerHTML=emptyState('✅','¡Todo al día!','No tenés cobranzas pendientes'); return; }
     // resumen arriba
     const totalTodo=pend.filter(r=>{const v=parseD(r.c.vence);return r.c.vence===hoyStr||r.c.vence===manianaStr||v<hoy||v<=finSemana;}).reduce((s,r)=>s+r.c.monto,0);
-    cont.innerHTML=`<div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);margin-bottom:14px;">
+    cont.innerHTML=`<div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;margin-bottom:14px;">
       <div style="color:rgba(255,255,255,.8);font-size:12px;">A cobrar esta semana (con vencidas)</div>
       <div style="color:#fff;font-size:26px;font-weight:900;">$${fmt(totalTodo)}</div>
     </div>`+html;
@@ -4669,7 +4685,7 @@ function abrirReporteMensual(){
   // clientes nuevos del mes
   const clientesNuevos=DB.clientes.filter(c=>c.alta && mesActual(c.alta)).length;
   openModal(`<div class="modal-title">📊 Reporte de ${mesNom}</div><div class="modal-sub">🐝 AmarangoElectro · el total del negocio</div>
-    <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);margin-bottom:14px;">
+    <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;margin-bottom:14px;">
       <div style="color:rgba(255,255,255,.8);font-size:12px;">Facturado este mes</div>
       <div style="color:#fff;font-size:30px;font-weight:900;">$${fmt(facturado)}</div>
     </div>
@@ -5057,7 +5073,7 @@ function gamaCelu(usd){
 function abrirCargarCelus(){
   const cotizGuardada=localStorage.getItem('ae_cotizdolar')||'';
   openModal(`<div class="modal-title">📱 Cargar lista de celulares</div><div class="modal-sub">Reemplaza los celulares viejos por los nuevos</div>
-    <div class="card" style="padding:10px 12px;margin-bottom:12px;background:#fff4e6;border-left:4px solid var(--orange);">
+    <div class="card" style="padding:10px 12px;margin-bottom:12px;background:#fff4e6;">
       <div style="font-size:12px;color:var(--blue);">⚠️ Esto <b>borra los celulares anteriores</b> y deja solo los de esta lista. Los electrodomésticos NO se tocan. Lo que no esté en la lista nueva, se va (sin stock).</div>
     </div>
     <div class="field"><label>💵 Cotización del dólar</label>
@@ -5647,7 +5663,7 @@ function renderPlacas(){
       <button class="seg-btn" id="plModoVariosBtn" onclick="setPlacaModo('varios')">📋 Varios a la vez</button>
     </div>
     <div id="placaUno">
-    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#fff4e6;border-left:4px solid var(--orange);">
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#fff4e6;">
       <div style="font-size:12px;color:var(--blue);font-weight:700;">✨ Pegá el <b>texto completo</b> del producto (con sus características). El precio tiene que tener <b>$</b> adelante o atrás (ej: $2.000 o 2.000$). Elegí si ese precio es costo, venta o dólar, y el CRM arma todo. 🐝</div>
     </div>
     <div class="field"><label>Pegá el texto del producto *</label>
@@ -5677,7 +5693,7 @@ function renderPlacas(){
     <div id="placaTextoOut"></div>
     </div>
     <div id="placaVarios" style="display:none;">
-      <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#fff4e6;border-left:4px solid var(--orange);">
+      <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#fff4e6;">
         <div style="font-size:12px;color:var(--blue);font-weight:700;">📋 Pegá la <b>lista entera</b> tal cual (con emojis, títulos, todo). El CRM detecta cada precio en USD, lo pasa a pesos con tu cotización y lo reemplaza. El resto queda igual. 🐝</div>
       </div>
       <div class="field"><label>💵 Cotización del dólar (se guarda)</label>
@@ -5867,14 +5883,14 @@ function armarTextoPlaca(){
   // detectar el precio dentro del texto
   const det=detectarPrecioPlaca(textoOrig);
   const precioDetectado=det.valor;
-  if(!precioDetectado){ out.innerHTML=`<div class="card" style="border-left:4px solid var(--orange);"><div style="font-size:13px;color:var(--orange);">⚠️ No encontré el precio. Asegurate de que tenga <b>$</b> adelante o atrás (ej: $250.000 o 250.000$), o USD (ej: 620usd).</div></div>`; return; }
+  if(!precioDetectado){ out.innerHTML=`<div class="card" style=""><div style="font-size:13px;color:var(--orange);">⚠️ No encontré el precio. Asegurate de que tenga <b>$</b> adelante o atrás (ej: $250.000 o 250.000$), o USD (ej: 620usd).</div></div>`; return; }
   // si el texto dice USD/dólar y el usuario no eligió dólar, lo cambio solo
   if(det.esDolar && placaTipo!=='dolar'){ setPlacaTipo('dolar'); return; }
   // calcular el COSTO base según el tipo elegido
   let costoBase=0, precioVenta=0, detalleCuenta='';
   if(placaTipo==='dolar'){
     const cotiz=+document.getElementById('pl_cotiz')?.value||+localStorage.getItem('ae_cotizdolar')||0;
-    if(!cotiz){ out.innerHTML=`<div class="card" style="border-left:4px solid var(--orange);"><div style="font-size:13px;color:var(--orange);">💵 Poné la cotización del dólar arriba para hacer la cuenta.</div></div>`; return; }
+    if(!cotiz){ out.innerHTML=`<div class="card" style=""><div style="font-size:13px;color:var(--orange);">💵 Poné la cotización del dólar arriba para hacer la cuenta.</div></div>`; return; }
     costoBase = Math.round(precioDetectado * cotiz);
     precioVenta = markupVenta(costoBase);
     detalleCuenta = `USD ${fmt(precioDetectado)} × $${fmt(cotiz)} = $${fmt(costoBase)} (costo) → venta`;
@@ -5911,7 +5927,7 @@ function armarTextoPlaca(){
   // texto final: descripción entera arriba (sin el precio viejo) + precio venta y cuotas abajo
   const completo=`${textoLimpio}\n\n💵 *CONTADO: $${fmt(precioVenta)}*\n\n${lineasCuotas}\n\n${cierre}`;
   out.innerHTML=`
-    <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);margin-bottom:12px;">
+    <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;margin-bottom:12px;">
       <div style="color:rgba(255,255,255,.75);font-size:11px;">${detalleCuenta}</div>
       <div style="color:#fff;font-size:26px;font-weight:900;">$${fmt(precioVenta)}</div>
       <div style="color:rgba(255,255,255,.9);font-size:12px;margin-top:4px;">${cuotasSel.map(n=>n+'c × $'+fmt(planCuotas(precioVenta,n)[0]||0)).join('  ·  ')}</div>
@@ -7498,7 +7514,7 @@ function pintarResumenMensualCliente(id){
     ).join('');
   }
   cont.innerHTML=`
-    <div class="card" style="padding:14px;margin-top:14px;border-left:4px solid var(--orange);">
+    <div class="card" style="padding:14px;margin-top:14px;">
       <div style="font-size:13px;font-weight:800;color:var(--blue);margin-bottom:8px;">📅 A pagar en ${meses[mesActual]}</div>
       ${detalleHtml?`<div style="margin-bottom:8px;">${detalleHtml}</div>`:''}
       <div class="calc-line" style="border-top:2px solid var(--border);padding-top:8px;margin-top:4px;">
@@ -8100,7 +8116,7 @@ function verCapital(){
   const disponible=capital-gastos;
   const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   openModal(`<div class="modal-title">🔒 Tu capital</div><div class="modal-sub">Privado · solo en tu teléfono</div>
-    <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;border-left:4px solid var(--orange);margin-bottom:14px;">
+    <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;margin-bottom:14px;">
       <div style="color:rgba(255,255,255,.8);font-size:12px;">Disponible (capital − gastos del mes)</div>
       <div style="color:#fff;font-size:30px;font-weight:900;">$${fmt(disponible)}</div>
     </div>
