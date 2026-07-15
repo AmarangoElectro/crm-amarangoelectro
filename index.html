@@ -137,8 +137,8 @@
   .view-title{font-size:20px;font-weight:800;color:var(--blue);margin-bottom:2px;}
   .view-desc{font-size:12px;color:var(--muted);margin-bottom:16px;}
 
-  .hero{background:var(--card);border:1.5px solid var(--border);border-left:4px solid var(--blue);border-right:4px solid var(--orange);border-radius:18px;padding:22px;color:var(--blue);position:relative;overflow:hidden;margin-bottom:14px;box-shadow:0 6px 22px rgba(11,45,107,.07);cursor:pointer;transition:background .15s,border-color .15s,transform .1s;}
-  .hero:active{background:var(--orange);border-color:var(--orange);border-left-color:#fff;border-right-color:#fff;transform:scale(.99);}
+  .hero{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:22px;color:var(--blue);position:relative;overflow:hidden;margin-bottom:14px;box-shadow:0 6px 22px rgba(11,45,107,.07);cursor:pointer;transition:background .15s,border-color .15s,transform .1s;}
+  .hero:active{background:var(--orange);border-color:var(--orange);transform:scale(.99);}
   .hero:active .hero-label,.hero:active .hero-amt,.hero:active .hero-amt span,.hero:active .hero-sub,.hero:active .hs-val,.hero:active .hs-lbl{color:#fff !important;}
   .hero:active::after{color:rgba(255,255,255,.18);}
   .hero::after{content:'A';position:absolute;right:-8px;bottom:-22px;font-size:115px;font-weight:900;color:rgba(11,45,107,.06);pointer-events:none;}
@@ -158,7 +158,7 @@
   .hs-lbl{font-size:9px;color:var(--muted);font-weight:600;}
 
   .quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
-  .quick{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--blue);border-right:3px solid var(--orange);border-radius:16px;padding:16px;box-shadow:0 4px 16px rgba(11,45,107,.05);}
+  .quick{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;box-shadow:0 4px 16px rgba(11,45,107,.05);}
   .quick-ico{font-size:22px;}
   .quick-val{font-size:26px;font-weight:800;color:var(--blue);margin-top:6px;letter-spacing:-.5px;}
   .quick-lbl{font-size:11px;color:var(--muted);font-weight:600;}
@@ -188,7 +188,7 @@
   .alert-go{margin-left:auto;}
 
   .card{background:var(--wh);border:1px solid var(--bor);border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
-  .list-item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--card);border:1px solid var(--border);border-left:3px solid var(--blue);border-right:3px solid var(--orange);border-radius:15px;box-shadow:0 3px 12px rgba(11,45,107,.05);margin-bottom:8px;cursor:pointer;transition:transform .1s;}
+  .list-item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--card);border:1px solid var(--border);border-radius:15px;box-shadow:0 3px 12px rgba(11,45,107,.05);margin-bottom:8px;cursor:pointer;transition:transform .1s;}
   .list-item:active{transform:scale(.98);}
   /* ===== TARJETAS DE CLIENTES ESTILO TRELLO (dos por fila, franja de color arriba) ===== */
   .cli-lista{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:2px;align-items:start;}
@@ -202,10 +202,6 @@
   .cli-body-prod{font-size:13px;color:var(--blue);font-weight:700;word-break:break-word;}
   .cli-body-debe{font-size:12px;font-weight:800;color:#c62828;margin-top:3px;}
   .cli-body-debe.ok{color:#2e7d32;}
-  .cli-prox-pago{display:inline-block;font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:8px;margin-top:5px;line-height:1.3;}
-  .cli-wa-row{padding:0 14px 10px;}
-  .cli-wa-btn{width:100%;background:#25D366;color:#fff;border:none;border-radius:10px;padding:9px;font-size:12.5px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(37,211,102,.25);-webkit-tap-highlight-color:transparent;}
-  .cli-wa-btn:active{filter:brightness(.93);transform:scale(.98);}
   .cli-cajon-btn{padding:9px 14px;font-size:12.5px;font-weight:800;color:var(--muted);border-top:1px dashed rgba(11,45,107,.12);cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none;}
   .cli-cajon-btn:active{background:rgba(11,45,107,.04);}
   .cli-cajon{padding:4px 14px 12px;background:#f7faff;}
@@ -423,9 +419,9 @@
   .reply-bar-txt{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .reply-bar-x{font-size:20px;color:var(--muted);cursor:pointer;background:none;border:none;flex-shrink:0;}
 
-  .modal-bg{position:fixed;inset:0;background:rgba(11,45,107,.45);z-index:250;display:none;align-items:flex-end;backdrop-filter:blur(2px);}
+  .modal-bg{position:fixed;inset:0;background:rgba(11,45,107,.45);z-index:100;display:none;align-items:flex-end;backdrop-filter:blur(2px);}
   .modal-bg.show{display:flex;}
-  .modal{background:#fff;width:100%;height:auto;max-height:92vh;min-height:50vh;border-radius:22px 22px 0 0;padding:14px 18px calc(90px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;animation:slideUp .28s ease;display:flex;flex-direction:column;}
+  .modal{background:#fff;width:100%;height:auto;max-height:90vh;min-height:50vh;border-radius:22px 22px 0 0;padding:14px 18px calc(30px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;animation:slideUp .28s ease;display:flex;flex-direction:column;}
   /* barra superior del modal con Atrás + Guardar, fija arriba y siempre visible */
   .modal-topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;margin:0 -18px 8px;padding:6px 18px 10px;border-bottom:1px solid rgba(0,0,0,.06);}
   .modal-save-top{background:var(--orange);color:#fff;border:none;border-radius:20px;padding:10px 20px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(255,122,0,.3);-webkit-tap-highlight-color:transparent;}
@@ -1473,14 +1469,11 @@ function aplicarOcultarTotal(){
   });
 }
 const today = () => { const d=new Date(); d.setHours(0,0,0,0); return d; };
-const parseD = s => {
-  if(typeof s==='string'){ const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m){ return new Date(+m[1], +m[2]-1, +m[3], 0,0,0,0); } }
-  const d=new Date(s); d.setHours(0,0,0,0); return d;
-};
+const parseD = s => { const d=new Date(s); d.setHours(0,0,0,0); return d; };
 const addMonths = (d,m) => { const x=new Date(d); x.setMonth(x.getMonth()+m); return x; };
 const addDays = (d,days) => { const x=new Date(d); x.setDate(x.getDate()+days); return x; };
-const isoDate = d => { const x=new Date(d); const y=x.getFullYear(), m=String(x.getMonth()+1).padStart(2,'0'), da=String(x.getDate()).padStart(2,'0'); return `${y}-${m}-${da}`; };
-const dispDate = s => { const d=parseD(s); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}); };
+const isoDate = d => d.toISOString().slice(0,10);
+const dispDate = s => { const d=new Date(s); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}); };
 const initials = n => {
   let s=(n||'');
   s=s.replace(/["""].*?["""]/g,' '); // saca apodos entre comillas dobles
@@ -3613,22 +3606,6 @@ function productoAVencer(cliId){
   if(mejor) return mejor.producto||'Producto';
   return vs.length?(vs[0].producto||'Producto'):'—';
 }
-// Fecha exacta del próximo vencimiento del cliente (la cuota impaga más próxima) + días
-function proxPagoCliente(cliId){
-  const vs=DB.ventas.filter(v=>v.clienteId===cliId);
-  let fechaMin=null, venceISO=null, montoProx=0;
-  vs.forEach(v=>{
-    const px=proxVencimiento(v);
-    if(px){
-      const f=parseD(px.vence);
-      if(fechaMin===null || f<fechaMin){ fechaMin=f; venceISO=px.vence; montoProx=(px.resta!=null?px.resta:px.monto)||0; }
-    }
-  });
-  if(!venceISO) return null;
-  const hoy=today();
-  const dias=Math.round((fechaMin-hoy)/(1000*60*60*24));
-  return { venceISO, dias, monto:montoProx };
-}
 // Detalle de cada venta del cliente para el cajón (producto + cuotas + fecha + estado)
 function detalleVentasCliente(cliId){
   const vs=DB.ventas.filter(v=>v.clienteId===cliId);
@@ -3681,7 +3658,6 @@ function renderClientes(){
     const prodVenc=productoAVencer(c.id);
     const debe=deudaCliente(c.id);
     const debeMes=deudaDelMes(c.id);
-    const prox=proxPagoCliente(c.id);
     const vip=nivelVIP(c.id);
     const pers=personasCliente(c);
     // color de la franja según estado
@@ -3727,27 +3703,6 @@ function renderClientes(){
     if(pers.inv) simbolos+=`<span class="cli-simb" title="Tiene inversionista">💰</span>`;
     if(pers.rev) simbolos+=`<span class="cli-simb" title="Tiene revendedor">🤝</span>`;
     simbolos+='</div>';
-    // Línea de PRÓXIMO PAGO bien visible (fecha exacta + cuenta regresiva) con color por urgencia
-    let proxHtml='';
-    if(prox){
-      let bg,fg,ico,txt;
-      const fecha=dispDate(prox.venceISO);
-      if(prox.dias<0){ // atrasado
-        bg='#ffe5e5'; fg='#c62828'; ico='🔴';
-        txt=`Venció el ${fecha} · hace ${Math.abs(prox.dias)}d`;
-      } else if(prox.dias===0){ // vence hoy
-        bg='#fff3d6'; fg='#b26a00'; ico='⏰';
-        txt=`Paga HOY · ${fecha}`;
-      } else if(prox.dias<=3){ // vence pronto
-        bg='#fff3d6'; fg='#b26a00'; ico='📅';
-        txt=`Paga el ${fecha} · en ${prox.dias}d`;
-      } else { // al día
-        bg='#e7f6ec'; fg='#2e7d32'; ico='📅';
-        txt=`Paga el ${fecha} · en ${prox.dias}d`;
-      }
-      proxHtml=`<div class="cli-prox-pago" style="background:${bg};color:${fg};">${ico} ${txt}</div>`;
-    }
-    const telClean=(c.telefono||'').replace(/[^0-9]/g,'');
     return `<div class="cli-card2">
       <div class="cli-franja" style="background:${colorFranja};" onclick="detalleCliente('${c.id}')">
         <span class="cli-franja-nom">${c.nombre} ${vip?vip.ico:''}</span>
@@ -3755,11 +3710,9 @@ function renderClientes(){
       </div>
       <div class="cli-body" onclick="detalleCliente('${c.id}')">
         <div class="cli-body-prod">📦 ${prodVenc}${nv>1?` <span style="color:var(--muted);">+${nv-1} más</span>`:''}</div>
-        ${proxHtml}
         ${debeMes>0?`<div class="cli-body-debe">Este mes: $${fmt(debeMes)}</div>`:(debe>0?`<div class="cli-body-debe ok" style="color:#e08600;">Nada este mes</div>`:`<div class="cli-body-debe ok">Sin deuda</div>`)}
         ${simbolos}
       </div>
-      ${telClean&&prox?`<div class="cli-wa-row"><button class="cli-wa-btn" onclick="event.stopPropagation();waRecordatorioTarjeta('${c.id}')">📲 Recordar pago</button></div>`:''}
       <div class="cli-cajon-btn" onclick="toggleCajon('${c.id}',event)">
         <span id="cajflecha-${c.id}">▾</span> Ver detalle
       </div>
@@ -7879,11 +7832,13 @@ function detalleVenta(id){
 async function cobrarCuota(id){
   const v=DB.ventas.find(x=>x.id===id);
   v.pagadas=(v.pagadas||0)+1;
-  await DB.upsertVenta(v);
+  // UI al instante (optimista): redibujo primero, guardo después
+  detalleVenta(id);
+  toast('Pago registrado ✅');
   // avisar a los inversionistas cuánto les corresponde de esta cuota
   avisarInversoresCobro(v, v.pagadas);
-  toast('Pago registrado ✅');
-  detalleVenta(id);
+  try{ await DB.upsertVenta(v); }
+  catch(e){ toast('⚠️ No se pudo guardar, reintentá'); }
 }
 // registra un aviso para cada inversionista con cuánto le toca de la cuota cobrada
 function avisarInversoresCobro(v, numCuota){
@@ -8027,9 +7982,11 @@ async function toggleCuota(id, num){
   else { v.pagadas=num; }
   if(v.pagadas<0) v.pagadas=0;
   if(v.pagadas>v.cuotas) v.pagadas=v.cuotas;
-  await DB.upsertVenta(v);
-  toast(num<=pagadas?'Pago quitado':'Pago registrado ✅');
+  // UI al instante (optimista): redibujo primero, guardo después
   detalleVenta(id);
+  toast(num<=pagadas?'Pago quitado':'Pago registrado ✅');
+  try{ await DB.upsertVenta(v); }
+  catch(e){ toast('⚠️ No se pudo guardar, reintentá'); }
 }
 async function delVenta(id){
   const v=DB.ventas.find(x=>x.id===id); if(!v)return;
@@ -8679,36 +8636,7 @@ function waCobranza(id){
   const px=proxVencimiento(v);
   const nombre=(c.nombre||'').split(' ')[0];
   let msg=MSG_COBRANZA;
-  if(px){
-    const dias=Math.round((parseD(px.vence)-today())/(1000*60*60*24));
-    msg=msgRecordatorio(nombre, px.vence, dias);
-  }
-  window.open(waLink(c.telefono,msg),'_blank');
-}
-/* Arma el mensaje de WhatsApp según el momento: antes (recordatorio), el día (vence hoy) o atrasado. Siempre amable y respetuoso. */
-function msgRecordatorio(nombre, venceISO, dias){
-  const fecha=dispDate(venceISO);
-  const hola=`Hola ${nombre||''}`.trim();
-  if(dias<0){
-    // ATRASADO — muy amable
-    return `${hola} 👋 Esperamos que estés muy bien. Queríamos recordarte con cariño que tu cuota con vencimiento el ${fecha} quedó pendiente de pago 🙂.\n\nSi ya la abonaste, por favor ignorá este mensaje. Si necesitás coordinar algo, escribinos con confianza, estamos para ayudarte.\n\n¡Gracias por tu confianza! 🐝 AmarangoElectro`;
-  } else if(dias===0){
-    // VENCE HOY
-    return `${hola} 👋 ¿Cómo estás? Te recordamos amablemente que hoy ${fecha} es la fecha de pago de tu cuota 🗓️.\n\nSi ya abonaste, ignorá este mensaje. ¡Muchas gracias por tu confianza! 🐝 AmarangoElectro`;
-  } else {
-    // ANTES (3 días antes u otro)
-    return `${hola} 😊 ¿Cómo va todo? Te escribimos solo para recordarte que se acerca la fecha de tu próxima cuota, que vence el ${fecha} 🗓️.\n\nQueremos que la tengas presente así llegás sin apuros. Si ya la abonaste, ignorá este mensaje. ¡Gracias por confiar en nosotros! 🐝 AmarangoElectro`;
-  }
-}
-/* Botón 📲 de la tarjeta de cliente: manda el recordatorio correcto según su próximo vencimiento. */
-function waRecordatorioTarjeta(cliId){
-  const c=DB.clientes.find(x=>x.id===cliId);
-  if(!c){ return; }
-  if(!c.telefono){ toast('El cliente no tiene teléfono'); return; }
-  const prox=proxPagoCliente(cliId);
-  if(!prox){ toast('Este cliente no tiene cuotas pendientes'); return; }
-  const nombre=(c.nombre||'').split(' ')[0];
-  const msg=msgRecordatorio(nombre, prox.venceISO, prox.dias);
+  if(px){ msg=`😃 Hola ${nombre}, te recordamos que tu cuota vence el día ${dispDate(px.vence)}.\n\nSi ya abonaste, ignorá este mensaje.\n\n¡Gracias por confiar en AmarangoElectro! 🐝`; }
   window.open(waLink(c.telefono,msg),'_blank');
 }
 function waMasivoAgenda(clave){
