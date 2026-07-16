@@ -1356,11 +1356,29 @@ const DB = {
     }
   },
   saveLocal(){
-    localStorage.setItem('ae_clientes', JSON.stringify(this.clientes));
-    localStorage.setItem('ae_ventas', JSON.stringify(this.ventas));
-    localStorage.setItem('ae_mensajes', JSON.stringify(this.mensajes));
-    localStorage.setItem('ae_productos', JSON.stringify(this.productos));
-    localStorage.setItem('ae_mayoristas', JSON.stringify(this.mayoristas));
+    // Cada guardado va protegido: si uno falla (ej: memoria llena), no rompe los demás
+    // y avisamos claro en vez de perder todo en silencio.
+    const guardar=(clave, dato)=>{
+      try{ localStorage.setItem(clave, JSON.stringify(dato)); return true; }
+      catch(e){
+        const lleno = (e && (e.name==='QuotaExceededError' || e.code===22 || /quota/i.test(e.message||'')));
+        console.error('saveLocal falló en '+clave+':', e);
+        if(lleno && !window._avisoMemoriaLlena){
+          window._avisoMemoriaLlena=true; // no repetir el cartel a cada rato
+          try{ avisoMemoriaLlena(); }catch(_){}
+        }
+        return false;
+      }
+    };
+    // lo más importante primero (clientes y ventas = la plata)
+    const okCli = guardar('ae_clientes', this.clientes);
+    const okVen = guardar('ae_ventas', this.ventas);
+    guardar('ae_productos', this.productos);
+    guardar('ae_mayoristas', this.mayoristas);
+    // los mensajes son lo que MÁS ocupa: si algo falla, este se sacrifica último
+    guardar('ae_mensajes', this.mensajes);
+    // devuelve si lo crítico (plata) se guardó
+    return okCli && okVen;
   },
   async upsertProducto(p){
     this.saveLocal(); // primero el celu: nunca se pierde nada
@@ -1379,9 +1397,11 @@ const DB = {
     return r; // devuelvo el resultado para poder avisar bien arriba
   },
   async upsertVenta(v){
-    this.saveLocal(); // primero el celu: nunca se pierde nada
+    const okLocal = this.saveLocal(); // primero el celu: nunca se pierde nada
+    if(!okLocal){ return {ok:false, local:false, msg:'No se pudo guardar en el teléfono (memoria llena)'}; }
     const r=await subirNube('ventas', v);
-    if(!r.ok){ PENDIENTES.agregar('ventas', v); toast('⚠️ Sin señal: la venta quedó en el celu y se sube sola cuando vuelva'); console.warn('upsertVenta:', r.msg); }
+    if(!r.ok){ PENDIENTES.agregar('ventas', v); console.warn('upsertVenta:', r.msg); }
+    return r;
   },
   async delCliente(id){
     if(CLOUD){ try{ await sb.from('ventas').delete().eq('clienteId',id); await sb.from('clientes').delete().eq('id',id); }catch(e){ console.warn(e); } }
@@ -1610,6 +1630,21 @@ const chipNombre = (n,tipo) => {
   return `<span style="display:inline-flex;align-items:center;gap:4px;font-weight:700;color:${col};">${ico(iconName,12)}${n}</span>`;
 };
 function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+/* Confirmación VERDE bien visible de "guardado" — para que no dudes si se guardó */
+function toastOK(msg){
+  let t=document.getElementById('toastOK');
+  if(!t){
+    t=document.createElement('div');
+    t.id='toastOK';
+    t.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99998;display:flex;justify-content:center;pointer-events:none;transition:transform .25s;transform:translateY(-120%)';
+    t.innerHTML='<div style="background:#16A34A;color:#fff;margin-top:14px;padding:13px 24px;border-radius:14px;font-weight:900;font-size:1rem;box-shadow:0 8px 24px rgba(22,163,74,.45);display:flex;align-items:center;gap:9px"><span style="font-size:1.3rem">✅</span><span id="toastOKtxt"></span></div>';
+    document.body.appendChild(t);
+  }
+  document.getElementById('toastOKtxt').textContent = (msg||'Guardado').replace('✅','').trim();
+  t.style.transform='translateY(0)';
+  clearTimeout(window._toastOKt);
+  window._toastOKt=setTimeout(()=>{ t.style.transform='translateY(-120%)'; }, 1800);
+}
 /* Aviso ROJO grande y persistente: no se va hasta que lo tocás. Para fallos de guardado. */
 function avisoNoGuardado(texto){
   let d=document.getElementById('avisoNoGuardado');
@@ -1626,6 +1661,39 @@ function avisoNoGuardado(texto){
     +'<div style="font-size:.82rem;line-height:1.45;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;margin-bottom:16px">El dato quedó guardado en este celular y se subirá solo cuando vuelva la señal. <b>No lo cargues de nuevo.</b> Revisá que diga «☁️ En la nube» arriba.</div>'
     +'<button onclick="document.getElementById(\'avisoNoGuardado\').remove()" style="background:#fff;color:#DC2626;border:none;border-radius:12px;padding:14px 28px;font-size:1rem;font-weight:900;cursor:pointer;font-family:inherit;width:100%">Entendido</button>'
     +'</div>';
+}
+/* Aviso cuando el almacenamiento del teléfono está LLENO (la causa real de que no guarde) */
+function avisoMemoriaLlena(){
+  let d=document.getElementById('avisoMemoria');
+  if(!d){
+    d=document.createElement('div');
+    d.id='avisoMemoria';
+    d.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(120,0,0,.6);display:flex;align-items:center;justify-content:center;padding:24px';
+    document.body.appendChild(d);
+  }
+  d.innerHTML='<div style="background:#DC2626;color:#fff;border-radius:18px;padding:26px 22px;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.5);text-align:center">'
+    +'<div style="font-size:3rem;margin-bottom:8px">🗄️</div>'
+    +'<div style="font-size:1.3rem;font-weight:900;margin-bottom:10px">LA MEMORIA DE LA APP ESTÁ LLENA</div>'
+    +'<div style="font-size:.9rem;line-height:1.5;margin-bottom:8px">Por eso no se pueden guardar cambios. Lo que más ocupa son los mensajes viejos del chat (con fotos y audios).</div>'
+    +'<div style="font-size:.82rem;line-height:1.45;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;margin-bottom:16px">Tus <b>clientes, ventas y pagos NO se tocan</b>. Solo se limpian mensajes viejos del chat para hacer lugar.</div>'
+    +'<button onclick="liberarEspacioChat()" style="background:#fff;color:#DC2626;border:none;border-radius:12px;padding:14px 20px;font-size:.95rem;font-weight:900;cursor:pointer;font-family:inherit;width:100%;margin-bottom:8px">🧹 Liberar espacio (borrar chats viejos)</button>'
+    +'<button onclick="document.getElementById(\'avisoMemoria\').remove()" style="background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:12px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;width:100%">Ahora no</button>'
+    +'</div>';
+}
+/* Libera espacio borrando mensajes de chat viejos (deja los 200 más recientes). NUNCA toca ventas/clientes. */
+function liberarEspacioChat(){
+  try{
+    const antes = DB.mensajes.length;
+    // ordeno por fecha y dejo los 200 más nuevos
+    DB.mensajes.sort((a,b)=> new Date(a.fecha||a.ts||0) - new Date(b.fecha||b.ts||0));
+    if(DB.mensajes.length>200){ DB.mensajes = DB.mensajes.slice(-200); }
+    window._avisoMemoriaLlena=false; // permitir reintentar
+    const ok = DB.saveLocal();
+    const liberados = antes - DB.mensajes.length;
+    const d=document.getElementById('avisoMemoria'); if(d) d.remove();
+    if(ok){ toast('🧹 Listo, se liberó espacio ('+liberados+' mensajes viejos)'); }
+    else { avisoMemoriaLlena(); }
+  }catch(e){ console.error(e); toast('No se pudo liberar espacio'); }
 }
 function toastUndo(msg){
   const t=document.getElementById('toast');
@@ -7890,11 +7958,12 @@ async function cobrarCuota(id){
   v.pagadas=(v.pagadas||0)+1;
   // UI al instante (optimista): redibujo primero, guardo después
   detalleVenta(id);
-  toast('Pago registrado ✅');
   // avisar a los inversionistas cuánto les corresponde de esta cuota
   avisarInversoresCobro(v, v.pagadas);
-  try{ await DB.upsertVenta(v); }
-  catch(e){ toast('⚠️ No se pudo guardar, reintentá'); }
+  const res = await DB.upsertVenta(v);
+  if(res && res.ok){ toastOK('Pago registrado ✅'); }
+  else if(res && res.local===false){ /* memoria llena: cartel ya salió */ }
+  else { toast('⚠️ No se pudo guardar en la nube, quedó en el celu'); }
 }
 // registra un aviso para cada inversionista con cuánto le toca de la cuota cobrada
 function avisarInversoresCobro(v, numCuota){
@@ -8040,9 +8109,10 @@ async function toggleCuota(id, num){
   if(v.pagadas>v.cuotas) v.pagadas=v.cuotas;
   // UI al instante (optimista): redibujo primero, guardo después
   detalleVenta(id);
-  toast(num<=pagadas?'Pago quitado':'Pago registrado ✅');
-  try{ await DB.upsertVenta(v); }
-  catch(e){ toast('⚠️ No se pudo guardar, reintentá'); }
+  const res = await DB.upsertVenta(v);
+  if(res && res.ok){ toastOK(num<=pagadas?'Pago quitado ✅':'Pago registrado ✅'); }
+  else if(res && res.local===false){ /* memoria llena: el cartel ya salió solo */ }
+  else { toast('⚠️ No se pudo guardar en la nube, quedó en el celu'); }
 }
 async function delVenta(id){
   const v=DB.ventas.find(x=>x.id===id); if(!v)return;
