@@ -880,6 +880,7 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
         <button class="chat-close" onclick="toggleBuscadorChat()" title="Buscar" style="font-size:19px;">🔍</button>
         <button class="chat-close" onclick="verDestacados()" title="Destacados" style="font-size:19px;">⭐</button>
         <button class="chat-close" onclick="activarNotificaciones()" title="Activar notificaciones" style="font-size:19px;">🔔</button>
+        <button class="chat-close" onclick="vaciarChatMenu()" title="Liberar espacio" style="font-size:19px;">🧹</button>
         <button class="chat-close" onclick="cerrarChat()">✕</button>
       </div>
     </div>
@@ -1074,29 +1075,89 @@ function actualizarAvisoBadge(){
   const n=AUDIT.noVistos().length;
   if(n>0){ b.style.display='block'; } else b.style.display='none';
 }
+/* 🛡️ ANTIRROBO: evalúa si un movimiento es sospechoso y por qué */
+function nivelSospecha(a, todos){
+  const razones = [];
+  const hora = new Date(a.ts).getHours();
+  // 1) borrar una venta = plata en juego
+  if(a.accion==='borró' && a.tipo==='venta') razones.push('Se borró una VENTA (hay plata involucrada)');
+  // 2) borrar un cliente
+  if(a.accion==='borró' && a.tipo==='cliente') razones.push('Se borró un cliente completo');
+  // 3) fuera de horario (0 a 6 AM)
+  if(hora>=0 && hora<6) razones.push(`Pasó de madrugada (${String(hora).padStart(2,'0')}:00 hs)`);
+  // 4) ráfaga: 4+ acciones de la misma persona en 5 minutos
+  const cincoMin = 5*60000;
+  const mismos = (todos||[]).filter(x => x.quien===a.quien && Math.abs(x.ts - a.ts) < cincoMin);
+  if(mismos.length >= 4) razones.push(`Ráfaga: ${mismos.length} cambios en pocos minutos`);
+  // nivel: rojo si hay borrado de plata, naranja si algo llama la atención
+  let nivel = 'ok';
+  if(razones.some(r=>r.includes('VENTA')||r.includes('cliente completo'))) nivel='alto';
+  else if(razones.length) nivel='medio';
+  return { nivel, razones };
+}
+
 async function abrirAvisos(){
-  await AUDIT.recargar();   // traer avisos de TODOS desde la nube
+  await AUDIT.recargar();
   const avisos=AUDIT.vigentes();
   AUDIT.marcarVistos(); actualizarAvisoBadge();
-  let lista;
-  if(!avisos.length){
-    lista=`<div style="text-align:center;color:var(--muted);padding:24px;font-size:13px;">No hay avisos.<br>Acá aparecen las ediciones o borrados de cosas que no son propias.</div>`;
+
+  // evaluar sospecha de cada uno
+  const evaluados = avisos.map(a => ({ a, s: nivelSospecha(a, avisos) }));
+  const sospechosos = evaluados.filter(e => e.s.nivel!=='ok');
+  const normales = evaluados.filter(e => e.s.nivel==='ok');
+
+  let html = '';
+  // ── RESUMEN ANTIRROBO
+  if(sospechosos.length){
+    html += `<div style="background:#FEF2F2;border:2px solid #FECACA;border-radius:14px;padding:14px;margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:4px">
+        <span style="font-size:1.6rem">🛡️</span>
+        <div><div style="font-weight:900;color:var(--red);font-size:1.05rem">${sospechosos.length} movimiento(s) para revisar</div>
+        <div style="font-size:12px;color:var(--red)">Fijate si estos cambios los hiciste vos o tu equipo a propósito.</div></div>
+      </div>
+    </div>`;
+    html += sospechosos.map(({a,s}) => tarjetaAviso(a, s)).join('');
   } else {
-    lista=avisos.map(a=>{
-      const col=nombreColor(a.quien);
-      const fecha=new Date(a.ts).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      const accionColor = a.accion==='borró'?'var(--red)':(a.accion==='cobró'?'var(--green)':'var(--orange)');
-      return `<div class="card" style="padding:10px 12px;margin-bottom:8px;border-left:3px solid ${col};">
-        <div style="font-size:13px;line-height:1.5;"><b style="color:${col};">${a.quien}</b> <span style="color:${accionColor};font-weight:700;">${a.accion}</span> ${a.detalle}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:3px;">${fecha}</div>
-      </div>`;
-    }).join('');
+    html += `<div style="background:#F0FDF4;border:1px solid #A7F3D0;border-radius:12px;padding:14px;margin-bottom:14px;text-align:center">
+      <div style="font-size:1.6rem;margin-bottom:4px">🛡️✅</div>
+      <div style="font-weight:800;color:#0a7a3f;font-size:.9rem">Todo en orden</div>
+      <div style="font-size:12px;color:#0a7a3f">No hay movimientos sospechosos.</div>
+    </div>`;
   }
-  openModal(`<div class="modal-title">🔔 Avisos de actividad</div>
-    <div class="modal-sub">Ediciones y borrados de cosas no propias · se borran solos al mes</div>
-    ${lista}
-    <button class="btn btn-ghost" onclick="closeModal()">Cerrar</button>`);
+
+  // ── resto de la actividad
+  if(normales.length){
+    html += `<div style="font-size:.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:6px 2px 8px">Toda la actividad</div>`;
+    html += normales.map(({a,s}) => tarjetaAviso(a, s)).join('');
+  } else if(!sospechosos.length){
+    html += `<div style="text-align:center;color:var(--muted);padding:20px;font-size:13px">Acá aparecen las ediciones o borrados. Se limpian solos al mes.</div>`;
+  }
+
+  openModal(`<div class="modal-title">🛡️ Control de movimientos</div>
+    <div class="modal-sub">Como un antirrobo: te marca lo que no debería haber pasado</div>
+    ${html}
+    <button class="btn btn-ghost" onclick="closeModal()" style="margin-top:6px">Cerrar</button>`);
 }
+
+function tarjetaAviso(a, s){
+  const col = nombreColor(a.quien);
+  const fecha = new Date(a.ts).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const accionColor = a.accion==='borró'?'var(--red)':(a.accion==='cobró'?'var(--green)':'var(--orange)');
+  const borde = s.nivel==='alto' ? '#DC2626' : (s.nivel==='medio' ? '#EA580C' : col);
+  const fondo = s.nivel==='alto' ? '#FEF2F2' : (s.nivel==='medio' ? '#FFF7ED' : 'var(--card)');
+  let alertas = '';
+  if(s.razones && s.razones.length){
+    alertas = `<div style="margin-top:7px;display:grid;gap:4px">` + s.razones.map(r =>
+      `<div style="font-size:11.5px;font-weight:700;color:${s.nivel==='alto'?'#DC2626':'#EA580C'};display:flex;align-items:center;gap:5px">⚠️ ${r}</div>`
+    ).join('') + `</div>`;
+  }
+  return `<div class="card" style="padding:11px 13px;margin-bottom:8px;border-left:4px solid ${borde};background:${fondo}">
+    <div style="font-size:13px;line-height:1.5"><b style="color:${col}">${a.quien}</b> <span style="color:${accionColor};font-weight:700">${a.accion}</span> ${a.detalle}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:3px">${fecha}</div>
+    ${alertas}
+  </div>`;
+}
+
 
 /* ============ NUBE / LOCAL ============ */
 let sb = null, CLOUD = false;
@@ -1893,11 +1954,7 @@ function datosDashboard(){
 
 
 /* ═══════ 💰 MI GANANCIA REAL — panel de finanzas personales con mentor ═══════ */
-/* Gastos mensuales que el usuario carga a mano (alquiler, luz, gas…). Se guardan en el celu. */
-function getGastos(){
-  try{ return JSON.parse(localStorage.getItem('ae_gastos')||'[]'); }catch(e){ return []; }
-}
-function setGastos(g){ try{ localStorage.setItem('ae_gastos', JSON.stringify(g)); }catch(e){} }
+/* (Los gastos usan el sistema por-mes que ya existe: cargarGastos/guardarGastos/abrirGastos) */
 
 /* Ganancia real proyectada repartida por persona.
    Toma TODAS las ventas con cuotas pendientes y reparte la ganancia según los inversores. */
@@ -2159,7 +2216,7 @@ function abrirGananciaReal(){
   const { porPersona, gananciaTotal } = gananciaPorPersona();
   const yo = normPersona(usuarioActual() || 'Maxi');
   const mia = porPersona[yo] ? porPersona[yo].ganancia : 0;
-  const gastos = getGastos();
+  const gastos = cargarGastos();   // sistema por-mes con categorías (el bueno)
   const totalGastos = gastos.reduce((s,g)=>s+(+g.monto||0),0);
   const neto = mia - totalGastos;
 
@@ -2184,22 +2241,24 @@ function abrirGananciaReal(){
     html += `</div>`;
   }
 
-  // ── MIS GASTOS MENSUALES (editable)
+  // ── MIS GASTOS DEL MES (por categoría — usa el sistema por-mes)
   html += `<div style="font-size:.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:4px 2px 8px">Tus gastos del mes</div>`;
   html += `<div style="background:var(--card);border:1px solid var(--bor);border-radius:13px;padding:12px 14px;margin-bottom:10px">`;
   if(gastos.length){
-    gastos.forEach((g,i)=>{
+    // agrupo por categoría
+    const porCat = {};
+    gastos.forEach(g => { const c=g.cat||'Otro'; porCat[c]=(porCat[c]||0)+(+g.monto||0); });
+    Object.keys(porCat).forEach(c => {
       html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bor)">
-        <span style="font-weight:700;color:var(--tx)">${g.nombre||'Gasto'}</span>
-        <span style="display:flex;align-items:center;gap:10px"><b style="color:#DC2626">${fmt(+g.monto||0)}</b>
-        <button onclick="borrarGasto(${i})" style="background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;border-radius:7px;padding:5px 8px;font-size:.7rem;cursor:pointer;font-family:inherit">🗑️</button></span>
+        <span style="font-weight:700;color:var(--tx)">${c}</span>
+        <b style="color:#DC2626">${fmt(porCat[c])}</b>
       </div>`;
     });
-    html += `<div style="display:flex;justify-content:space-between;padding:9px 0 3px"><b style="color:var(--muted)">Total gastos</b><b style="color:#DC2626">${fmt(totalGastos)}</b></div>`;
+    html += `<div style="display:flex;justify-content:space-between;padding:9px 0 3px"><b style="color:var(--muted)">Total gastos del mes</b><b style="color:#DC2626">${fmt(totalGastos)}</b></div>`;
   } else {
-    html += `<div style="text-align:center;color:var(--muted);font-size:.82rem;padding:10px 0">Todavía no cargaste gastos.</div>`;
+    html += `<div style="text-align:center;color:var(--muted);font-size:.82rem;padding:10px 0">Todavía no cargaste gastos este mes.</div>`;
   }
-  html += `<button onclick="agregarGasto()" style="width:100%;background:#F5F8FF;border:1.5px dashed var(--az);color:var(--az);border-radius:10px;padding:11px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:8px">➕ Agregar gasto (alquiler, luz…)</button>`;
+  html += `<button onclick="closeModal();abrirGastos()" style="width:100%;background:#F5F8FF;border:1.5px dashed var(--az);color:var(--az);border-radius:10px;padding:11px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:8px">✏️ Cargar / editar gastos (luz, gas, alquiler…)</button>`;
   html += `</div>`;
 
   // ── EL MENTOR
@@ -2231,6 +2290,14 @@ function mentorHTML(ganancia, gastos, neto){
     colchon = Math.round(neto*0.25);
   }
   const puedeInvertir = Math.max(0, neto - colchon);
+  // tip de interés compuesto cuando hay margen para reinvertir
+  let tipCompuesto = '';
+  if(puedeInvertir > 0 && neto > 0){
+    tipCompuesto = `<div style="background:#EEF6FF;border:1px solid #CFE3FF;border-radius:11px;padding:12px;margin-top:10px">
+      <div style="font-weight:900;color:var(--az);font-size:.86rem;margin-bottom:5px">🔁 Interés compuesto con Amarango</div>
+      <div style="font-size:.8rem;line-height:1.5;color:var(--tx)">En vez de gastarte los <b>${fmt(puedeInvertir)}</b>, reinvertilos en stock nuevo. Cada venta en cuotas te devuelve más de lo que pusiste, y si eso también lo reinvertís, tu capital crece solo, mes a mes. Así se hace grande un negocio: la ganancia trabaja para vos.</div>
+    </div>`;
+  }
   return `<div style="background:${color}10;border:2px solid ${color}55;border-radius:15px;padding:16px;margin-bottom:12px">
     <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
       <span style="font-size:1.7rem">${emoji}</span>
@@ -2244,27 +2311,10 @@ function mentorHTML(ganancia, gastos, neto){
       <div style="flex:1;background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-size:.62rem;color:var(--muted);font-weight:800;text-transform:uppercase">Guardá de colchón</div><div style="font-weight:900;color:var(--az);font-size:1rem">${fmt(colchon)}</div></div>
       <div style="flex:1;background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-size:.62rem;color:var(--muted);font-weight:800;text-transform:uppercase">Podés invertir</div><div style="font-weight:900;color:#0a7a3f;font-size:1rem">${fmt(puedeInvertir)}</div></div>
     </div>`:''}
+    ${tipCompuesto}
   </div>`;
 }
-function agregarGasto(){
-  const nombre = prompt('¿Qué gasto? (ej: Alquiler, Luz, Gas)');
-  if(nombre===null) return;
-  if(!nombre.trim()){ toast('Poné un nombre'); return; }
-  const montoStr = prompt('¿Cuánto es por mes? (solo números)');
-  if(montoStr===null) return;
-  const monto = parseFloat((montoStr||'').replace(/[^0-9.]/g,''))||0;
-  if(monto<=0){ toast('Poné un monto válido'); return; }
-  const g = getGastos(); g.push({nombre:nombre.trim(), monto});
-  setGastos(g);
-  abrirGananciaReal();
-}
-function borrarGasto(i){
-  const g = getGastos();
-  if(!g[i]) return;
-  if(!confirm('¿Borrar el gasto "'+(g[i].nombre)+'"?')) return;
-  g.splice(i,1); setGastos(g);
-  abrirGananciaReal();
-}
+/* (agregarGasto y borrarGasto están más abajo, en el sistema de gastos por-mes) */
 
 /* ═══════════════════════════════════════════════════════════
    🚦 SEMÁFORO DE RIESGO — antes de venderle a alguien, mirá esto
@@ -8333,7 +8383,7 @@ function tareasKey(){ return 'ae_tareas_'+(usuarioActual()||'user'); }
 function cargarTareas(){ try{ return JSON.parse(localStorage.getItem(tareasKey())||'[]'); }catch(e){ return []; } }
 function guardarTareas(arr){ try{ localStorage.setItem(tareasKey(), JSON.stringify(arr)); }catch(e){} actualizarTareaBadge(); }
 /* ============ GASTOS PERSONALES (privados, por usuario y por mes) ============ */
-const GASTOS_CATEGORIAS=['💡 Luz','🔥 Gas','💧 Agua','🏠 Alquiler','🌐 Internet','📱 Teléfono','🍔 Gastos diarios','🚗 Transporte'];
+const GASTOS_CATEGORIAS=['🏠 Alquiler','💡 Luz','🔥 Gas','💧 Agua','🍽️ Comida','🌐 Internet','📱 Teléfono','🚗 Transporte','🛒 Gastos diarios','💳 Servicios','🏥 Salud'];
 function mesClave(){ const d=today(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function gastosKey(){ return 'ae_gastos_'+(usuarioActual()||'user')+'_'+mesClave(); }
 function cargarGastos(){ try{ return JSON.parse(localStorage.getItem(gastosKey())||'[]'); }catch(e){ return []; } }
@@ -9335,6 +9385,61 @@ function pedirNombre(){
   if(n&&n.trim()){ localStorage.setItem('ae_chat_nombre', n.trim()); return n.trim(); }
   return '';
 }
+/* 🧹 Limpiar mensajes del chat a mano — libera espacio sin tocar clientes/ventas */
+function vaciarChatMenu(){
+  const total = DB.mensajes.length;
+  openModal(`<div class="modal-title">🧹 Liberar espacio del chat</div>
+    <div class="modal-sub">Tenés ${total} mensajes guardados. Esto NO toca clientes, ventas ni pagos.</div>
+    <div style="display:grid;gap:9px;margin-top:6px">
+      <button class="btn btn-ghost" style="text-align:left;padding:13px" onclick="limpiarChat('semana')">
+        <b style="color:var(--blue)">🗓️ Borrar los de hace más de 1 semana</b>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Deja los mensajes de los últimos 7 días. Ideal para control semanal.</div>
+      </button>
+      <button class="btn btn-ghost" style="text-align:left;padding:13px" onclick="limpiarChat('mes')">
+        <b style="color:var(--blue)">📅 Borrar los de hace más de 1 mes</b>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Deja el último mes de conversación.</div>
+      </button>
+      <button class="btn btn-ghost" style="text-align:left;padding:13px" onclick="limpiarChat('recientes')">
+        <b style="color:var(--blue)">💬 Dejar solo los últimos 100</b>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Borra todo lo anterior a los 100 mensajes más nuevos.</div>
+      </button>
+      <button class="btn btn-ghost" style="text-align:left;padding:13px;border:1.5px solid #FECACA" onclick="limpiarChat('todo')">
+        <b style="color:var(--red)">🗑️ Borrar TODOS los mensajes</b>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">Vacía el chat por completo. Empezás de cero.</div>
+      </button>
+    </div>`);
+}
+async function limpiarChat(modo){
+  const antes = DB.mensajes.length;
+  const ahora = Date.now();
+  const dia = 86400000;
+  const fechaMsg = m => new Date(m.fecha || m.ts || 0).getTime();
+  let mensaje = '';
+  if(modo==='semana'){
+    DB.mensajes = DB.mensajes.filter(m => (ahora - fechaMsg(m)) < 7*dia);
+    mensaje = 'Borrados los mensajes de más de 1 semana';
+  } else if(modo==='mes'){
+    DB.mensajes = DB.mensajes.filter(m => (ahora - fechaMsg(m)) < 30*dia);
+    mensaje = 'Borrados los mensajes de más de 1 mes';
+  } else if(modo==='recientes'){
+    DB.mensajes.sort((a,b)=> fechaMsg(a) - fechaMsg(b));
+    if(DB.mensajes.length>100) DB.mensajes = DB.mensajes.slice(-100);
+    mensaje = 'Quedaron los últimos 100 mensajes';
+  } else if(modo==='todo'){
+    if(!confirm('¿Seguro que querés borrar TODOS los mensajes del chat?\n\nEsto no se puede deshacer. Tus clientes, ventas y pagos NO se tocan.')) return;
+    DB.mensajes = [];
+    mensaje = 'Chat vaciado por completo';
+  }
+  const borrados = antes - DB.mensajes.length;
+  window._avisoMemoriaLlena = false;
+  DB.saveLocal();
+  // registra en auditoría (queda constancia de la limpieza)
+  try{ AUDIT.registrar('borró', 'chat', `${borrados} mensajes del chat (${modo})`); }catch(e){}
+  closeModal();
+  toastOK(`${mensaje} (${borrados})`);
+  if(document.getElementById('chatBg').classList.contains('show')){ try{ pintarChat(); }catch(e){} }
+}
+
 async function abrirChat(){
   let yo=miNombre();
   if(!yo){ yo=pedirNombre(); if(!yo) return; }
