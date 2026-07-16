@@ -1892,9 +1892,41 @@ function datosDashboard(){
 }
 
 
+/* ═══════ 💰 MI GANANCIA REAL — panel de finanzas personales con mentor ═══════ */
+/* Gastos mensuales que el usuario carga a mano (alquiler, luz, gas…). Se guardan en el celu. */
+function getGastos(){
+  try{ return JSON.parse(localStorage.getItem('ae_gastos')||'[]'); }catch(e){ return []; }
+}
+function setGastos(g){ try{ localStorage.setItem('ae_gastos', JSON.stringify(g)); }catch(e){} }
+
+/* Ganancia real proyectada repartida por persona.
+   Toma TODAS las ventas con cuotas pendientes y reparte la ganancia según los inversores. */
+function gananciaPorPersona(){
+  const porPersona = {};   // nombre -> {ganancia, capital}
+  let gananciaTotal = 0;
+  DB.ventas.forEach(v => {
+    const g = gananciaVenta(v);
+    if(!g) return;
+    gananciaTotal += g;
+    const reparto = repartoInversores(v);
+    if(reparto.length){
+      reparto.forEach(r => {
+        if(!porPersona[r.nombre]) porPersona[r.nombre] = { ganancia:0, puso:0 };
+        porPersona[r.nombre].ganancia += r.ganancia;
+        porPersona[r.nombre].puso += r.puso;
+      });
+    } else {
+      // sin inversores cargados => toda la ganancia es tuya (del responsable o Maxi)
+      const due = normPersona(v.responsable || usuarioActual() || 'Maxi');
+      if(!porPersona[due]) porPersona[due] = { ganancia:0, puso:0 };
+      porPersona[due].ganancia += g;
+    }
+  });
+  return { porPersona, gananciaTotal };
+}
+
 /* 📊 Botón del dashboard — siempre visible */
-function mostrarBotonDashboard(){
-  if(document.getElementById('btnDash')) return;
+function mostrarBotonDashboard(){  if(document.getElementById('btnDash')) return;
   const b = document.createElement('button');
   b.id = 'btnDash';
   b.onclick = abrirDashboard;
@@ -2015,6 +2047,14 @@ function abrirDashboard(){
 
   let html = '';
 
+  // ═══ 💰 acceso a MI GANANCIA REAL (finanzas personales)
+  html += `<button onclick="abrirGananciaReal()" style="width:100%;display:flex;align-items:center;gap:11px;text-align:left;background:linear-gradient(135deg,#04351f,#0a7a3f);border:none;border-radius:14px;padding:14px;cursor:pointer;font-family:inherit;margin-bottom:12px;box-shadow:0 4px 14px rgba(10,122,63,.3)">
+    <span style="font-size:1.7rem">💰</span>
+    <span style="flex:1"><span style="display:block;font-size:.94rem;font-weight:900;color:#fff">Mi ganancia real</span>
+    <span style="display:block;font-size:.72rem;color:rgba(255,255,255,.8)">Cuánto te queda, tus gastos y consejo del mentor</span></span>
+    <span style="color:#a7f3d0;font-size:1.3rem">›</span>
+  </button>`;
+
   // ═══ 💰 ESTE MES (lo primero que ves)
   html += `<div style="background:linear-gradient(160deg,#0a1f4d,#0B2D6B);border-radius:18px;padding:18px;color:#fff;margin-bottom:12px">
     <div style="font-size:.64rem;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">Tenés que cobrar en ${mesNom}</div>
@@ -2112,6 +2152,118 @@ function abrirDashboard(){
   html += `<button onclick="closeModal()" style="width:100%;background:none;border:1.5px solid var(--bor);color:var(--az);border-radius:11px;padding:12px;font-weight:800;cursor:pointer;font-family:inherit">Cerrar</button>`;
 
   openModal('📊 Tu negocio hoy', html);
+}
+
+/* ═══════ 💰 PANEL: MI GANANCIA REAL (con mentor) ═══════ */
+function abrirGananciaReal(){
+  const { porPersona, gananciaTotal } = gananciaPorPersona();
+  const yo = normPersona(usuarioActual() || 'Maxi');
+  const mia = porPersona[yo] ? porPersona[yo].ganancia : 0;
+  const gastos = getGastos();
+  const totalGastos = gastos.reduce((s,g)=>s+(+g.monto||0),0);
+  const neto = mia - totalGastos;
+
+  let html = '';
+  // ── MI GANANCIA (lo primero)
+  html += `<div style="background:linear-gradient(160deg,#04351f,#0a7a3f);border-radius:18px;padding:18px;color:#fff;margin-bottom:12px">
+    <div style="font-size:.64rem;font-weight:800;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.8px">Tu ganancia proyectada (${yo})</div>
+    <div style="font-size:2.1rem;font-weight:900;letter-spacing:-1px;margin:2px 0 4px">${fmt(mia)}</div>
+    <div style="font-size:.72rem;color:rgba(255,255,255,.75)">Es tu ganancia real de todas las ventas activas — no el dinero que se mueve, lo que te queda a favor.</div>
+  </div>`;
+
+  // ── REPARTO POR PERSONA
+  const otras = Object.keys(porPersona).filter(n => normPersona(n)!==yo && porPersona[n].ganancia>0);
+  if(otras.length){
+    html += `<div style="font-size:.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:4px 2px 8px">Ganancia de cada uno</div>`;
+    html += `<div style="background:var(--card);border:1px solid var(--bor);border-radius:13px;padding:6px 14px;margin-bottom:14px">`;
+    html += `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bor)"><span style="font-weight:800;color:${nombreColor(yo)}">${yo} (vos)</span><b style="color:#0a7a3f">${fmt(mia)}</b></div>`;
+    otras.forEach(n => {
+      html += `<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bor)"><span style="font-weight:700;color:${nombreColor(n)}">${n}</span><b style="color:var(--az)">${fmt(porPersona[n].ganancia)}</b></div>`;
+    });
+    html += `<div style="display:flex;justify-content:space-between;padding:9px 0"><span style="font-weight:800;color:var(--muted)">Ganancia total del negocio</span><b style="color:var(--az)">${fmt(gananciaTotal)}</b></div>`;
+    html += `</div>`;
+  }
+
+  // ── MIS GASTOS MENSUALES (editable)
+  html += `<div style="font-size:.7rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:4px 2px 8px">Tus gastos del mes</div>`;
+  html += `<div style="background:var(--card);border:1px solid var(--bor);border-radius:13px;padding:12px 14px;margin-bottom:10px">`;
+  if(gastos.length){
+    gastos.forEach((g,i)=>{
+      html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bor)">
+        <span style="font-weight:700;color:var(--tx)">${g.nombre||'Gasto'}</span>
+        <span style="display:flex;align-items:center;gap:10px"><b style="color:#DC2626">${fmt(+g.monto||0)}</b>
+        <button onclick="borrarGasto(${i})" style="background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;border-radius:7px;padding:5px 8px;font-size:.7rem;cursor:pointer;font-family:inherit">🗑️</button></span>
+      </div>`;
+    });
+    html += `<div style="display:flex;justify-content:space-between;padding:9px 0 3px"><b style="color:var(--muted)">Total gastos</b><b style="color:#DC2626">${fmt(totalGastos)}</b></div>`;
+  } else {
+    html += `<div style="text-align:center;color:var(--muted);font-size:.82rem;padding:10px 0">Todavía no cargaste gastos.</div>`;
+  }
+  html += `<button onclick="agregarGasto()" style="width:100%;background:#F5F8FF;border:1.5px dashed var(--az);color:var(--az);border-radius:10px;padding:11px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:8px">➕ Agregar gasto (alquiler, luz…)</button>`;
+  html += `</div>`;
+
+  // ── EL MENTOR
+  html += mentorHTML(mia, totalGastos, neto);
+
+  html += `<button onclick="closeModal()" style="width:100%;background:none;border:1.5px solid var(--bor);color:var(--az);border-radius:11px;padding:12px;font-weight:800;cursor:pointer;font-family:inherit;margin-top:6px">Cerrar</button>`;
+  openModal('💰 Mi ganancia real', html);
+}
+
+/* El mentor: consejo según cuánto te queda tras los gastos */
+function mentorHTML(ganancia, gastos, neto){
+  let color, emoji, titulo, consejo, colchon;
+  const cubre = gastos>0 ? (ganancia/gastos) : Infinity;
+  if(neto <= 0){
+    color='#DC2626'; emoji='🚨'; titulo='Cuidado: los gastos se comen tu ganancia';
+    consejo='Este mes tus gastos igualan o superan lo que ganás. <b>No es momento de invertir en stock nuevo.</b> Primero asegurá cubrir los gastos fijos.';
+    colchon = 0;
+  } else if(cubre < 1.5){
+    color='#EA580C'; emoji='⚠️'; titulo='Vas ajustado';
+    consejo='Te queda algo a favor, pero poco. Invertí <b>con cuidado</b> y solo en cosas seguras que rotan rápido. Guardá un colchón por si un cliente se atrasa.';
+    colchon = Math.round(neto*0.5);
+  } else if(cubre < 3){
+    color='#0a7a3f'; emoji='✅'; titulo='Vas bien';
+    consejo='Cubrís tus gastos con margen. <b>Podés reinvertir</b> una parte en stock nuevo, dejando un colchón para imprevistos.';
+    colchon = Math.round(neto*0.35);
+  } else {
+    color='#0a7a3f'; emoji='🚀'; titulo='Vas muy bien';
+    consejo='Tu ganancia cubre de sobra tus gastos. Es <b>momento inteligente para crecer</b>: reinvertí en más stock o sumá inversores. Igual, guardá siempre un colchón.';
+    colchon = Math.round(neto*0.25);
+  }
+  const puedeInvertir = Math.max(0, neto - colchon);
+  return `<div style="background:${color}10;border:2px solid ${color}55;border-radius:15px;padding:16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
+      <span style="font-size:1.7rem">${emoji}</span>
+      <div style="font-weight:900;color:${color};font-size:1.05rem">${titulo}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:.86rem"><span style="color:var(--muted)">Tu ganancia</span><b style="color:#0a7a3f">${fmt(ganancia)}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:.86rem;border-bottom:1px solid ${color}33"><span style="color:var(--muted)">− Tus gastos</span><b style="color:#DC2626">${fmt(gastos)}</b></div>
+    <div style="display:flex;justify-content:space-between;padding:9px 0;font-size:.95rem"><span style="font-weight:800;color:var(--tx)">Te queda a favor</span><b style="color:${color};font-size:1.15rem">${fmt(neto)}</b></div>
+    <div style="font-size:.84rem;line-height:1.5;color:var(--tx);background:#fff;border-radius:10px;padding:11px;margin-top:8px">${consejo}</div>
+    ${neto>0?`<div style="display:flex;gap:8px;margin-top:10px">
+      <div style="flex:1;background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-size:.62rem;color:var(--muted);font-weight:800;text-transform:uppercase">Guardá de colchón</div><div style="font-weight:900;color:var(--az);font-size:1rem">${fmt(colchon)}</div></div>
+      <div style="flex:1;background:#fff;border-radius:10px;padding:10px;text-align:center"><div style="font-size:.62rem;color:var(--muted);font-weight:800;text-transform:uppercase">Podés invertir</div><div style="font-weight:900;color:#0a7a3f;font-size:1rem">${fmt(puedeInvertir)}</div></div>
+    </div>`:''}
+  </div>`;
+}
+function agregarGasto(){
+  const nombre = prompt('¿Qué gasto? (ej: Alquiler, Luz, Gas)');
+  if(nombre===null) return;
+  if(!nombre.trim()){ toast('Poné un nombre'); return; }
+  const montoStr = prompt('¿Cuánto es por mes? (solo números)');
+  if(montoStr===null) return;
+  const monto = parseFloat((montoStr||'').replace(/[^0-9.]/g,''))||0;
+  if(monto<=0){ toast('Poné un monto válido'); return; }
+  const g = getGastos(); g.push({nombre:nombre.trim(), monto});
+  setGastos(g);
+  abrirGananciaReal();
+}
+function borrarGasto(i){
+  const g = getGastos();
+  if(!g[i]) return;
+  if(!confirm('¿Borrar el gasto "'+(g[i].nombre)+'"?')) return;
+  g.splice(i,1); setGastos(g);
+  abrirGananciaReal();
 }
 
 /* ═══════════════════════════════════════════════════════════
