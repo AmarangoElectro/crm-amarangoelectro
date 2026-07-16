@@ -1238,7 +1238,10 @@ async function vaciarPendientesAtascados(){
 }
 // intenta subir un registro a la nube; NUNCA lanza error (devuelve ok:true/false)
 async function subirNube(tabla, dato){
-  if(!CLOUD || !sb) return {ok:true};
+  // Si la nube NO está activa (ej: se abrió sin señal y no cargó la librería),
+  // NO mentimos con ok:true. Devolvemos fallo para que el dato vaya a PENDIENTES
+  // y suba solo cuando vuelva la señal. Así nunca se pierde un cliente.
+  if(!CLOUD || !sb) return {ok:false, msg:'nube no activa (se guardó en el celu y sube al volver la señal)'};
   try{
     // .select() OBLIGA a Supabase a devolver la fila escrita. Si RLS bloquea en silencio,
     // no vuelve ninguna fila -> lo detectamos como fallo (antes pasaba desapercibido).
@@ -1270,27 +1273,59 @@ async function procesarPendientes(){
 }
 window.addEventListener('online', procesarPendientes);
 const CHAT_LIMITE = 60; // cuántos mensajes recientes cargar en el chat (rendimiento)
+
+/* ═══════ FUSIÓN SEGURA nube + celu ═══════
+   La nube es la fuente principal, PERO si un registro está en el celu y NO en la
+   nube, es porque no llegó a subir. Se conserva y se pone en la cola para subir.
+   Así abrir la app JAMÁS borra un cliente que cargaste sin señal. */
+function fusionar(nube, local, tabla){
+  nube = Array.isArray(nube)?nube:[];
+  local = Array.isArray(local)?local:[];
+  const porId = new Map();
+  // primero la nube (versión oficial)
+  nube.forEach(r=>{ if(r&&r.id!=null) porId.set(r.id, r); });
+  // después lo local: lo que NO esté en la nube, se conserva y se marca para subir
+  local.forEach(r=>{
+    if(!r||r.id==null) return;
+    if(!porId.has(r.id)){
+      porId.set(r.id, r);
+      // estaba solo en el celu → a la cola para que suba
+      try{ if(tabla==='clientes'||tabla==='ventas'||tabla==='productos') PENDIENTES.agregar(tabla, r); }catch(e){}
+    }
+  });
+  return Array.from(porId.values());
+}
+
 const DB = {
   clientes: [], ventas: [], mensajes: [], productos: [], mayoristas: [],
   async load(){
     if(CLOUD){
       try{
+        // 1º SIEMPRE leo primero lo que hay en el celu (nunca se descarta)
+        let locCli=[], locVen=[], locMsg=[], locProd=[];
+        try{ locCli = JSON.parse(localStorage.getItem('ae_clientes')||'[]'); }catch(e){}
+        try{ locVen = JSON.parse(localStorage.getItem('ae_ventas')||'[]'); }catch(e){}
+        try{ locMsg = JSON.parse(localStorage.getItem('ae_mensajes')||'[]'); }catch(e){}
+        try{ locProd = JSON.parse(localStorage.getItem('ae_productos')||'[]'); }catch(e){}
+
         const {data:cli} = await sb.from('clientes').select('*').order('num',{ascending:true}).limit(100000);
         const {data:ven} = await sb.from('ventas').select('*').limit(100000);
-        this.clientes = cli||[]; this.ventas = ven||[];
-        try{ const {data:msg} = await sb.from('mensajes').select('*').limit(100000); this.mensajes = msg||[]; }catch(e){ this.mensajes=[]; }
-        try{ const {data:prod} = await sb.from('productos').select('*').limit(100000); this.productos = prod||[]; }catch(e){ this.productos=[]; }
+        let nubeCli = cli||[], nubeVen = ven||[];
+        let nubeMsg=[], nubeProd=[];
+        try{ const {data:msg} = await sb.from('mensajes').select('*').limit(100000); nubeMsg = msg||[]; }catch(e){}
+        try{ const {data:prod} = await sb.from('productos').select('*').limit(100000); nubeProd = prod||[]; }catch(e){}
+
+        // 2º FUSIÓN: la nube manda, pero NUNCA se pierde algo que esté solo en el celu.
+        //    Si un cliente del celu no está en la nube, es porque no llegó a subir → lo conservo Y lo mando a subir.
+        this.clientes = fusionar(nubeCli, locCli, 'clientes');
+        this.ventas   = fusionar(nubeVen, locVen, 'ventas');
+        this.mensajes = fusionar(nubeMsg, locMsg, 'mensajes');
+        this.productos= fusionar(nubeProd, locProd, 'productos');
         try{ this.mayoristas = JSON.parse(localStorage.getItem('ae_mayoristas')||'[]'); }catch(e){ this.mayoristas=[]; }
-        // 1º intentar subir lo pendiente (así la nube queda al día ANTES de mostrar nada)
+
+        // 3º guardo la fusión en el celu y subo lo que faltaba
+        this.saveLocal();
         await procesarPendientes();
-        // 2º reinyectar SOLO lo que realmente no logró subir (sigue en la cola tras el intento).
-        //    Si un pendiente ya subió, la nube ya lo tiene y NO lo pisamos con la versión vieja.
-        PENDIENTES.load().forEach(p=>{
-          if(!p.dato || !p.dato.id) return;
-          if(p.tabla==='clientes' && !this.clientes.find(x=>x.id===p.dato.id)) this.clientes.push(p.dato);
-          if(p.tabla==='ventas' && !this.ventas.find(x=>x.id===p.dato.id)) this.ventas.push(p.dato);
-          if(p.tabla==='productos' && !this.productos.find(x=>x.id===p.dato.id)) this.productos.push(p.dato);
-        });
         this.semillaMayoristas();
         return;
       }catch(e){ console.error(e); }
@@ -1340,7 +1375,8 @@ const DB = {
   async upsertCliente(c){
     this.saveLocal(); // primero el celu: nunca se pierde nada
     const r=await subirNube('clientes', c);
-    if(!r.ok){ PENDIENTES.agregar('clientes', c); toast('⚠️ Sin señal: el cliente quedó en el celu y se sube solo cuando vuelva'); console.warn('upsertCliente:', r.msg); }
+    if(!r.ok){ PENDIENTES.agregar('clientes', c); console.warn('upsertCliente:', r.msg); }
+    return r; // devuelvo el resultado para poder avisar bien arriba
   },
   async upsertVenta(v){
     this.saveLocal(); // primero el celu: nunca se pierde nada
@@ -1574,6 +1610,23 @@ const chipNombre = (n,tipo) => {
   return `<span style="display:inline-flex;align-items:center;gap:4px;font-weight:700;color:${col};">${ico(iconName,12)}${n}</span>`;
 };
 function toast(msg){ const t=document.getElementById('toast'); t.innerHTML=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+/* Aviso ROJO grande y persistente: no se va hasta que lo tocás. Para fallos de guardado. */
+function avisoNoGuardado(texto){
+  let d=document.getElementById('avisoNoGuardado');
+  if(!d){
+    d=document.createElement('div');
+    d.id='avisoNoGuardado';
+    d.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(120,0,0,.55);display:flex;align-items:center;justify-content:center;padding:24px';
+    document.body.appendChild(d);
+  }
+  d.innerHTML='<div style="background:#DC2626;color:#fff;border-radius:18px;padding:26px 22px;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.5);text-align:center">'
+    +'<div style="font-size:3rem;margin-bottom:8px">⚠️</div>'
+    +'<div style="font-size:1.3rem;font-weight:900;margin-bottom:10px">NO SE GUARDÓ EN LA NUBE</div>'
+    +'<div style="font-size:.92rem;line-height:1.5;margin-bottom:8px">'+texto+'</div>'
+    +'<div style="font-size:.82rem;line-height:1.45;background:rgba(255,255,255,.15);border-radius:10px;padding:10px;margin-bottom:16px">El dato quedó guardado en este celular y se subirá solo cuando vuelva la señal. <b>No lo cargues de nuevo.</b> Revisá que diga «☁️ En la nube» arriba.</div>'
+    +'<button onclick="document.getElementById(\'avisoNoGuardado\').remove()" style="background:#fff;color:#DC2626;border:none;border-radius:12px;padding:14px 28px;font-size:1rem;font-weight:900;cursor:pointer;font-family:inherit;width:100%">Entendido</button>'
+    +'</div>';
+}
 function toastUndo(msg){
   const t=document.getElementById('toast');
   t.innerHTML=`${msg} &nbsp;<span style="color:var(--orange-light);font-weight:800;text-decoration:underline;cursor:pointer;" onclick="deshacerUltimo();document.getElementById('toast').classList.remove('show');">↩️ Deshacer</span>`;
@@ -6695,7 +6748,10 @@ async function saveCliente(id){
     rec={id:'c'+Date.now(), num:maxNum+1, alta:isoDate(today()), ...data}; 
     DB.clientes.push(rec); 
   }
-  await DB.upsertCliente(rec); closeModal(); toast('Cliente guardado'); render();
+  const res = await DB.upsertCliente(rec);
+  closeModal(); render();
+  if(res && res.ok){ toast('✅ Cliente guardado y en la nube'); }
+  else { avisoNoGuardado('El cliente «'+nombre+'» no se pudo confirmar en la nube.'); }
 }
 
 /* ============ FORM VENTA ============ */
