@@ -8087,10 +8087,16 @@ function repartoInversores(v){
       ganancia = Math.round(gananciaTotal*pct/100);
     }
     const recibe = puso + ganancia;
+    // Lo que le pasás por CADA cuota que cobrás del cliente:
+    // - Socios Amarango (Maxi/Ángela): su % de la cuota del cliente (con 50/50 = la mitad).
+    // - Invitados: recuperan capital+retorno repartido a lo largo de las cuotas.
+    const _porCuota = esInvitado(nombre)
+      ? Math.round(recibe / (_n>0?_n:1))
+      : Math.round(_cuotaCliente * pct / 100);
     return {
       nombre, pct, puso, ganancia, recibe,
       esInvitado: esInvitado(nombre),
-      recibePorCuota: Math.round(recibe / (_n>0?_n:1))
+      recibePorCuota: _porCuota
     };
   });
 }
