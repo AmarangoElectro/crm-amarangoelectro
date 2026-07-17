@@ -7893,6 +7893,10 @@ function listaInversoresVenta(v){
   }
   return invs;
 }
+/* Retorno fijo que gana un inversor sobre SU capital (no sobre la ganancia de Max).
+   Modelo profesional: el inversor presta plata y recupera capital + este %. */
+const RETORNO_INVERSOR = 0.30;   // 30% fijo — editable si algún día se ajusta
+
 function repartoInversores(v){
   // CAPITAL real que se invierte = costo + 1ra parte comisión + envío − 1ra cuota del cliente
   const _costo=v.precioCosto||0;
@@ -7903,7 +7907,6 @@ function repartoInversores(v){
   let _primeraCuota=0;
   if(v.tipo!=='prestamo' && _n>1){ _primeraCuota=(v.montoCuota>0?v.montoCuota:planCuotas(v.precioVenta||0,_n)[0])||0; }
   const costo=Math.max(0, _costo + _com1ra + _envio - _primeraCuota);
-  const gananciaTotal=gananciaVenta(v);
   let invs=listaInversoresVenta(v);
   // expandir "Amarango" = Angela 50 + Maxi 50 de su parte
   let expand=[];
@@ -7916,18 +7919,30 @@ function repartoInversores(v){
   });
   const mapa={};
   expand.forEach(x=>{ mapa[x.nombre]=(mapa[x.nombre]||0)+x.pct; });
-  // Cuota que paga el cliente (lo que realmente entra por cada cuota cobrada)
+  // ¿quiénes son los DUEÑOS? (Maxi y Ángela ganan por el markup, no por retorno fijo)
+  const esDueno = (nombre)=>{ const n=(nombre||'').toLowerCase(); return n==='maxi'||n==='max'||n==='maximiliano'||n==='angela'||n==='ángela'; };
+  const gananciaTotal=gananciaVenta(v);
   const _cuotaCliente = (v.tipo!=='prestamo' && _n>0)
     ? ((v.montoCuota>0?v.montoCuota:(planCuotas(v.precioVenta||0,_n)[0]))||Math.round((v.precioVenta||0)/_n))
     : Math.round((v.precioVenta||0)/_n);
-  return Object.entries(mapa).map(([nombre,pct])=>({
-    nombre, pct,
-    puso: Math.round(costo*pct/100),
-    ganancia: Math.round(gananciaTotal*pct/100),
-    recibe: Math.round(costo*pct/100)+Math.round(gananciaTotal*pct/100),
-    // REGLA REAL DE MAX: cada cuota del cliente se reparte ENTERA según el %
-    recibePorCuota: Math.round(_cuotaCliente*pct/100)
-  }));
+  return Object.entries(mapa).map(([nombre,pct])=>{
+    const puso = Math.round(costo*pct/100);
+    let ganancia;
+    if(esDueno(nombre)){
+      // los dueños se llevan su parte de la GANANCIA real (por el markup)
+      ganancia = Math.round(gananciaTotal*pct/100);
+    } else {
+      // un inversor externo gana RETORNO FIJO sobre lo que puso (no ve el markup)
+      ganancia = Math.round(puso*RETORNO_INVERSOR);
+    }
+    const recibe = puso + ganancia;
+    return {
+      nombre, pct, puso, ganancia, recibe,
+      esInversorExterno: !esDueno(nombre),
+      // lo que le corresponde por cada cuota cobrada = su recupero repartido en las cuotas
+      recibePorCuota: Math.round(recibe / (_n>0?_n:1))
+    };
+  });
 }
 /* ============ SOLICITUD DE INVERSIÓN ============ */
 // muestra los inversores de una venta para elegir a quién mandarle la solicitud
@@ -7955,15 +7970,17 @@ function armarMensajeInversion(v, nombreInv){
   if(!r) return '';
   const cuotas=v.cuotas||1;
   const porCuota=Math.round(r.recibe/cuotas);
-  let msg=`🐝 *AmarangoElectro — Solicitud de inversión*\n\n`;
-  msg+=`Hola ${nombreInv}! Te propongo una inversión para esta operación:\n\n`;
+  let msg=`🐝 *AmarangoElectro — Propuesta de inversión*\n\n`;
+  msg+=`Hola ${nombreInv}! Te propongo sumarte a esta operación:\n\n`;
   msg+=`📦 *Producto:* ${v.producto}\n`;
   msg+=`👤 *Cliente:* ${cli.nombre}\n`;
   if(cli.localidad) msg+=`📍 *Zona:* ${cli.localidad}\n`;
-  msg+=`\n💰 *Tu inversión:* $${fmt(r.puso)} (${r.pct}%)\n`;
-  msg+=`📈 *Tu ganancia:* $${fmt(r.ganancia)}\n`;
+  msg+=`\n💵 *Ponés:* $${fmt(r.puso)}\n`;
+  const retornoPct = Math.round((r.ganancia/(r.puso||1))*100);
+  msg+=`📈 *Ganás:* $${fmt(r.ganancia)} (${retornoPct}% fijo)\n`;
   msg+=`✅ *Recuperás en total:* $${fmt(r.recibe)}\n`;
-  msg+=`📅 *Forma de pago:* ${cuotas} cuota${cuotas>1?'s':''} de $${fmt(porCuota)}\n`;
+  msg+=`📅 *Cómo cobrás:* ${cuotas} cuota${cuotas>1?'s':''} de $${fmt(porCuota)}, a medida que el cliente paga\n`;
+  msg+=`\n🔒 Tu ganancia es *fija*: la cobrás cuando el cliente paga. Nosotros ponemos el producto, el trabajo y la garantía.\n`;
   msg+=`\n¿Te sumás? 🤝`;
   return msg;
 }
