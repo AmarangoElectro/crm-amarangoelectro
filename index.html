@@ -7937,7 +7937,7 @@ function detalleCliente(id){
     <div id="resumenMensualCli"></div>
     <button class="btn btn-orange" style="margin-top:4px;" onclick="formVenta('${id}')">➕ Agregar producto / venta</button>
     <button class="btn btn-ghost btn-sm" style="margin-top:12px;color:var(--blue);" onclick="recalcularVentasCliente('${id}')">🔄 Recalcular ganancias de este cliente</button>
-    <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--red);" onclick="delCliente('${id}')">🗑️ Eliminar cliente</button>`);
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--red);" onclick="delCliente('${id}')">🗑️ Eliminar tarjeta del cliente</button>`);
   pintarResumenMensualCliente(id);
 }
 /* Calcula y muestra cuánto tiene que pagar el cliente ESTE MES (suma de cuotas que vencen en el mes en curso) */
@@ -8162,9 +8162,54 @@ function copiarInv(ventaId, nombreInv){
   });
 }
 // Bloque para tildar los pagos que le hago al inversionista y al revendedor
+// Teléfonos de los socios/equipo para avisarles por WhatsApp cuánto les toca de una cuota.
+// Si un socio no está acá, se abre WhatsApp sin número y Max elige el contacto.
+const TEL_SOCIOS = {
+  'Angela':'5491168746034',
+  'Maxi':'5491168610532',
+  'Selene':'5491162107212'
+};
+function telDeSocio(nombre){
+  const n=normPersona(nombre);
+  if(TEL_SOCIOS[n]) return TEL_SOCIOS[n];
+  // buscar en usuarios/clientes por si tiene tel cargado
+  const u=(typeof getUsuarios==='function'?getUsuarios():[]).find(x=>normPersona(x.nombre)===n);
+  if(u && u.telefono) return u.telefono;
+  return '';
+}
+// Avisar por WhatsApp a un socio cuánto le corresponde de las cuotas cobradas de esta venta
+function avisarPagoSocio(ventaId, nombreSocio, montoPorCuota, cuotasCobradas){
+  const v=DB.ventas.find(x=>x.id===ventaId);
+  const cli=v?DB.clientes.find(c=>c.id===v.clienteId):null;
+  const total=montoPorCuota*cuotasCobradas;
+  const nombreCli=cli?cli.nombre:'el cliente';
+  const prod=v?v.producto:'';
+  let msg=`🐝 *AmarangoElectro*\n\n`;
+  msg+=`Hola ${nombreSocio}! Cobré `;
+  msg+=(cuotasCobradas===1?`1 cuota`:`${cuotasCobradas} cuotas`);
+  msg+=` de *${nombreCli}*`;
+  if(prod) msg+=` (${prod})`;
+  msg+=`.\n\nTe toca: *$${fmt(total)}*`;
+  if(cuotasCobradas>1) msg+=`\n(${cuotasCobradas} × $${fmt(montoPorCuota)} por cuota)`;
+  msg+=`\n\nTe lo paso ahora 🤝`;
+  const tel=telDeSocio(nombreSocio);
+  if(tel){ window.open(waLink(tel,msg),'_blank'); }
+  else {
+    // sin número: copiamos el mensaje y avisamos
+    try{
+      const ta=document.createElement('textarea'); ta.value=msg; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      toast('📋 No tengo el WhatsApp de '+nombreSocio+'. Copié el mensaje para que se lo pegues.');
+    }catch(e){ toast('No tengo el WhatsApp de '+nombreSocio); }
+  }
+}
 function bloquePagosTercerosHTML(v){
   const cuotasCobradas = v.pagadas||0;         // cuántas cuotas cobré del cliente
   const nCuotas = v.cuotas||1;
+  // Monto de cada cuota que paga el cliente (para repartir entre socios Amarango)
+  const _montoCuotaCliente = (v.montoCuota>0)
+    ? v.montoCuota
+    : ((typeof planCuotas==='function' && nCuotas>1) ? (planCuotas(v.precioVenta||0, nCuotas)[0]||0) : Math.round((v.precioVenta||0)/(nCuotas||1)));
   let html='';
   // ¿hay inversionista con reparto?
   const reparto = (typeof repartoInversores==='function') ? repartoInversores(v) : [];
@@ -8181,7 +8226,11 @@ function bloquePagosTercerosHTML(v){
   // INVERSIONISTA
   if(hayInv){
     reparto.forEach((r,idx)=>{
-      const recibePorCuota = r.recibePorCuota||Math.round(r.recibe/nCuotas);
+      // Socios Amarango (Ángela/Maxi): les toca su parte de CADA CUOTA que cobrás del cliente
+      // (con 50/50, es la mitad de la cuota). Invitados: mantienen su retorno sobre el capital.
+      const recibePorCuota = r.esInvitado
+        ? (r.recibePorCuota||Math.round(r.recibe/nCuotas))
+        : Math.round(_montoCuotaCliente * (r.pct||0) / 100);
       const debeAcum = recibePorCuota*cuotasCobradas;     // lo que le corresponde por lo cobrado hasta ahora
       const yaPagado = (v.pagoInv && v.pagoInv[r.nombre]) ? v.pagoInv[r.nombre] : 0; // cuántas cuotas ya le pagué
       const pagadoMonto = recibePorCuota*yaPagado;
@@ -8192,6 +8241,7 @@ function bloquePagosTercerosHTML(v){
           <span style="font-weight:800;color:${col};">💰 ${r.nombre}</span>
           <span style="font-size:12px;color:${pendiente>0?'var(--red)':'var(--green)'};font-weight:800;">${pendiente>0?'Le debés $'+fmt(pendiente):'✅ Al día'}</span>
         </div>
+        ${(cuotasCobradas>0)?`<button class="btn btn-green btn-sm" style="margin-top:7px;width:100%;" onclick="avisarPagoSocio('${v.id}','${r.nombre.replace(/'/g,"\\'")}',${recibePorCuota},${cuotasCobradas})">📲 Avisarle a ${r.nombre} por WhatsApp ($${fmt(recibePorCuota*cuotasCobradas)})</button>`:''}
         <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;">
           ${Array.from({length:cuotasCobradas},(_,i)=>{
             const num=i+1; const pag=num<=yaPagado;
