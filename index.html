@@ -69,7 +69,7 @@
   body.dark #reciboPrint, body.dark #listaPublicaPrint{background:#fff !important;}
   html,body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','SF Pro Text','Plus Jakarta Sans',sans-serif;background:#fff;color:var(--text);overscroll-behavior:none;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;letter-spacing:-0.01em;}
   body{
-    padding-bottom:90px;min-height:100vh;
+    padding-bottom:calc(110px + env(safe-area-inset-bottom));min-height:100vh;
     background-color:#F2F7FC;
     background-image:none;
     background-attachment:scroll;
@@ -419,15 +419,15 @@
   .reply-bar-txt{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .reply-bar-x{font-size:20px;color:var(--muted);cursor:pointer;background:none;border:none;flex-shrink:0;}
 
-  .modal-bg{position:fixed;inset:0;background:rgba(11,45,107,.45);z-index:100;display:none;align-items:flex-end;backdrop-filter:blur(2px);}
+  .modal-bg{position:fixed;inset:0;background:rgba(11,45,107,.45);z-index:300;display:none;align-items:flex-end;backdrop-filter:blur(2px);}
   .modal-bg.show{display:flex;}
-  .modal{background:#fff;width:100%;height:auto;max-height:90vh;min-height:50vh;border-radius:22px 22px 0 0;padding:14px 18px calc(30px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;animation:slideUp .28s ease;display:flex;flex-direction:column;}
+  .modal{background:#fff;width:100%;height:auto;max-height:90vh;min-height:50vh;border-radius:22px 22px 0 0;padding:14px 18px calc(70px + env(safe-area-inset-bottom));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;animation:slideUp .28s ease;display:flex;flex-direction:column;}
   /* barra superior del modal con Atrás + Guardar, fija arriba y siempre visible */
   .modal-topbar{position:sticky;top:0;z-index:10;display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;margin:0 -18px 8px;padding:6px 18px 10px;border-bottom:1px solid rgba(0,0,0,.06);}
   .modal-save-top{background:var(--orange);color:#fff;border:none;border-radius:20px;padding:10px 20px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;box-shadow:0 2px 8px rgba(255,122,0,.3);-webkit-tap-highlight-color:transparent;}
   .modal-save-top:active{transform:scale(.95);}
   /* botón guardar fijo abajo del modal, siempre visible y alcanzable */
-  .btn-guardar-fijo{position:sticky;bottom:0;margin:14px -18px -90px;padding:14px 18px calc(18px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid rgba(0,0,0,.08);box-shadow:0 -4px 14px rgba(11,45,107,.1);z-index:5;}
+  .btn-guardar-fijo{position:sticky;bottom:0;margin:14px -18px calc(-70px - env(safe-area-inset-bottom));padding:14px 18px calc(18px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid rgba(0,0,0,.08);box-shadow:0 -4px 14px rgba(11,45,107,.1);z-index:5;}
   .btn-guardar-fijo .btn{margin:0;width:100%;}
   @keyframes slideUp{from{transform:translateY(100%);}to{transform:none;}}
   .modal-handle{width:40px;height:4px;background:#d8e0ee;border-radius:10px;margin:8px auto 14px;}
@@ -1322,12 +1322,18 @@ async function subirNube(tabla, dato){
   // NO mentimos con ok:true. Devolvemos fallo para que el dato vaya a PENDIENTES
   // y suba solo cuando vuelva la señal. Así nunca se pierde un cliente.
   if(!CLOUD || !sb) return {ok:false, msg:'nube no activa (se guardó en el celu y sube al volver la señal)'};
+  // Limpiamos el objeto a datos planos: si por algún motivo trae referencias no
+  // serializables (Headers, nodos del DOM, funciones), esto las descarta y evita
+  // el error "DataCloneError: postMessage ... could not be cloned".
+  let limpio;
+  try{ limpio = JSON.parse(JSON.stringify(dato)); }
+  catch(_){ limpio = dato; }
   try{
     // .select() OBLIGA a Supabase a devolver la fila escrita. Si RLS bloquea en silencio,
     // no vuelve ninguna fila -> lo detectamos como fallo (antes pasaba desapercibido).
-    const { data, error } = await sb.from(tabla).upsert(dato).select();
+    const { data, error } = await sb.from(tabla).upsert(limpio).select();
     if(error){
-      const msg=(error.message||'')+(error.details?' · '+error.details:'')+(error.hint?' · '+error.hint:'');
+      const msg=String((error.message||'')+(error.details?' · '+error.details:'')+(error.hint?' · '+error.hint:''));
       alert('⚠️ La nube rechazó el guardado en "'+tabla+'":\n\n'+msg+'\n\n(Se guardó en el celu, pero NO en la nube. Por eso al salir se pierde.)');
       return {ok:false, msg};
     }
@@ -1337,7 +1343,7 @@ async function subirNube(tabla, dato){
       return {ok:false, msg};
     }
     return {ok:true};
-  }catch(e){ return {ok:false, msg:'sin conexión: '+(e.message||e)}; }
+  }catch(e){ return {ok:false, msg:'sin conexión: '+String(e && e.message?e.message:e)}; }
 }
 // reintenta subir todo lo pendiente (se llama solo al volver la señal / al abrir)
 async function procesarPendientes(){
@@ -1463,7 +1469,7 @@ const DB = {
   async upsertProducto(p){
     this.saveLocal(); // primero el celu: nunca se pierde nada
     const r=await subirNube('productos', p);
-    if(!r.ok){ PENDIENTES.agregar('productos', p); toast('⚠️ Sin señal: quedó en el celu y se sube solo cuando vuelva'); console.warn('upsertProducto:', r.msg); }
+    if(!r.ok){ PENDIENTES.agregar('productos', p); toast('⚠️ Sin señal: quedó en el celu y se sube solo cuando vuelva'); console.warn('upsertProducto: '+String(r.msg||'')); }
   },
   async delProducto(id){
     if(CLOUD){ try{ await sb.from('productos').delete().eq('id',id); }catch(e){ console.warn(e); } }
@@ -1473,14 +1479,14 @@ const DB = {
   async upsertCliente(c){
     this.saveLocal(); // primero el celu: nunca se pierde nada
     const r=await subirNube('clientes', c);
-    if(!r.ok){ PENDIENTES.agregar('clientes', c); console.warn('upsertCliente:', r.msg); }
+    if(!r.ok){ PENDIENTES.agregar('clientes', c); console.warn('upsertCliente: '+String(r.msg||'')); }
     return r; // devuelvo el resultado para poder avisar bien arriba
   },
   async upsertVenta(v){
     const okLocal = this.saveLocal(); // primero el celu: nunca se pierde nada
     if(!okLocal){ return {ok:false, local:false, msg:'No se pudo guardar en el teléfono (memoria llena)'}; }
     const r=await subirNube('ventas', v);
-    if(!r.ok){ PENDIENTES.agregar('ventas', v); console.warn('upsertVenta:', r.msg); }
+    if(!r.ok){ PENDIENTES.agregar('ventas', v); console.warn('upsertVenta: '+String(r.msg||'')); }
     return r;
   },
   async delCliente(id){
@@ -4057,6 +4063,8 @@ function renderClientes(){
         <div class="cli-det-info">${d.cuotasTxt}${d.fechaTxt?' · '+d.fechaTxt:''} <span class="cli-det-est ${d.cls}">${d.estado}</span></div>
       </div>`
     ).join('') : '<div class="cli-det-row" style="color:var(--muted);">Sin ventas cargadas</div>';
+    // botón para borrar la TARJETA del cliente entero (con confirmación)
+    cajonHtml += `<button class="btn btn-ghost btn-sm" style="margin-top:10px;width:100%;color:var(--red);border:1px solid rgba(229,57,53,.35);" onclick="event.stopPropagation();delCliente('${c.id}')">🗑️ Eliminar tarjeta del cliente</button>`;
     // texto de alerta a la derecha de la franja
     let alertaTxt='';
     if(est.cls==='rojo') alertaTxt='🔴 Atrasado';
