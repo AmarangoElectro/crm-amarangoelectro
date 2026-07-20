@@ -1021,7 +1021,15 @@ function apodoDe(nombre){
   // por defecto, el nombre tal cual (capitalizado)
   return (nombre||'').trim().charAt(0).toUpperCase()+(nombre||'').trim().slice(1);
 }
-function esAdmin(){ const u=getUsuarios().find(x=>x.nombre===usuarioActual()); return u?u.admin:false; }
+function esAdmin(){
+  // 🔧 COHERENCIA: comparar SIEMPRE con normPersona (igual que el resto del CRM).
+  // Antes comparaba texto exacto y "Ángela" (con tilde) no coincidía con "Angela"
+  // → perdía permisos de admin y no podía editar ventas.
+  const yo = normPersona(usuarioActual());
+  if(!yo) return false;
+  const u = getUsuarios().find(x => normPersona(x.nombre) === yo);
+  return u ? !!u.admin : false;
+}
 // ¿El usuario actual puede editar/borrar esta venta?
 // Regla: solo el RESPONSABLE del cliente. Los admin (Maxi/Angela) siempre pueden.
 function puedeEditarVenta(v){
@@ -4369,7 +4377,10 @@ async function registrarAbono(ventaId, num, todo){
     toast(`💰 Registrado. Resta $${fmt(cuota.monto-nuevoAbono)}`);
   }
   closeModal();
-  try{ await DB.upsertVenta(v); }catch(e){}
+  try{
+    const _r = await DB.upsertVenta(v);
+    if(_r && !_r.ok && _r.local!==false){ toast('⚠️ Quedó guardado en el celu, sube solo al volver la señal'); }
+  }catch(e){ console.warn('upsertVenta:', e); }
   refrescarVistasPago();
 }
 // marca como pagadas todas las cuotas hasta 'num' (para mantener coherencia con v.pagadas)
@@ -4384,7 +4395,10 @@ async function anularPagoCuota(ventaId, num){
   if(v.abonos && v.abonos[num]) delete v.abonos[num];
   if((v.pagadas||0) >= num){ v.pagadas = num-1; }
   closeModal(); toast('Pago anulado');
-  try{ await DB.upsertVenta(v); }catch(e){}
+  try{
+    const _r = await DB.upsertVenta(v);
+    if(_r && !_r.ok && _r.local!==false){ toast('⚠️ Quedó guardado en el celu, sube solo al volver la señal'); }
+  }catch(e){ console.warn('upsertVenta:', e); }
   refrescarVistasPago();
 }
 // refresca las vistas que muestran pagos
@@ -5418,7 +5432,10 @@ async function marcarCuotaPlanilla(ventaId){
   if(pag>=tot){ toast('Ya está todo pagado ✅'); return; }
   if(!confirm('¿Registrar el pago de la cuota '+(pag+1)+' de '+tot+'?')) return;
   v.pagadas=pag+1;
-  try{ await DB.upsertVenta(v); }catch(e){}
+  try{
+    const _r = await DB.upsertVenta(v);
+    if(_r && !_r.ok && _r.local!==false){ toast('⚠️ Quedó guardado en el celu, sube solo al volver la señal'); }
+  }catch(e){ console.warn('upsertVenta:', e); }
   try{ if(typeof avisarInversoresCobro==='function') avisarInversoresCobro(v, v.pagadas); }catch(e){}
   try{ if(typeof AUDIT!=='undefined') AUDIT.registrar('cobró','venta','cuota '+v.pagadas+' de '+tot+' — '+(v.producto||'')); }catch(e){}
   toast('Pago registrado ✅');
@@ -7750,7 +7767,15 @@ async function saveVenta(){
   // si se marcó "ya está paga", marcar todas las cuotas como pagadas
   const yaPagada = document.getElementById('v_pagado') && document.getElementById('v_pagado').checked;
   if(yaPagada){ rec.pagadas = rec.cuotas || 1; }
-  await DB.upsertVenta(rec); closeModal(); toast(ventaTipo==='prestamo'?'Préstamo registrado':(yaPagada?'Venta registrada y paga ✅':'Venta registrada')); render();
+  const resV = await DB.upsertVenta(rec);
+  closeModal(); render();
+  if(resV && resV.ok){
+    toastOK(ventaTipo==='prestamo'?'Préstamo registrado':(yaPagada?'Venta registrada y paga':'Venta registrada'));
+  } else if(resV && resV.local===false){
+    /* memoria llena: el cartel rojo ya salió solo */
+  } else {
+    avisoNoGuardado('La venta de «'+(producto||'este cliente')+'» no se pudo confirmar en la nube.');
+  }
   setTimeout(()=>detalleCliente(clienteId), 250);
 }
 
@@ -8403,27 +8428,63 @@ function verRecibo(id, tipo, cuotaNum){
       <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="toast('Hacé captura de pantalla 📸 y mandala por WhatsApp')">📸 Captar y enviar</button>
     </div>`);
 }
-function descargarReciboPDF(){
+/* 📄 RECIBO EN PDF — genera un PDF de verdad (antes bajaba un PNG por error) */
+function cargarScript(src){
+  return new Promise((ok,err)=>{
+    const s=document.createElement('script');
+    s.src=src; s.onload=ok; s.onerror=err;
+    document.body.appendChild(s);
+  });
+}
+async function descargarReciboPDF(){
   const el=document.getElementById('reciboPrint');
   if(!el){ toast('No se encontró el recibo'); return; }
-  if(typeof html2canvas==='undefined'){
-    // cargar html2canvas on-demand
-    const s=document.createElement('script');
-    s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-    s.onload=()=>generarPDF(el);
-    s.onerror=()=>toast('No se pudo cargar el generador de PDF. Probá con captura 📸');
-    document.body.appendChild(s);
-  } else generarPDF(el);
+  toast('📄 Generando PDF...');
+  try{
+    if(typeof html2canvas==='undefined'){
+      await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    }
+    if(!window.jspdf && typeof jsPDF==='undefined'){
+      await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    }
+    await generarPDF(el);
+  }catch(e){
+    console.warn('PDF:', e);
+    toast('⚠️ Sin internet no se puede armar el PDF. Probá con captura 📸');
+  }
 }
-function generarPDF(el){
-  toast('Generando...');
-  html2canvas(el,{scale:2,backgroundColor:'#fff'}).then(canvas=>{
-    const img=canvas.toDataURL('image/png');
+async function generarPDF(el){
+  const canvas = await html2canvas(el, {scale:2, backgroundColor:'#fff'});
+  const img = canvas.toDataURL('image/jpeg', 0.95);
+  const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if(!JsPDF){
+    // respaldo: si no cargó jsPDF, al menos baja la imagen
     const a=document.createElement('a');
-    a.href=img; a.download='recibo_amarango.png';
-    a.click();
-    toast('✅ Recibo descargado');
-  }).catch(()=>toast('Error al generar. Probá con captura 📸'));
+    a.href=canvas.toDataURL('image/png'); a.download='recibo_amarango.png'; a.click();
+    toast('✅ Recibo descargado (imagen)');
+    return;
+  }
+  // A4 vertical, la imagen se ajusta al ancho respetando la proporción
+  const pdf = new JsPDF({orientation:'p', unit:'mm', format:'a4'});
+  const anchoPag = 210, altoPag = 297, margen = 10;
+  const anchoImg = anchoPag - margen*2;
+  const altoImg = (canvas.height * anchoImg) / canvas.width;
+  if(altoImg <= altoPag - margen*2){
+    pdf.addImage(img, 'JPEG', margen, margen, anchoImg, altoImg);
+  } else {
+    // si es muy largo, lo parte en varias páginas
+    let restante = altoImg, y = margen, pagina = 0;
+    while(restante > 0){
+      if(pagina>0) pdf.addPage();
+      pdf.addImage(img, 'JPEG', margen, y - (pagina * (altoPag - margen*2)), anchoImg, altoImg);
+      restante -= (altoPag - margen*2);
+      pagina++;
+      if(pagina>10) break;
+    }
+  }
+  const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
+  pdf.save('recibo_amarango_'+fecha+'.pdf');
+  toast('✅ PDF descargado');
 }
 async function archivarVenta(id){
   const v=DB.ventas.find(x=>x.id===id); if(!v)return;
@@ -9727,7 +9788,7 @@ function volverPersonas(){
 }
 function doLogin(){
   const v=(document.getElementById('loginPass').value||'').trim();
-  const u=getUsuarios().find(x=>x.nombre===loginSel);
+  const u=getUsuarios().find(x=>normPersona(x.nombre)===normPersona(loginSel));
   if(!u){ document.getElementById('loginErr').textContent='Elegí tu usuario primero'; return; }
   // SOLO acepta el PIN exacto de la persona elegida
   if(v && v===String(u.pin)){
@@ -9792,7 +9853,7 @@ function cerrarMenuConfigFuera(ev){
 /* ============ MI CUENTA / CAMBIAR PIN ============ */
 function abrirMiCuenta(){
   const yo=usuarioActual();
-  const u=getUsuarios().find(x=>x.nombre===yo);
+  const u=getUsuarios().find(x=>normPersona(x.nombre)===normPersona(yo));
   if(!u){ toast('Sesión no válida'); return; }
   const col=nombreColor(yo);
   let adminBloque='';
@@ -9823,7 +9884,7 @@ function abrirMiCuenta(){
 function cambiarMiPin(){
   const yo=usuarioActual();
   const us=getUsuarios();
-  const u=us.find(x=>x.nombre===yo);
+  const u=us.find(x=>normPersona(x.nombre)===normPersona(yo));
   const actual=(document.getElementById('pinActual').value||'').trim();
   const nuevo=(document.getElementById('pinNuevo').value||'').trim();
   const nuevo2=(document.getElementById('pinNuevo2').value||'').trim();
@@ -9841,7 +9902,7 @@ function resetPinOtro(nombre){
   const n=(nuevo||'').trim();
   if(n.length<4){ toast('El PIN debe tener al menos 4 dígitos'); return; }
   const us=getUsuarios();
-  const u=us.find(x=>x.nombre===nombre);
+  const u=us.find(x=>normPersona(x.nombre)===normPersona(nombre));
   if(u){ u.pin=n; saveUsuarios(us); toast(`✅ PIN de ${nombre} actualizado`); abrirMiCuenta(); }
 }
 
@@ -10471,7 +10532,7 @@ const APP_NOMBRE = "AmarangoElectro";
 /* ═══════ 🔄 AUTO-ACTUALIZADOR ═══════
    Revisa si hay una versión nueva del CRM y avisa para recargar.
    Así nadie tiene que borrar caché nunca más. */
-const CRM_VERSION = '2026-07-20-a';   // ← cambiar en cada actualización
+const CRM_VERSION = '2026-07-20-b';   // ← cambiar en cada actualización
 
 async function forzarActualizarCRM(){
   try{ toast('🔄 Actualizando…'); }catch(e){}
