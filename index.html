@@ -632,6 +632,7 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
     <!-- Modo oscuro quitado por pedido (no se usaba y no quedaba prolijo) -->
     <div class="mc-item" onclick="cerrarMenuConfig();abrirPapelera();"><span data-ico="trash" data-size="18"></span> Papelera</div>
     <div class="mc-item" onclick="cerrarMenuConfig();recargarDesdeNube();" style="color:var(--green);">🔄 Recargar desde la nube</div>
+    <div class="mc-item" onclick="cerrarMenuConfig();abrirCapitalCompartido();" style="color:#0B2D6B;font-weight:700;">🧮 Calculadora Capital Compartido</div>
     <div class="mc-item" onclick="cerrarMenuConfig();forzarActualizarCRM();" style="color:#0B2D6B;font-weight:700;">🔄 Actualizar la app</div>
     <div class="mc-item" onclick="cerrarMenuConfig();logout();" style="color:#dc2626;font-weight:700;">🔒 Cerrar sesión</div>
   </div>
@@ -9301,6 +9302,391 @@ function seedDemo(){
   if(CLOUD) return;
   localStorage.setItem('ae_seeded','1');
 }
+
+/* ═══════ 🐝 CALCULADORA CAPITAL COMPARTIDO (igual que la tienda) ═══════ */
+var CC_BASE = {
+  // Escalera de rendimiento: cuanto MENOS pone, MÁS porcentaje se lleva.
+  // En montos chicos hace falta un % alto para que la cifra en pesos valga la
+  // espera de 60 días. En montos grandes, un % menor ya da una cifra atractiva.
+  // El colaborador nunca ve el costo ni el %: sólo pesos y fechas.
+  t1: 50000,  p1: 62,   // hasta $50.000 → 62%
+  t2: 100000, p2: 56,   // hasta $100.000 → 56%
+  t3: 175000, p3: 50,   // hasta $175.000 → 50%
+  t4: 250000, p4: 45,   // hasta $250.000 → 45%
+  p5: 42,               // más de $250.000 → 42%
+  comContado: 10,    // comisión revendedor en venta de contado (%)
+  comFinanc: 15,     // comisión revendedor en venta financiada (%)
+  partesRev: 3,      // en cuántas partes se le paga al revendedor (máx.)
+  minParte: 10000,   // ninguna parte puede bajar de este monto
+  pisoMora: 10,      // si el cliente desaparece: capital + este % (para que no pierda
+                     // contra la inflación). No es el rendimiento pactado, es el piso.
+  aporte: 50,        // % del costo que pone el colaborador
+  r2: 15, r4: 55, r6: 78,   // recargos por plan de cuotas (%)
+  ratioMin: 2.0,     // por debajo de esto NO conviene (Amarango vs colaborador)
+  ratioBueno: 2.5,   // desde acá es "excelente elección"
+  ventajaMin: 12,    // el colaborador debe ganar al menos este % más que el revendedor
+  costoMin: 100000   // por debajo de esto la diferencia es muy chica, no vale la espera
+};
+var CC = JSON.parse(JSON.stringify(CC_BASE));
+var ccPlan = 4;
+var ccModo = 'costo';
+
+function ccResetParams(){ CC = JSON.parse(JSON.stringify(CC_BASE)); abrirCapitalCompartido(); }
+function ccSetParam(k,v){ var n=parseFloat(v); if(!isNaN(n)) CC[k]=n; calcCapitalCompartido(); }
+function ccModificado(){ for(var k in CC_BASE){ if(CC[k]!==CC_BASE[k]) return true; } return false; }
+function ccSetPlan(p){ ccPlan=p; abrirCapitalCompartido(); }
+function ccSetModo(m){ ccModo=m; abrirCapitalCompartido(); }
+
+/* Devuelve el % de rendimiento según cuánto pone el colaborador.
+   Escalera invertida: menos capital = más porcentaje. */
+function ccRendPorTramo(pone){
+  if(pone<=CC.t1) return CC.p1;
+  if(pone<=CC.t2) return CC.p2;
+  if(pone<=CC.t3) return CC.p3;
+  if(pone<=CC.t4) return CC.p4;
+  return CC.p5;
+}
+
+// costo estimado hacia atrás desde el precio de venta
+function ccCostoDesdeVenta(venta){
+  var c = venta/1.5;
+  for(var i=0;i<14;i++){
+    var m;
+    if(c<=50000)m=1.80; else if(c<=100000)m=1.60; else if(c<=250000)m=1.50;
+    else if(c<=350000)m=1.40; else m=1.30;
+    c = venta/m;
+  }
+  return Math.round(c);
+}
+
+/* Cálculo rápido sin sugerencias (se usa para comparar planes entre sí). */
+function ccSimple(costo, plan){
+  var venta = markupVentaCRM(costo);
+  var rec = (plan===2)?CC.r2:(plan===4)?CC.r4:CC.r6;
+  var cuota = Math.round(venta*(1+rec/100)/plan/1000)*1000;
+  var pone = Math.round(costo*CC.aporte/100);
+  var rend = Math.round(pone*ccRendPorTramo(pone)/100);
+  return { queda: cuota*plan - costo - rend, cuota:cuota, rend:rend };
+}
+
+/* ── EL MOTOR ──
+   Recibe costo y plan, devuelve el análisis completo de la operación. */
+function ccMotor(costo, plan){
+  var venta = markupVentaCRM(costo);
+  var rec = (plan===2)?CC.r2:(plan===4)?CC.r4:CC.r6;
+  var total = venta*(1+rec/100);
+  var cuota = Math.round(total/plan/1000)*1000;
+  var totalReal = cuota*plan;
+
+  // el revendedor cobra su comisión el día 0, al entrar la primera cuota
+  var comision = Math.round(venta*CC.comFinanc/100);
+  // El revendedor cobra en hasta 3 partes: día 0 (cuando paga el cliente),
+  // día 30 y día 60. Ninguna parte puede quedar por debajo del mínimo.
+  var partesRev = CC.partesRev;
+  while(partesRev>1 && (comision/partesRev)<CC.minParte) partesRev--;
+  var parteRev = Math.round(comision/partesRev);
+
+  var pone = Math.round(costo*CC.aporte/100);
+  var pctRend = ccRendPorTramo(pone);
+  var rend = Math.round(pone*pctRend/100);
+  var recupera = pone+rend;
+  var tramo = Math.round(recupera/2);
+  // Escenario de mora: si el cliente desaparece antes de que el colaborador cobre
+  // todo, le completamos hasta capital + piso. Si ya cobró los dos tramos, terminó.
+  var pisoTotal = Math.round(pone*(1+CC.pisoMora/100));
+  var faltaSiCae = Math.max(0, pisoTotal - tramo);   // lo que falta si cae tras el 1er tramo
+  var ahorroMora = recupera - pisoTotal;             // lo que te ahorrás vs pagar todo
+
+  // el colaborador NO cobra comisión: gana sólo el rendimiento
+  var ganaColab = rend;
+  var queda = totalReal - costo - rend;   // Amarango no paga comisión si hay colaborador
+  var ratio = ganaColab>0 ? queda/ganaColab : 99;
+  var ventaja = comision>0 ? ((ganaColab-comision)/comision*100) : 0;
+  var flujoOk = (pone===0) || (cuota>=tramo);
+
+  // ── decisión ──
+  var luz, titulo, motivo;
+  if(plan===2){
+    luz='rojo'; titulo='No conviene';
+    motivo='En 2 cuotas recuperás el capital enseguida con la primera cuota. No necesitás colaborador. Si igual lo hacés, no es la decisión más inteligente.';
+  } else if(!flujoOk){
+    luz='rojo'; titulo='No conviene';
+    motivo='La cuota del cliente ('+fmt(cuota)+') no cubre el tramo de '+fmt(tramo)+' que hay que pagarle. Te descalza la caja.';
+  } else if(ganaColab>queda){
+    luz='rojo'; titulo='No conviene';
+    motivo='El colaborador ganaría más que Amarango. Bajá el aporte o pasá a más cuotas.';
+  } else if(ratio<CC.ratioMin){
+    luz='rojo'; titulo='No conviene';
+    motivo='Amarango sólo gana '+ratio.toFixed(1)+'x que el colaborador. El piso es '+CC.ratioMin.toFixed(1)+'x.';
+  } else if(ventaja<CC.ventajaMin){
+    luz='amarillo'; titulo='Buena elección';
+    motivo='Para el colaborador la diferencia con cobrar comisión es de sólo '+Math.round(ventaja)+'%. Por 60 días de espera puede no valerle la pena.';
+  } else if(costo<CC.costoMin){
+    luz='amarillo'; titulo='Buena elección';
+    motivo='Producto de bajo costo: la colaboración funciona pero mueve poco capital. Amarango casi no lo necesita acá.';
+  } else if(ratio>=CC.ratioBueno){
+    luz='verde'; titulo='Excelente elección';
+    motivo='Amarango gana '+ratio.toFixed(1)+'x que el colaborador, y el colaborador gana '+Math.round(ventaja)+'% más que si cobrara comisión. Los tres escalones ordenados.';
+  } else {
+    luz='amarillo'; titulo='Buena elección';
+    motivo='Amarango gana '+ratio.toFixed(1)+'x que el colaborador. Funciona, pero a 6 cuotas mejora bastante.';
+  }
+
+  // ── sugerencia: qué haría mejorar esta operación ──
+  var sug='';
+  if(plan===4 && flujoOk && luz!=='rojo'){
+    var m6 = ccSimple(costo,6);
+    if(m6.queda>queda) sug='💡 A 6 cuotas Amarango ganaría '+fmt(m6.queda)+' ('+fmt(m6.queda-queda)+' más) y el colaborador cobra lo mismo.';
+  } else if(!flujoOk){
+    var falta = tramo-cuota;
+    var aporteOk = Math.floor((cuota*2/(1+pctRend/100))/costo*100/5)*5;
+    sug='💡 Bajá el aporte a '+aporteOk+'% para que la cuota alcance, o pasá a 4 cuotas.';
+  } else if(plan===2){
+    sug='💡 Pasá a 4 o 6 cuotas: ahí sí tiene sentido buscar un colaborador.';
+  } else if(ventaja<CC.ventajaMin && plan!==2){
+    sug='💡 Subí el rendimiento del tramo (hoy '+pctRend+'%) desde el panel ⚙️ si querés que le convenga más al colaborador.';
+  }
+
+  return { venta:venta, rec:rec, cuota:cuota, totalReal:totalReal, comision:comision, sug:sug,
+           partesRev:partesRev, parteRev:parteRev,
+           pisoTotal:pisoTotal, faltaSiCae:faltaSiCae, ahorroMora:ahorroMora,
+           pone:pone, rend:rend, pctRend:pctRend, recupera:recupera, tramo:tramo, ganaColab:ganaColab,
+           queda:queda, ratio:ratio, ventaja:ventaja, flujoOk:flujoOk,
+           luz:luz, titulo:titulo, motivo:motivo };
+}
+
+function abrirCapitalCompartido(){
+  // 🔒 CANDADO: solo administradores del CRM (Maxi / Ángela)
+  if(typeof esAdmin==='function' && !esAdmin()){
+    alert('🔒 Herramienta exclusiva de administradores.\n\nEsta calculadora muestra costos y ganancias internas, por eso está protegida.');
+    return;
+  }
+  var valPrev='';
+  var prev=document.getElementById('cc-costo'); if(prev) valPrev=prev.value;
+
+  function btnPlan(n,rec){
+    var on=(ccPlan===n), rojo=(n===2);
+    var col = on ? (rojo?'#B91C1C':'var(--orange)') : 'var(--border)';
+    var bg  = on ? (rojo?'#FDECEA':'#FFF5EB') : '#fff';
+    var tx  = on ? (rojo?'#B91C1C':'var(--orange)') : 'var(--muted)';
+    return '<button onclick="ccSetPlan('+n+')" style="flex:1;border:2px solid '+col+';background:'+bg+';color:'+tx+';border-radius:11px;padding:9px 3px;font-weight:900;font-size:.95rem;cursor:pointer;font-family:inherit;">'+n+'<span style="display:block;font-size:.55rem;font-weight:700;opacity:.8;">'+(rojo?'no conviene':'+'+rec+'%')+'</span></button>';
+  }
+  function btnModo(m,txt){
+    var on=(ccModo===m);
+    return '<button onclick="ccSetModo(\''+m+'\')" style="flex:1;border:0;background:'+(on?'var(--blue)':'transparent')+';color:'+(on?'#fff':'var(--muted)')+';padding:9px 5px;border-radius:9px;font-size:.75rem;font-weight:800;cursor:pointer;font-family:inherit;">'+txt+'</button>';
+  }
+
+  var html=''
+    +'<div style="text-align:center;margin-bottom:4px;">'
+    +'  <div style="font-size:2.2rem;">🐝</div>'
+    +'  <h2 style="color:var(--blue);font-size:1.15rem;font-weight:900;margin:4px 0 2px;">Motor de Colaboración</h2>'
+    +'  <div style="color:var(--muted);font-size:.72rem;font-weight:700;">Cliente → Revendedor → Colaborador</div>'
+    +'</div>'
+
+    +'<div style="display:flex;background:#EEF2F8;border-radius:11px;padding:3px;margin:12px 0 8px;">'
+    + btnModo('costo','Costo') + btnModo('venta','Precio de venta')
+    +'</div>'
+
+    +'<div style="background:var(--blue);border-radius:14px;padding:14px;margin-bottom:10px;">'
+    +'  <div style="color:rgba(255,255,255,.7);font-size:.62rem;font-weight:800;letter-spacing:.5px;margin-bottom:6px;">'+(ccModo==='costo'?'COSTO DEL PRODUCTO ($ARS)':'PRECIO DE VENTA CONTADO ($ARS)')+'</div>'
+    +'  <input type="number" id="cc-costo" inputmode="numeric" value="'+valPrev+'" placeholder="Ej: 350000" oninput="calcCapitalCompartido()" style="width:100%;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);border-radius:10px;padding:12px;color:#fff;font-size:1.35rem;font-weight:900;outline:none;">'
+    +'  <div id="cc-hint" style="color:rgba(255,255,255,.5);font-size:.6rem;margin-top:6px;">'+(ccModo==='costo'?'Lo que te sale a vos el producto.':'Pegás la venta y te estimo el costo.')+'</div>'
+    +'</div>'
+
+    +'<div style="margin-bottom:10px;">'
+    +'  <div style="font-size:.6rem;font-weight:800;color:var(--muted);letter-spacing:.7px;margin-bottom:6px;">PLAN DE CUOTAS</div>'
+    +'  <div style="display:flex;gap:7px;">'+btnPlan(2,CC.r2)+btnPlan(4,CC.r4)+btnPlan(6,CC.r6)+'</div>'
+    +'</div>'
+
+    +'<div id="cc-res"></div>'
+
+    +'<details style="margin-top:12px;border:1px solid var(--border);border-radius:12px;padding:10px;background:#fff;">'
+    +'  <summary style="font-size:.68rem;font-weight:800;color:var(--muted);cursor:pointer;letter-spacing:.5px;">⚙️ PANEL ESTRATÉGICO</summary>'
+    +'  <div style="font-size:.6rem;color:var(--muted);margin:8px 0 10px;line-height:1.4;">Todo es configurable. Al recargar la página vuelve a los valores originales.</div>'
+    +'  <div style="font-size:.58rem;font-weight:800;color:var(--blue);letter-spacing:.5px;margin:10px 0 4px;">ESCALERA DE RENDIMIENTO</div>'
+    +'  <div style="font-size:.58rem;color:var(--muted);margin-bottom:6px;line-height:1.4;">Menos capital = más porcentaje. El colaborador nunca ve estos números.</div>'
+    + ccInputParam('t1','Tramo 1 · hasta ($)') + ccInputParam('p1','→ rendimiento (%)')
+    + ccInputParam('t2','Tramo 2 · hasta ($)') + ccInputParam('p2','→ rendimiento (%)')
+    + ccInputParam('t3','Tramo 3 · hasta ($)') + ccInputParam('p3','→ rendimiento (%)')
+    + ccInputParam('t4','Tramo 4 · hasta ($)') + ccInputParam('p4','→ rendimiento (%)')
+    + ccInputParam('p5','Tramo 5 · más arriba (%)')
+    +'  <div style="font-size:.58rem;font-weight:800;color:var(--blue);letter-spacing:.5px;margin:12px 0 4px;">RESTO DE PARÁMETROS</div>'
+    + ccInputParam('aporte','Aporte del colaborador (% del costo)')
+    + ccInputParam('comFinanc','Comisión revendedor financiado (%)')
+    + ccInputParam('comContado','Comisión revendedor contado (%)')
+    + ccInputParam('partesRev','Partes de pago al revendedor')
+    + ccInputParam('minParte','Mínimo por parte ($)')
+    + ccInputParam('pisoMora','Piso si el cliente desaparece (%)')
+    + ccInputParam('r4','Recargo 4 cuotas (%)')
+    + ccInputParam('r6','Recargo 6 cuotas (%)')
+    + ccInputParam('ratioMin','Ratio mínimo Amarango/colab.')
+    + ccInputParam('ratioBueno','Ratio para "excelente"')
+    + ccInputParam('ventajaMin','Ventaja mínima sobre revendedor (%)')
+    + ccInputParam('costoMin','Costo mínimo recomendable ($)')
+    +'  <button onclick="ccResetParams()" style="width:100%;margin-top:8px;background:#F5F8FF;border:2px solid var(--border);border-radius:10px;padding:9px;font-size:.72rem;font-weight:800;color:var(--muted);cursor:pointer;font-family:inherit;">↩️ Restaurar valores originales</button>'
+    +'</details>'
+
+    +'<button class="btn btn-ghost" style="width:100%;margin-top:10px;" onclick="closeModal()">Cerrar</button>';
+
+  openModal(html);
+  calcCapitalCompartido();
+  if(!valPrev) setTimeout(function(){ var i=document.getElementById('cc-costo'); if(i) i.focus(); },250);
+}
+
+function ccInputParam(k,label){
+  return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:.7rem;">'
+    +'<span style="color:var(--muted);flex:1;">'+label+'</span>'
+    +'<input type="number" step="any" value="'+CC[k]+'" oninput="ccSetParam(\''+k+'\',this.value)" style="width:88px;border:1px solid var(--border);border-radius:8px;padding:6px;text-align:right;font-weight:800;color:var(--blue);font-family:inherit;font-size:.78rem;">'
+    +'</div>';
+}
+
+function calcCapitalCompartido(){
+  // 🔒 Segundo candado: aunque alguien llame esta función directo, sin admin no calcula.
+  var okAdm=false;
+  try{ okAdm = (typeof adminUnlocked!=='undefined' && adminUnlocked===true) && (localStorage.getItem('ae_sesion_admin')==='1'); }catch(e){ okAdm=false; }
+  if(!okAdm){ var o=document.getElementById('cc-res'); if(o) o.innerHTML=''; return; }
+
+  var val=parseFloat((document.getElementById('cc-costo').value||'').toString().replace(/\./g,'').replace(/,/g,'.'))||0;
+  var out=document.getElementById('cc-res');
+  if(!out) return;
+  if(val<=0){ out.innerHTML='<div style="text-align:center;color:var(--muted);font-size:.8rem;padding:18px;">Poné el monto y el motor analiza la operación 🐝</div>'; return; }
+
+  var costo = (ccModo==='costo') ? val : ccCostoDesdeVenta(val);
+  var m = ccMotor(costo, ccPlan);
+
+  var hint=document.getElementById('cc-hint');
+  if(hint) hint.textContent = (ccModo==='costo') ? 'Venta contado '+fmt(m.venta) : 'Costo estimado '+fmt(costo);
+
+  var col = (m.luz==='verde') ? {c:'#047857',b:'#10B981',bg:'#ECFDF5',i:'🟢'}
+          : (m.luz==='amarillo') ? {c:'#8A6D00',b:'#E0AA00',bg:'#FFF8E1',i:'🟡'}
+          : {c:'#B91C1C',b:'#B91C1C',bg:'#FDECEA',i:'🔴'};
+
+  function fila(l,v,c){
+    return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.78rem;"><span style="color:var(--muted);font-weight:600;">'+l+'</span><b style="color:'+(c||'var(--blue)')+';">'+v+'</b></div>';
+  }
+
+  // mensaje simple para el colaborador: sólo pesos y fechas, sin porcentajes
+  var msg='🐝 *Colaboración Amarango*\n\n'
+    +'Ponés *'+fmt(m.pone)+'*\n'
+    +'Recuperás *'+fmt(m.recupera)+'*\n\n'
+    +'📅 A los 30 días: '+fmt(m.tramo)+'\n'
+    +'📅 A los 60 días: '+fmt(m.tramo)+'\n\n'
+    +'💚 Ganás *'+fmt(m.rend)+'* en 2 meses\n\n'
+    +'🛡️ Si el cliente cumple, cobrás lo pactado.\n'
+    +'Si el cliente desaparece, te devolvemos tu plata con un ajuste para que no pierdas contra la inflación.\n\n'
+    +'¿Te sumás?';
+
+  out.innerHTML=''
+    // ── SEMÁFORO (primero, es la respuesta del motor) ──
+    +'<div style="background:'+col.bg+';border:2px solid '+col.b+';border-radius:14px;padding:14px;text-align:center;margin-bottom:10px;">'
+    +'  <div style="font-size:1.08rem;font-weight:900;color:'+col.c+';margin-bottom:4px;">'+col.i+' '+m.titulo+'</div>'
+    +'  <div style="font-size:.68rem;font-weight:600;color:'+col.c+';line-height:1.5;opacity:.92;">'+m.motivo+'</div>'
+    +'</div>'
+
+    // ── LA ESCALERA: los tres escalones ──
+    +'<div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:13px;margin-bottom:10px;">'
+    +'  <div style="font-size:.58rem;font-weight:800;color:var(--muted);letter-spacing:.7px;margin-bottom:9px;">LA ESCALERA · QUIÉN GANA CUÁNTO</div>'
+    +'  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed #EEF2F8;">'
+    +'    <div><div style="font-weight:800;font-size:.8rem;color:var(--blue);">🐝 Amarango</div><div style="font-size:.58rem;color:var(--muted);">sistema, marca, riesgo y garantía</div></div>'
+    +'    <b style="color:var(--orange);font-size:1.05rem;">'+fmt(m.queda)+'</b>'
+    +'  </div>'
+    +'  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px dashed #EEF2F8;">'
+    +'    <div><div style="font-weight:800;font-size:.8rem;color:var(--blue);">🤝 Colaborador</div><div style="font-size:.58rem;color:var(--muted);">pone '+fmt(m.pone)+' al '+m.pctRend+'% · cobra a 60 días</div></div>'
+    +'    <b style="color:#047857;font-size:1.05rem;">'+fmt(m.ganaColab)+'</b>'
+    +'  </div>'
+    +'  <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;">'
+    +'    <div><div style="font-weight:800;font-size:.8rem;color:var(--blue);">🛒 Revendedor</div><div style="font-size:.58rem;color:var(--muted);">sólo vende · '+m.partesRev+(m.partesRev>1?' partes de ':' pago de ')+fmt(m.parteRev)+'</div></div>'
+    +'    <b style="color:var(--muted);font-size:1.05rem;">'+fmt(m.comision)+'</b>'
+    +'  </div>'
+    +'  <div style="background:'+(m.ventaja>=CC.ventajaMin?'#ECFDF5':'#FFF8E1')+';border-radius:9px;padding:8px;margin-top:9px;text-align:center;font-size:.63rem;font-weight:700;color:'+(m.ventaja>=CC.ventajaMin?'#047857':'#8A6D00')+';">'
+    +'    El colaborador gana '+Math.round(m.ventaja)+'% más que si cobrara comisión'
+    +'  </div>'
+    +'</div>'
+
+    // ── DETALLE PRIVADO ──
+    +'<div style="background:#FFF7ED;border:2px solid var(--orange);border-radius:14px;padding:14px;margin-bottom:10px;">'
+    +'  <div style="font-size:.6rem;font-weight:800;color:#9A3412;letter-spacing:.8px;margin-bottom:8px;">🔒 PRIVADO · SOLO VOS</div>'
+    + fila('Venta contado', fmt(m.venta))
+    + fila(ccPlan+' cuotas de', fmt(m.cuota))
+    + fila('Cliente paga total', fmt(m.totalReal))
+    + fila('Costo del producto', '− '+fmt(costo))
+    + fila('Rendimiento al colaborador', '− '+fmt(m.rend))
+    +'  <div style="border-top:1px dashed #FDBA74;margin-top:6px;padding-top:8px;display:flex;justify-content:space-between;align-items:center;"><span style="font-weight:800;color:#9A3412;font-size:.8rem;">Te queda a vos</span><b style="color:var(--orange);font-size:1.25rem;">'+fmt(m.queda)+'</b></div>'
+    +'  <div style="text-align:center;color:#9A3412;font-size:.6rem;font-weight:700;margin-top:6px;">Amarango puso '+fmt(costo-m.pone)+' · el colaborador '+fmt(m.pone)+'</div>'
+    +'</div>'
+
+    // ── FLUJO DE CAJA ──
+    +'<div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;">'
+    +'  <div style="font-size:.58rem;font-weight:800;color:var(--muted);letter-spacing:.7px;margin-bottom:7px;">FLUJO · LO QUE PAGÁS VS LO QUE ENTRA</div>'
+    + fila('📅 Día 30 · le pagás', fmt(m.tramo))
+    + fila('📅 Día 60 · le pagás', fmt(m.tramo))
+    + fila('Entra por cuota', fmt(m.cuota), m.flujoOk?'#047857':'#B91C1C')
+    + fila(m.flujoOk?'Te sobra por cuota':'Te falta por cuota', fmt(Math.abs(m.cuota-m.tramo)), m.flujoOk?'#047857':'#B91C1C')
+    +'</div>'
+
+    // ── CUÁNDO COBRA CADA UNO ──
+    +'<div style="background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:10px;">'
+    +'  <div style="font-size:.58rem;font-weight:800;color:var(--muted);letter-spacing:.7px;margin-bottom:8px;">CUÁNDO COBRA CADA UNO · LOS DOS EN 2 MESES</div>'
+    +'  <div style="display:flex;gap:8px;">'
+    +'    <div style="flex:1;background:#F0FDF4;border-radius:10px;padding:9px;">'
+    +'      <div style="font-size:.62rem;font-weight:800;color:#047857;margin-bottom:5px;">🤝 Colaborador</div>'
+    +'      <div style="font-size:.6rem;color:var(--muted);line-height:1.7;">'
+    +'        Día 0: <b style="color:#B91C1C;">−'+fmt(m.pone)+'</b><br>'
+    +'        Día 30: <b style="color:#047857;">'+fmt(m.tramo)+'</b><br>'
+    +'        Día 60: <b style="color:#047857;">'+fmt(m.tramo)+'</b>'
+    +'      </div>'
+    +'      <div style="border-top:1px dashed #86EFAC;margin-top:6px;padding-top:5px;font-size:.62rem;font-weight:800;color:#047857;">Gana '+fmt(m.rend)+'</div>'
+    +'    </div>'
+    +'    <div style="flex:1;background:#F8FAFC;border-radius:10px;padding:9px;">'
+    +'      <div style="font-size:.62rem;font-weight:800;color:var(--muted);margin-bottom:5px;">🛒 Revendedor</div>'
+    +'      <div style="font-size:.6rem;color:var(--muted);line-height:1.7;">'
+    +'        Día 0: <b style="color:var(--blue);">'+fmt(m.parteRev)+'</b><br>'
+    + (m.partesRev>1 ? '        Día 30: <b style="color:var(--blue);">'+fmt(m.parteRev)+'</b><br>' : '        Día 30: —<br>')
+    + (m.partesRev>2 ? '        Día 60: <b style="color:var(--blue);">'+fmt(m.parteRev)+'</b>' : '        Día 60: —')
+    +'      </div>'
+    +'      <div style="border-top:1px dashed #E2E8F0;margin-top:6px;padding-top:5px;font-size:.62rem;font-weight:800;color:var(--muted);">Gana '+fmt(m.comision)+'</div>'
+    +'    </div>'
+    +'  </div>'
+    +'  <div style="text-align:center;font-size:.58rem;color:var(--muted);margin-top:8px;line-height:1.4;">El revendedor no pone capital. El colaborador pone '+fmt(m.pone)+' y gana '+fmt(m.rend-m.comision)+' más.</div>'
+    +'</div>'
+
+    // ── SI EL CLIENTE DESAPARECE ──
+    +'<div style="background:#FEF7ED;border:1px solid #FDBA74;border-radius:14px;padding:12px;margin-bottom:10px;">'
+    +'  <div style="font-size:.58rem;font-weight:800;color:#9A3412;letter-spacing:.7px;margin-bottom:8px;">🛡️ SI EL CLIENTE DESAPARECE</div>'
+    +'  <div style="font-size:.68rem;color:var(--muted);line-height:1.55;margin-bottom:9px;">'
+    +'    Le devolvés su capital más '+CC.pisoMora+'% para que no pierda contra la inflación. No el rendimiento pactado.'
+    +'  </div>'
+    + fila('Le corresponde', fmt(m.pisoTotal))
+    + fila('Si ya cobró el 1er tramo, le falta', fmt(m.faltaSiCae))
+    + fila('Te ahorrás vs pagar todo', fmt(m.ahorroMora), '#047857')
+    +'  <div style="background:#fff;border-radius:9px;padding:8px;margin-top:8px;font-size:.62rem;color:var(--muted);line-height:1.5;text-align:center;">'
+    +'    Si ya cobró los dos tramos, la operación terminó para él. El riesgo de ahí en más es tuyo.'
+    +'  </div>'
+    +'</div>'
+
+    // ── SUGERENCIA DEL MOTOR ──
+    + (m.sug ? '<div style="background:#EFF6FF;border:1px solid #93C5FD;border-radius:12px;padding:11px;margin-bottom:10px;font-size:.68rem;color:#1E40AF;font-weight:700;line-height:1.5;">'+m.sug+'</div>' : '')
+
+    + (ccModificado() ? '<div style="background:#FFF4E0;border:1px solid var(--orange);border-radius:10px;padding:9px;font-size:.65rem;color:#9A3412;font-weight:700;text-align:center;margin-bottom:10px;">⚠️ Estás usando valores modificados. Al recargar vuelven a los originales.</div>' : '')
+
+    // ── MENSAJE AL COLABORADOR ──
+    + (m.luz==='rojo' ? ''
+      : '<div style="background:#F0FDF4;border:1px dashed #10B981;border-radius:12px;padding:12px;margin-bottom:9px;">'
+        +'<div style="font-size:.58rem;font-weight:800;color:#047857;letter-spacing:.7px;margin-bottom:7px;">ESTO LE LLEGA AL COLABORADOR</div>'
+        +'<div style="font-size:.76rem;line-height:1.7;color:var(--blue);">'
+        +'  <b>🐝 Colaboración Amarango</b><br><br>'
+        +'  Ponés <b>'+fmt(m.pone)+'</b><br>'
+        +'  Recuperás <b>'+fmt(m.recupera)+'</b><br><br>'
+        +'  📅 A los 30 días: '+fmt(m.tramo)+'<br>'
+        +'  📅 A los 60 días: '+fmt(m.tramo)+'<br><br>'
+        +'  💚 Ganás <b style="color:#047857;font-size:.92rem;">'+fmt(m.rend)+'</b> en 2 meses<br><br>'
+        +'  <span style="font-size:.66rem;color:var(--muted);">🛡️ Si el cliente cumple, cobrás lo pactado. Si el cliente desaparece, te devolvemos tu plata con un ajuste para que no pierdas contra la inflación.</span>'
+        +'</div></div>'
+        +'<button class="calc-btn" style="width:100%;background:#25D366;color:#fff;font-weight:900;" onclick="window.open(\'https://wa.me/?text=\'+encodeURIComponent(document.getElementById(\'cc-msg\').value),\'_blank\')">📲 Invitar al colaborador</button>'
+        +'<textarea id="cc-msg" style="display:none;">'+msg+'</textarea>');
+}
+// muestra las pestañas de cálculo para asesores de ventas (solo Pegar precio)
+
 
 /* ============ LOGIN ============ */
 function renderLoginPersonas(){
