@@ -7153,6 +7153,7 @@ function formVenta(preCliente){
     </div>
     </div>
     <div class="field-row"><div class="field"><label>Envío</label><input id="v_envio" type="number" inputmode="numeric" placeholder="0" oninput="recalcItems()"></div>
+    <div id="planEdicionBox"></div>
     <div class="field"><label>Responsable</label><select id="v_resp"><option>Maxi</option><option>Angela</option><option>Sabry</option><option>Guido</option></select></div></div>
     <div class="field"><label>Fecha</label><input id="v_fecha" type="date" value="${isoDate(today())}"></div>
     <div class="sec-title" style="margin-top:4px;">Inversores <span style="font-weight:400;text-transform:none;color:var(--muted);font-size:11px;">(opcional)</span></div>
@@ -8440,6 +8441,12 @@ async function descargarReciboPDF(){
   const el=document.getElementById('reciboPrint');
   if(!el){ toast('No se encontró el recibo'); return; }
   toast('📄 Generando PDF...');
+  // 📐 quitar límites de alto/scroll mientras se captura, para que salga entero
+  const _padre = el.parentElement;
+  const _est = { maxH: _padre?_padre.style.maxHeight:'', ovf: _padre?_padre.style.overflow:'' };
+  if(_padre){ _padre.style.maxHeight='none'; _padre.style.overflow='visible'; }
+  const _elEst = { maxH: el.style.maxHeight, ovf: el.style.overflow };
+  el.style.maxHeight='none'; el.style.overflow='visible';
   try{
     if(typeof html2canvas==='undefined'){
       await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
@@ -8448,13 +8455,30 @@ async function descargarReciboPDF(){
       await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
     }
     await generarPDF(el);
+    // restaurar como estaba
+    if(_padre){ _padre.style.maxHeight=_est.maxH; _padre.style.overflow=_est.ovf; }
+    el.style.maxHeight=_elEst.maxH; el.style.overflow=_elEst.ovf;
   }catch(e){
+    if(_padre){ _padre.style.maxHeight=_est.maxH; _padre.style.overflow=_est.ovf; }
+    el.style.maxHeight=_elEst.maxH; el.style.overflow=_elEst.ovf;
     console.warn('PDF:', e);
     toast('⚠️ Sin internet no se puede armar el PDF. Probá con captura 📸');
   }
 }
 async function generarPDF(el){
-  const canvas = await html2canvas(el, {scale:2, backgroundColor:'#fff'});
+  // 📐 Capturar el recibo COMPLETO, no solo lo que se ve en pantalla.
+  //    Antes el modal tenía scroll y el PDF salía cortado.
+  const canvas = await html2canvas(el, {
+    scale: 2,
+    backgroundColor: '#fff',
+    scrollX: 0,
+    scrollY: 0,
+    windowWidth: el.scrollWidth,
+    windowHeight: el.scrollHeight,
+    width: el.scrollWidth,
+    height: el.scrollHeight,
+    useCORS: true
+  });
   const img = canvas.toDataURL('image/jpeg', 0.95);
   const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
   if(!JsPDF){
@@ -9103,7 +9127,29 @@ function formEditarVenta(id){
     <button class="btn btn-orange" onclick="guardarEdicionVenta('${id}')">💾 Guardar cambios</button>`);
   renderItems();
   renderInversoresForm();
+  // 💳 poder cambiar el plan de cuotas al editar
+  try{ renderPlanEdicion(v); }catch(e){}
   setTimeout(()=>{ recalcItems(); },50);
+}
+/* 💳 Selector de cuotas dentro del formulario de edición */
+function renderPlanEdicion(v){
+  var box=document.getElementById('planEdicionBox');
+  if(!box) return;
+  var planes=[1,2,3,4,5,6,7,8,9,10,11,12];
+  box.innerHTML='<div class="sec-title" style="margin-top:4px;">Plan de pago</div>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;">'
+    + planes.map(function(n){
+        var on=(ventaCuotasSel===n);
+        return '<button type="button" onclick="setCuotasEdicion('+n+')" style="background:'+(on?'var(--orange)':'#fff')+';color:'+(on?'#fff':'var(--blue)')+';border:1.5px solid '+(on?'var(--orange)':'var(--border)')+';border-radius:9px;padding:8px 12px;font-size:.78rem;font-weight:800;cursor:pointer;font-family:inherit;">'
+          +(n===1?'Contado':n+' cuotas')+'</button>';
+      }).join('')
+    +'</div>';
+}
+function setCuotasEdicion(n){
+  ventaCuotasSel=n;
+  ventaMontoCuotaManual=0;
+  try{ renderPlanEdicion(); }catch(e){}
+  try{ recalcItems(); }catch(e){}
 }
 async function guardarEdicionVenta(id){
   const v=DB.ventas.find(x=>x.id===id); if(!v)return;
@@ -9116,6 +9162,7 @@ async function guardarEdicionVenta(id){
   v.precioVenta=precioFinal();
   v.envio=+document.getElementById('v_envio').value||0;
   v.responsable=document.getElementById('v_resp').value;
+  v.cuotas=ventaCuotasSel||1;   // 💳 guardar el plan elegido
   let invsValidos=ventaInversores.filter(x=>x.nombre.trim() && x.pct>0);
   // si no hay inversores, el responsable es dueño al 100%
   if(!invsValidos.length && v.responsable && v.responsable.trim()){
@@ -10532,7 +10579,7 @@ const APP_NOMBRE = "AmarangoElectro";
 /* ═══════ 🔄 AUTO-ACTUALIZADOR ═══════
    Revisa si hay una versión nueva del CRM y avisa para recargar.
    Así nadie tiene que borrar caché nunca más. */
-const CRM_VERSION = '2026-07-20-b';   // ← cambiar en cada actualización
+const CRM_VERSION = '2026-07-22-a';   // ← cambiar en cada actualización
 
 async function forzarActualizarCRM(){
   try{ toast('🔄 Actualizando…'); }catch(e){}
