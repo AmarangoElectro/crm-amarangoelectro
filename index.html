@@ -5224,6 +5224,7 @@ function selPersona(p){ persSel=p; renderPorPersona(); }
 
 // ═══ PLANILLA MES A MES (tablero estilo Google Sheets, usa las ventas del CRM) ═══
 var planillaMesSel=null;
+var planillaPersonaSel=null; // 👤 filtro "Por persona" en la planilla
 var MESES_NOM=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 function mesDeVenta(v){
   // devuelve "AAAA-MM" de la fecha de la venta
@@ -5232,10 +5233,23 @@ function mesDeVenta(v){
 }
 function renderPlanillaMes(){
   var vs=[...ventasAmbito()];
-  // meses disponibles (de las ventas que hay)
+  // 🗓️ Ahora la planilla trabaja con CUOTAS, no con ventas.
+  // Cada venta puede tener cuotas que vencen en meses distintos, así que
+  // desarmamos cada venta en sus cuotas y cada cuota "cae" en su mes.
+  var todasCuotas=[];
+  vs.forEach(function(v){
+    var cli=DB.clientes.find(function(c){return c.id===v.clienteId;})||{nombre:'?'};
+    var cuotas=ventaCuotas(v);
+    cuotas.forEach(function(cu){
+      var mes=(cu.vence||'').slice(0,7);
+      if(!mes) mes=mesDeVenta(v); // fallback
+      todasCuotas.push({ v:v, cli:cli, cu:cu, mes:mes, totCuotas:cuotas.length });
+    });
+  });
+  // meses disponibles (de todas las cuotas)
   var meses={};
-  vs.forEach(function(v){ var m=mesDeVenta(v); if(m) meses[m]=true; });
-  var listaMeses=Object.keys(meses).sort(); // orden ascendente: Enero, Febrero, Marzo...
+  todasCuotas.forEach(function(x){ if(x.mes) meses[x.mes]=true; });
+  var listaMeses=Object.keys(meses).sort();
   if(!listaMeses.length){
     document.getElementById('planillaMeses').innerHTML='';
     document.getElementById('planillaContent').innerHTML=emptyState('📋','Sin ventas cargadas','Cargá ventas y aparecen acá.');
@@ -5249,14 +5263,20 @@ function renderPlanillaMes(){
     var on=(m===planillaMesSel);
     return '<button class="seg-btn'+(on?' active':'')+'" style="flex:0 0 auto;padding:8px 12px;" onclick="selPlanillaMes(\''+m+'\')">'+nom+'</button>';
   }).join('');
-  // filtrar ventas del mes elegido, ordenadas por nombre de cliente
-  var delMes=vs.filter(function(v){return mesDeVenta(v)===planillaMesSel;});
-  delMes.sort(function(a,b){
-    var ca=(DB.clientes.find(function(c){return c.id===a.clienteId;})||{}).nombre||'';
-    var cb=(DB.clientes.find(function(c){return c.id===b.clienteId;})||{}).nombre||'';
-    return ca.localeCompare(cb);
-  });
-  var totalMonto=delMes.reduce(function(s,v){return s+(v.precioVenta||0);},0);
+  // 👤 lista de personas que tienen cuotas (para el filtro "Por persona")
+  var personasSet={};
+  todasCuotas.forEach(function(x){ personasSet[x.cli.id||x.cli.nombre]=x.cli.nombre; });
+  var personas=Object.keys(personasSet).map(function(k){return {id:k, nombre:personasSet[k]};}).sort(function(a,b){return a.nombre.localeCompare(b.nombre);});
+
+  // cuotas del mes elegido
+  var delMes=todasCuotas.filter(function(x){return x.mes===planillaMesSel;});
+  // 👤 aplicar filtro por persona si hay una elegida
+  if(planillaPersonaSel){
+    delMes=delMes.filter(function(x){ return (x.cli.id||x.cli.nombre)===planillaPersonaSel; });
+  }
+  delMes.sort(function(a,b){ return (a.cli.nombre||'').localeCompare(b.cli.nombre||''); });
+
+  var totalMonto=delMes.reduce(function(s,x){return s+(x.cu.monto||0);},0);
   var partesMes=planillaMesSel.split('-');
   var nombreMes=MESES_NOM[parseInt(partesMes[1])-1]+' '+partesMes[0];
   var html='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;">'+
@@ -5265,7 +5285,15 @@ function renderPlanillaMes(){
     '<button onclick="planillaMesNav(1)" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:16px;font-weight:800;cursor:pointer;">▶</button>'+
   '</div>';
   html+='<div style="text-align:center;margin-bottom:8px;"><button onclick="abrirPlanillaAncho()" style="background:var(--orange);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(255,122,0,.3);">🔄 Ver a lo ancho (pantalla completa)</button></div>';
-  html+='<div class="planilla-hint">👉 Deslizá al costado para cambiar de mes</div>';
+  // 👤 SELECTOR POR PERSONA
+  html+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">'+
+    '<select id="planillaPersona" onchange="selPlanillaPersona(this.value)" style="flex:1;padding:9px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;color:var(--blue);background:#fff;">'+
+      '<option value="">👥 Todas las personas</option>'+
+      personas.map(function(p){ return '<option value="'+(p.id)+'"'+(planillaPersonaSel===p.id?' selected':'')+'>'+p.nombre+'</option>'; }).join('')+
+    '</select>'+
+    (planillaPersonaSel?'<button onclick="selPlanillaPersona(\'\')" style="background:var(--orange);color:#fff;border:none;border-radius:9px;padding:9px 12px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;">✕ Ver todas</button>':'')+
+  '</div>';
+  html+='<div class="planilla-hint">👉 Deslizá al costado para cambiar de mes'+(planillaPersonaSel?' · viendo solo a '+(personasSet[planillaPersonaSel]||''):'')+'</div>';
   // Leyenda de colores (guía de estados)
   html+='<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px;font-size:9px;">'
     +'<span style="background:#e6f8ee;color:#1DB954;border:1px solid #1DB954;padding:2px 7px;border-radius:10px;font-weight:800;">✓ Pagado</span>'
@@ -5275,36 +5303,28 @@ function renderPlanillaMes(){
     +'</div>';
   html+='<div class="planilla-wrap" ontouchstart="planillaTouchStart(event)" ontouchend="planillaTouchEnd(event)"><table class="planilla">';
   html+='<colgroup><col style="width:17%"><col style="width:19%"><col style="width:9%"><col style="width:13%"><col style="width:9%"><col style="width:13%"><col style="width:9%"><col style="width:5.5%"><col style="width:5.5%"></colgroup>';
-  html+='<thead><tr><th>Nombre</th><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Pagar</th><th>Estado</th><th>Fecha</th><th>Inv.</th><th>Rev.</th></tr></thead><tbody>';
-  html+=delMes.map(function(v){
-    var cli=DB.clientes.find(function(c){return c.id===v.clienteId;})||{nombre:'?'};
+  html+='<thead><tr><th>Nombre</th><th>Producto</th><th>Cuota</th><th>Monto</th><th>Pagar</th><th>Estado</th><th>Vence</th><th>Inv.</th><th>Rev.</th></tr></thead><tbody>';
+  html+=delMes.map(function(x){
+    var v=x.v, cli=x.cli, cu=x.cu;
     var inv=(v.inversionista||'').trim();
-    if(!inv){ // por si están en el array de inversionistas
-      try{ var li=listaInversoresVenta(v).map(function(x){return x.nombre;}).filter(Boolean); inv=li.join('/'); }catch(e){}
+    if(!inv){
+      try{ var li=listaInversoresVenta(v).map(function(z){return z.nombre;}).filter(Boolean); inv=li.join('/'); }catch(e){}
     }
-    var totCuotas=(v.cuotas||1);
-    var pagadas=(v.pagadas||0);
-    var todoPagado = pagadas>=totCuotas;
-    var txtCuotas = totCuotas>1 ? (pagadas+' de '+totCuotas) : (todoPagado?'Pagado':'Contado');
+    // etiqueta de cuota: "Cuota 2 de 6" o "Contado"
+    var txtCuotas = x.totCuotas>1 ? ('Cuota '+cu.num+'/'+x.totCuotas) : (v.venceManual?'Préstamo':'Contado');
 
-    // Estado de pago con los colores oficiales del CRM:
-    // verde=pagado, amarillo=por vencer (cerca), rojo=vencido/atrasado, gris=pendiente (falta)
-    var estado='pendiente'; // pagado | pendiente | porvencer | vencido
-    if(todoPagado){
-      estado='pagado';
-    } else {
+    // Estado de ESTA cuota puntual
+    var estado='pendiente';
+    if(cu.pagada){ estado='pagado'; }
+    else {
       try{
-        var prox=proxVencimiento(v);
-        if(prox && prox.vence){
-          var vd=parseD(prox.vence); var h=today();
-          var difDias=Math.round((vd-h)/86400000);
-          if(difDias<0) estado='vencido';
-          else if(difDias<=3) estado='porvencer';
-          else estado='pendiente';
-        }
+        var vd=parseD(cu.vence); var h=today();
+        var difDias=Math.round((vd-h)/86400000);
+        if(difDias<0) estado='vencido';
+        else if(difDias<=3) estado='porvencer';
+        else estado='pendiente';
       }catch(e){}
     }
-    // Colores oficiales del semáforo del CRM
     var COL={
       pagado:   {bg:'#e6f8ee', txt:'#1DB954', et:'✓ Pagado'},
       porvencer:{bg:'#fef8e0', txt:'#b8860b', et:'⏰ Por vencer'},
@@ -5312,11 +5332,11 @@ function renderPlanillaMes(){
       pendiente:{bg:'transparent', txt:'var(--text)', et:'• Pendiente'}
     };
     var c=COL[estado]||COL.pendiente;
-    var celMonto = '<td class="col-monto" style="background:'+c.bg+';color:'+c.txt+' !important;font-weight:800;">'+(estado==='pagado'?'✓ ':'')+'$'+fmt(v.precioVenta||0)+'</td>';
+    var montoCel = cu.parcial ? (cu.resta) : (cu.monto||0);
+    var celMonto = '<td class="col-monto" style="background:'+c.bg+';color:'+c.txt+' !important;font-weight:800;">'+(estado==='pagado'?'✓ ':'')+'$'+fmt(montoCel)+(cu.parcial?'<br><span style="font-size:7px;color:var(--muted);">(resta)</span>':'')+'</td>';
 
-    // Celda PAGAR: tilde verde si pagado, botón si falta
     var celPagar;
-    if(todoPagado){
+    if(cu.pagada){
       celPagar = '<td style="text-align:center;color:#1DB954;font-weight:800;">✅</td>';
     } else {
       celPagar = '<td style="text-align:center;"><button onclick="event.stopPropagation();marcarCuotaPlanilla(\''+v.id+'\')" style="background:#1DB954;color:#fff;border:none;border-radius:6px;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">✔</button></td>';
@@ -5328,7 +5348,7 @@ function renderPlanillaMes(){
       celMonto+
       celPagar+
       '<td style="text-align:center;"><span style="display:inline-block;background:'+c.bg+';color:'+c.txt+';font-size:8px;font-weight:800;padding:2px 6px;border-radius:10px;white-space:nowrap;border:1px solid '+c.txt+';">'+c.et+'</span></td>'+
-      '<td>'+dispDate(v.fecha)+'</td>'+
+      '<td>'+dispDate(cu.vence)+'</td>'+
       '<td style="color:var(--orange);font-weight:700;">'+(inv||'—')+'</td>'+
       '<td>'+(v.revendedor||'—')+'</td>'+
     '</tr>';
@@ -5336,14 +5356,15 @@ function renderPlanillaMes(){
   html+='</tbody></table></div>';
   // total abajo
   html+='<div class="card" style="margin-top:12px;padding:14px;display:flex;justify-content:space-between;align-items:center;background:var(--card);border:2px solid var(--blue);">'+
-    '<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;">Total '+nombreMes+'</div>'+
+    '<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;">A cobrar en '+nombreMes+(planillaPersonaSel?' · '+(personasSet[planillaPersonaSel]||''):'')+'</div>'+
     '<div style="font-size:24px;font-weight:800;color:var(--blue);">$'+fmt(totalMonto)+'</div></div>'+
     '<div style="text-align:right;"><div style="font-size:22px;font-weight:800;color:var(--orange);">'+delMes.length+'</div>'+
-    '<div style="font-size:11px;color:var(--muted);font-weight:700;">'+(delMes.length===1?'venta':'ventas')+'</div></div>'+
+    '<div style="font-size:11px;color:var(--muted);font-weight:700;">'+(delMes.length===1?'cuota':'cuotas')+'</div></div>'+
   '</div>';
   document.getElementById('planillaContent').innerHTML=html;
 }
 function selPlanillaMes(m){ planillaMesSel=m; renderPlanillaMes(); }
+function selPlanillaPersona(id){ planillaPersonaSel=id||null; renderPlanillaMes(); }
 // Navegar al mes anterior / siguiente de la planilla
 function planillaMesNav(dir){
   var vs=[...ventasAmbito()];
