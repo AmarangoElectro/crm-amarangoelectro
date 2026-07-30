@@ -645,10 +645,33 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
   <button class="ambito-btn" id="ambitoGeneral" onclick="setAmbito('general')"><span data-ico="people" data-size="16"></span> General</button>
 </div>
 
-<!-- INICIO -->
+<!-- INICIO (rediseñado simple) -->
 <div class="view active" id="view-inicio">
-  <div id="dashInicio"></div>
-  <div class="hero" style="margin-bottom:12px">
+
+  <!-- 1) LO QUE MÁS SE USA: cargar venta -->
+  <button onclick="formVenta()" style="width:100%;background:linear-gradient(135deg,#0B2D6B,#1e5bc8);color:#fff;border:none;border-radius:16px;padding:20px;font-size:1.15rem;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(11,45,107,.3);margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:10px;">➕ Cargar venta nueva</button>
+  <div style="display:flex;gap:10px;margin-bottom:16px;">
+    <button onclick="formCliente()" style="flex:1;background:#fff;color:var(--blue);border:2px solid var(--blue);border-radius:13px;padding:13px;font-size:.9rem;font-weight:800;cursor:pointer;font-family:inherit;">👤 Nuevo cliente</button>
+    <button onclick="go('cobranzas')" style="flex:1;background:#fff;color:var(--orange);border:2px solid var(--orange);border-radius:13px;padding:13px;font-size:.9rem;font-weight:800;cursor:pointer;font-family:inherit;">📅 Cobranzas</button>
+  </div>
+
+  <!-- 2) A QUIÉN COBRAR (lo segundo más importante) -->
+  <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>🔔 A quién cobrar</span>
+    <span onclick="go('cobranzas')" style="font-size:.7rem;color:var(--blue);font-weight:700;cursor:pointer;">Ver todo ›</span>
+  </div>
+  <div id="inicioCobranzas" style="margin-bottom:16px;"></div>
+
+  <!-- 3) ACCESOS GRANDES -->
+  <div class="quick-grid" style="margin-bottom:16px;">
+    <div class="quick" onclick="go('clientes')"><div class="quick-ico">👥</div><div class="quick-val" id="qClientes">0</div><div class="quick-lbl">Clientes</div></div>
+    <div class="quick" onclick="go('ventas')"><div class="quick-ico">💰</div><div class="quick-val" id="qVentas">0</div><div class="quick-lbl">Ventas del mes</div></div>
+    <div class="quick" onclick="go('cobranzas')"><div class="quick-ico">🔴</div><div class="quick-val" id="qAtrasados">0</div><div class="quick-lbl">Cuotas vencidas</div></div>
+    <div class="quick" onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('planilla');},80);"><div class="quick-ico">📋</div><div class="quick-val" id="qHoy">0</div><div class="quick-lbl">Vencen hoy · Planilla</div></div>
+  </div>
+
+  <!-- 4) RESUMEN CHICO DEL MES (uno solo, sin repetir) -->
+  <div class="hero" style="margin-bottom:16px;">
     <div class="hero-label">Facturación del mes</div>
     <div class="hero-amt">$<span id="heroFact">0</span></div>
     <div class="hero-sub" id="heroSub">0 ventas registradas</div>
@@ -658,22 +681,26 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
       <div><div class="hs-val" id="heroCli">0</div><div class="hs-lbl">Clientes</div></div>
     </div>
   </div>
-  <button class="btn-placas-star" onclick="go('finanzas');setTimeout(()=>abrirSeccionFin('placas'),80);">🎨 Armar precios y placas <span style="font-size:11px;font-weight:600;opacity:.85;">· tu herramienta estrella</span></button>
-  <div id="panelHoy"></div>
-  <div class="sec-title">📋 Mis tareas</div>
-  <div id="tareasInicio" style="margin-bottom:14px;"></div>
-  <div class="quick-grid">
-    <div class="quick" onclick="go('cobranzas')"><div class="quick-ico">🔴</div><div class="quick-val" id="qAtrasados">0</div><div class="quick-lbl">Cuotas vencidas</div></div>
-    <div class="quick" onclick="go('cobranzas')"><div class="quick-ico">📅</div><div class="quick-val" id="qHoy">0</div><div class="quick-lbl">Vencen hoy</div></div>
-    <div class="quick" onclick="go('ventas')"><div class="quick-ico">💰</div><div class="quick-val" id="qVentas">0</div><div class="quick-lbl">Ventas del mes</div></div>
-    <div class="quick" onclick="go('clientes')"><div class="quick-ico">👥</div><div class="quick-val" id="qClientes">0</div><div class="quick-lbl">Clientes totales</div></div>
-  </div>
-  <div class="sec-title">💰 Caja y capital</div>
-  <div class="card" id="cajaBox" style="margin-bottom:14px;"></div>
-  <div class="sec-title">📋 Resumen del día</div>
-  <div class="card" id="resumenDia" style="margin-bottom:14px;"></div>
-  <div class="sec-title">Cobranzas pendientes</div>
-  <div id="inicioCobranzas"></div>
+
+  <!-- 5) MÁS HERRAMIENTAS (todo lo avanzado, encajonado) -->
+  <details style="margin-bottom:16px;">
+    <summary style="cursor:pointer;list-style:none;padding:13px;background:#f2f5fa;border:1.5px solid var(--border);border-radius:12px;font-size:.85rem;font-weight:800;color:var(--blue);text-align:center;">⚙️ Más herramientas ▾</summary>
+    <div style="padding-top:10px;display:flex;flex-direction:column;gap:8px;">
+      <button onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('placas');},80);" style="width:100%;background:#fff;color:var(--orange);border:2px solid var(--orange);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">🎨 Armar precios y placas</button>
+      <button onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('persona');},80);" style="width:100%;background:#fff;color:var(--blue);border:2px solid var(--blue);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">👤 Panel por persona</button>
+      <button onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('calc');},80);" style="width:100%;background:#fff;color:var(--blue);border:2px solid var(--border);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">🧮 Calculadora de cuotas</button>
+      <button onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('inv');},80);" style="width:100%;background:#fff;color:var(--blue);border:2px solid var(--border);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">💼 Inversores</button>
+      <button onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('panel');},80);" style="width:100%;background:#fff;color:var(--blue);border:2px solid var(--border);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">📊 Estadísticas del negocio</button>
+      <button onclick="go('finanzas')" style="width:100%;background:#fff;color:var(--blue);border:2px solid var(--border);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">📈 Finanzas completo</button>
+    </div>
+  </details>
+
+  <!-- bloques viejos ocultos (se siguen calculando, no rompen nada) -->
+  <div id="dashInicio" style="display:none;"></div>
+  <div id="panelHoy" style="display:none;"></div>
+  <div id="tareasInicio" style="display:none;"></div>
+  <div id="cajaBox" style="display:none;"></div>
+  <div id="resumenDia" style="display:none;"></div>
 </div>
 
 <!-- CLIENTES -->
