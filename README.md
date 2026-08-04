@@ -9,6 +9,9 @@ Versión simplificada:
 - Facturación total y ganancia real separadas en Ventas.
 - Acceso limitado a las cuentas de Maxi y Angie.
 - Personas e inversores unificados automáticamente por apodos, mayúsculas y combinaciones.
+- Equivalencias agregadas: Electro Round se agrupa con Marcelo Campitelli; Papas se agrupa con Papas Angie.
 - Inicio mínimo con total facturado, ganancia, enlaces principales y próximos cobros.
 - Finanzas con buscador por cliente/producto y filtros de vencidos, por cobrar y pagados.
+- Cobranzas con búsqueda, filtros y orden por fecha, cliente o monto.
+- Inicio sin vencidos: muestra únicamente cobros de hoy en adelante.
 - Herramientas secundarias agrupadas dentro de “Más herramientas”.

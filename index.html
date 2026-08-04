@@ -731,6 +731,11 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
     <button class="seg-btn" data-cob="atrasados" onclick="segCob('atrasados',this)">🔴 Vencidas</button>
     <button class="seg-btn" data-cob="pagadas" onclick="segCob('pagadas',this)">🟢 Pagadas</button>
   </div>
+  <div class="search-box"><span>🔍</span><input id="cobBuscar" placeholder="Buscar cliente o producto..." oninput="renderCobranzas()"></div>
+  <div class="field-row" style="margin-bottom:12px;">
+    <div class="field" style="margin:0;"><label>Mostrar</label><select id="cobPlanFiltro" onchange="renderCobranzas()"><option value="pendientes">Pendientes</option><option value="proximos">Próximos</option><option value="vencidos">Vencidos</option><option value="pagados">Pagados</option><option value="todos">Todos</option></select></div>
+    <div class="field" style="margin:0;"><label>Ordenar por</label><select id="cobPlanOrden" onchange="renderCobranzas()"><option value="fechaAsc">Fecha: próxima primero</option><option value="fechaDesc">Fecha: última primero</option><option value="nombre">Nombre del cliente</option><option value="montoDesc">Monto: mayor primero</option><option value="montoAsc">Monto: menor primero</option></select></div>
+  </div>
   <div id="listaCobranzas"></div>
 </div>
 
@@ -1739,6 +1744,10 @@ function normPersona(n){
 // Devuelve un nombre único para mostrar, aunque se haya escrito con otras
 // mayúsculas, tildes o apodos. Internamente Angela y Angie son la misma persona.
 function nombrePersonaCanonico(n){
+  const clave=String(n||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+  if(['marce','marcelo','marce campitelli','marcelo campitelli'].includes(clave)) return 'Marcelo Campitelli';
+  if(['elec round','electro round','electroround'].includes(clave)) return 'Marcelo Campitelli';
+  if(['papas','papas angie'].includes(clave)) return 'Papas Angie';
   const norm=normPersona(n);
   if(norm==='Angela') return 'Angie';
   if(norm==='Maxi'||norm==='Guido'||norm==='Victoria'||norm==='Selene'||norm==='Sabry'||norm==='Rosi') return norm;
@@ -3666,15 +3675,20 @@ function renderInicio(){
   document.getElementById('qHoy').textContent=hoyC;
   document.getElementById('qVentas').textContent=vMes.length;
   document.getElementById('qClientes').textContent=clientesAmbito().length;
-  const pend=baseV.map(v=>({v,e:estadoVenta(v)})).filter(x=>x.e.key==='atrasado'||x.e.key==='hoy').sort((a,b)=>parseD(a.e.px.vence)-parseD(b.e.px.vence));
+  const pend=[];
+  baseV.forEach(v=>ventaCuotas(v).forEach(c=>{
+    const venc=parseD(c.vence);
+    if(!c.pagada && venc>=today()) pend.push({v,c,venc});
+  }));
+  pend.sort((a,b)=>a.venc-b.venc);
   const cont=document.getElementById('inicioCobranzas');
-  if(!pend.length){ cont.innerHTML='<div class="alert green"><span class="alert-ico">✅</span><div><div class="alert-t">Todo al día</div><div class="alert-x">No hay cobranzas pendientes</div></div></div>'; return; }
+  if(!pend.length){ cont.innerHTML='<div class="alert green"><span class="alert-ico">✅</span><div><div class="alert-t">Sin próximos cobros</div><div class="alert-x">No hay cuotas futuras pendientes</div></div></div>'; return; }
   cont.innerHTML=pend.slice(0,6).map(x=>{
     const cli=DB.clientes.find(c=>c.id===x.v.clienteId)||{nombre:'?'};
-    return `<div class="alert ${x.e.key==='atrasado'?'red':''}" onclick="detalleVenta('${x.v.id}')">
-      <span class="alert-ico">${x.e.key==='atrasado'?'🔴':'📅'}</span>
-      <div><div class="alert-t">${cli.nombre}</div><div class="alert-x">${x.v.producto} · Cuota ${x.e.px.num} · vence ${dispDate(x.e.px.vence)}</div></div>
-      <span class="alert-go" style="color:var(--blue);font-weight:800;font-size:13px;">$${fmt(x.e.px.monto)}</span></div>`;
+    return `<div class="alert" onclick="detalleVenta('${x.v.id}')">
+      <span class="alert-ico">📅</span>
+      <div><div class="alert-t">${cli.nombre}</div><div class="alert-x">${x.v.producto} · Cuota ${x.c.num} · abona ${dispDate(x.c.vence)}</div></div>
+      <span class="alert-go" style="color:var(--blue);font-weight:800;font-size:13px;">$${fmt(x.c.resta!=null?x.c.resta:x.c.monto)}</span></div>`;
   }).join('');
   // Resumen del día
   const rd=document.getElementById('resumenDia');
@@ -4580,8 +4594,28 @@ function renderCobranzas(){
   });
   // PLANILLA PRINCIPAL: una fila por cuota, con casilla de pago estilo Excel.
   if(cobFiltro==='planilla'){
+    const q=((document.getElementById('cobBuscar')||{}).value||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const filtro=((document.getElementById('cobPlanFiltro')||{}).value||'pendientes');
+    const orden=((document.getElementById('cobPlanOrden')||{}).value||'fechaAsc');
+    rows=rows.filter(r=>{
+      const cli=DB.clientes.find(c=>c.id===r.v.clienteId)||{nombre:'?'};
+      const txt=(cli.nombre+' '+(r.v.producto||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      if(q&&!txt.includes(q)) return false;
+      if(filtro==='pendientes') return !r.c.pagada;
+      if(filtro==='proximos') return !r.c.pagada&&r.estado!=='atrasados';
+      if(filtro==='vencidos') return r.estado==='atrasados';
+      if(filtro==='pagados') return r.c.pagada;
+      return true;
+    });
+    const montoFila=r=>(r.c.resta!=null&&!r.c.pagada?r.c.resta:r.c.monto)||0;
     rows.sort((a,b)=>{
-      if(a.c.pagada!==b.c.pagada) return a.c.pagada?1:-1;
+      if(orden==='fechaDesc') return b.venc-a.venc;
+      if(orden==='nombre'){
+        const ca=DB.clientes.find(c=>c.id===a.v.clienteId)||{nombre:''}, cb=DB.clientes.find(c=>c.id===b.v.clienteId)||{nombre:''};
+        return ca.nombre.localeCompare(cb.nombre,'es');
+      }
+      if(orden==='montoDesc') return montoFila(b)-montoFila(a);
+      if(orden==='montoAsc') return montoFila(a)-montoFila(b);
       return a.venc-b.venc;
     });
     if(!rows.length){ cont.innerHTML=emptyState('📊','Sin cuotas','Las cuotas de las ventas aparecerán acá'); return; }
