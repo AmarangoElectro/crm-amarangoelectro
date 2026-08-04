@@ -26,3 +26,6 @@ Versión simplificada:
 - Ventas antiguas con porcentajes incompletos se pueden editar: el porcentaje faltante conserva la regla anterior y se asigna a Maxi.
 - Botones Editar y Eliminar visibles tanto en la lista normal como en la planilla de ventas.
 - Botón Guardar cambios fijo en la parte inferior del formulario de edición.
+- Botón Guardar cambios también visible arriba de todo al abrir Editar venta.
+- Buscador de ventas por cliente, producto, responsable, revendedor, inversor o fecha.
+- Editar y Eliminar disponibles desde la planilla y el historial de compras de cada cliente.

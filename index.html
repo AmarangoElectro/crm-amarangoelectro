@@ -710,6 +710,7 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
   <div class="view-title">Ventas</div>
   <div class="view-desc">Registro de ventas, costos y ganancias</div>
   <button class="btn btn-orange" style="width:100%;margin-bottom:10px;" onclick="formVenta()">➕ Agregar venta</button>
+  <div class="search-box" style="margin-bottom:10px;"><span>🔍</span><input id="searchVentas" placeholder="Buscar cliente, producto, responsable o revendedor..." oninput="renderVentas()"></div>
   <div class="seg" style="margin-bottom:8px;">
     <button class="seg-btn active" data-vv="lista" onclick="setVistaVentas('lista',this)">📋 Lista</button>
     <button class="seg-btn" data-vv="planilla" onclick="setVistaVentas('planilla',this)">📊 Planilla</button>
@@ -4146,7 +4147,10 @@ function renderClientes(){
       `<div class="cli-det-row">
         <div class="cli-det-linea">
           <div class="cli-det-prod">📦 ${d.producto}</div>
-          <button class="cli-del-btn" onclick="borrarVentaCajon('${d.id}','${c.id}',${d.debe},event)" title="Borrar">🗑️</button>
+          <div style="display:flex;gap:5px;flex-shrink:0;">
+            <button class="cli-del-btn" style="color:var(--blue);" onclick="event.stopPropagation();formEditarVenta('${d.id}')" title="Editar venta">✏️</button>
+            <button class="cli-del-btn" onclick="borrarVentaCajon('${d.id}','${c.id}',${d.debe},event)" title="Borrar venta">🗑️</button>
+          </div>
         </div>
         <div class="cli-det-info">${d.cuotasTxt}${d.fechaTxt?' · '+d.fechaTxt:''} <span class="cli-det-est ${d.cls}">${d.estado}</span></div>
       </div>`
@@ -4312,6 +4316,15 @@ function renderVentas(){
   // detectar tipo de cada venta (compatible con ventas viejas sin campo 'tipo')
   const esPrestamo=v=> (v.tipo==='prestamo') || (!v.tipo && /pr[eé]stamo/i.test(v.producto||''));
   let vs=[...ventasAmbito()].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+  const busqueda=String((document.getElementById('searchVentas')||{}).value||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(busqueda){
+    vs=vs.filter(v=>{
+      const cli=DB.clientes.find(c=>c.id===v.clienteId)||{};
+      const inversores=listaInversoresVenta(v).map(x=>x.nombre).join(' ');
+      const texto=[cli.nombre,v.producto,v.responsable,v.revendedor,inversores,dispDate(v.fecha)].join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      return texto.includes(busqueda);
+    });
+  }
   // aplicar filtro de tipo
   if(tipoVentas==='producto') vs=vs.filter(v=>!esPrestamo(v));
   else if(tipoVentas==='prestamo') vs=vs.filter(v=>esPrestamo(v));
@@ -8145,12 +8158,13 @@ function detalleCliente(id){
     ${!vs.length?'<div class="empty-x" style="color:var(--muted);margin-bottom:10px;">Sin compras todavía</div>':
       vistaCliente==='planilla'?
       `<div class="planilla-hint">← deslizá para ver más →</div><div class="planilla-wrap"><table class="planilla">
-        <thead><tr><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Inversionista</th><th>Revendedor</th></tr></thead>
+        <thead><tr><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Inversionista</th><th>Revendedor</th><th>Acciones</th></tr></thead>
         <tbody>${vs.map(v=>{const e=estadoVenta(v);return `<tr onclick="detalleVenta('${v.id}')" style="cursor:pointer;">
           <td><b>${v.producto}</b></td><td class="col-num">${v.cuotas>1?'de '+v.cuotas:'Contado'}</td>
           <td class="col-monto">$${fmt(v.precioVenta)}</td><td>${dispDate(v.fecha)}</td>
           <td style="color:var(--${e.cls==='green'?'green':e.cls==='red'?'red':'orange'});font-weight:700;">${e.label}</td>
-          <td style="color:var(--orange);">${v.inversionista||'—'}</td><td>${v.revendedor||'—'}</td></tr>`;}).join('')}</tbody>
+          <td style="color:var(--orange);">${v.inversionista||'—'}</td><td>${v.revendedor||'—'}</td>
+          <td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();formEditarVenta('${v.id}')">✏️ Editar</button><button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="event.stopPropagation();delVenta('${v.id}')">🗑️ Eliminar</button></td></tr>`;}).join('')}</tbody>
       </table></div>`:
       vs.map(v=>{
         const e=estadoVenta(v);
@@ -8163,6 +8177,10 @@ function detalleCliente(id){
           <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;">
             <span style="color:var(--muted);">${v.cuotas>1?v.cuotas+' cuotas':'Contado'} · ${dispDate(v.fecha)}</span>
             <span style="font-weight:800;color:var(--orange);">$${fmt(v.precioVenta)}</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:9px;">
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();formEditarVenta('${v.id}')">✏️ Editar</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="event.stopPropagation();delVenta('${v.id}')">🗑️ Eliminar</button>
           </div>
         </div>`;
       }).join('')}
@@ -9373,6 +9391,7 @@ function formEditarVenta(id){
   const opts=DB.clientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(c=>`<option value="${c.id}" ${v.clienteId===c.id?'selected':''}>${c.nombre}</option>`).join('');
   const resps=['Maxi','Angela','Sabry','Guido'];
   openModal(`<div class="modal-title">Editar venta</div><div class="modal-sub">Modificá los datos de la venta</div>
+    <button class="btn btn-orange" style="margin-bottom:12px;flex-shrink:0;" onclick="guardarEdicionVenta('${id}')">💾 Guardar cambios</button>
     <div class="field"><label>Cliente *</label><select id="v_cli" onchange="renderPlan()">${opts}</select></div>
     <div class="sec-title" style="margin-top:4px;">Productos</div>
     <div id="itemsBox"></div>
