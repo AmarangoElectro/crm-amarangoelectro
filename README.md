@@ -15,3 +15,6 @@ Versión simplificada:
 - Cobranzas con búsqueda, filtros y orden por fecha, cliente o monto.
 - Inicio sin vencidos: muestra únicamente cobros de hoy en adelante.
 - Herramientas secundarias agrupadas dentro de “Más herramientas”.
+- Ventas con botones visibles para editar, corregir la fecha y guardar cambios.
+- Ventas duplicadas eliminables desde la planilla, con recuperación desde la papelera durante 30 días.
+- Plan de pagos descargable y compartible como archivo PDF completo (no como captura de imagen).

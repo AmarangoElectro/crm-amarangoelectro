@@ -4298,7 +4298,7 @@ function renderVentas(){
   if(vistaVentas==='planilla'){
     cont.innerHTML=resumen+`<div class="planilla-hint">← deslizá la tabla para ver todas las columnas →</div>
     <div class="planilla-wrap"><table class="planilla">
-      <thead><tr><th>Nombre</th><th>${tipoVentas==='prestamo'?'Concepto':'Producto'}</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th></tr></thead>
+      <thead><tr><th>Nombre</th><th>${tipoVentas==='prestamo'?'Concepto':'Producto'}</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th><th>Acciones</th></tr></thead>
       <tbody>${vs.map(v=>{
         const cli=DB.clientes.find(c=>c.id===v.clienteId)||{nombre:'?'};
         return `<tr onclick="detalleVenta('${v.id}')" style="cursor:pointer;">
@@ -4309,6 +4309,10 @@ function renderVentas(){
           <td>${dispDate(v.fecha)}</td>
           <td style="color:var(--orange);font-weight:700;">${v.inversionista||'—'}</td>
           <td>${v.revendedor||'—'}</td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-ghost btn-sm" title="Editar venta" onclick="event.stopPropagation();formEditarVenta('${v.id}')">✏️ Editar</button>
+            <button class="btn btn-ghost btn-sm" title="Eliminar venta" style="color:var(--red);" onclick="event.stopPropagation();delVenta('${v.id}')">🗑️ Eliminar</button>
+          </td>
         </tr>`;
       }).join('')}</tbody>
     </table></div>`;
@@ -8591,7 +8595,7 @@ function verRecibo(id, tipo, cuotaNum){
   openModal(`${reciboHTML(v,cli,tipo,cuotaNum)}
     <div style="margin-top:16px;">
       <button class="btn btn-blue" onclick="descargarReciboPDF()">📥 Descargar PDF</button>
-      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="toast('Hacé captura de pantalla 📸 y mandala por WhatsApp')">📸 Captar y enviar</button>
+      <button class="btn btn-orange" style="margin-top:8px;" onclick="compartirReciboPDF()">📤 Compartir PDF</button>
     </div>`);
 }
 /* 📄 RECIBO EN PDF — genera un PDF de verdad (antes bajaba un PNG por error) */
@@ -8602,78 +8606,93 @@ function cargarScript(src){
     document.body.appendChild(s);
   });
 }
+async function prepararLibreriasPDF(){
+  if(typeof html2canvas==='undefined'){
+    await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  }
+  if(!window.jspdf && typeof jsPDF==='undefined'){
+    await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }
+  const JsPDF=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
+  if(!JsPDF) throw new Error('No se pudo cargar jsPDF');
+}
+function nombreArchivoRecibo(){
+  const fecha=new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
+  return 'recibo_amarango_'+fecha+'.pdf';
+}
 async function descargarReciboPDF(){
   const el=document.getElementById('reciboPrint');
   if(!el){ toast('No se encontró el recibo'); return; }
   toast('📄 Generando PDF...');
-  // 📐 quitar límites de alto/scroll mientras se captura, para que salga entero
-  const _padre = el.parentElement;
-  const _est = { maxH: _padre?_padre.style.maxHeight:'', ovf: _padre?_padre.style.overflow:'' };
-  if(_padre){ _padre.style.maxHeight='none'; _padre.style.overflow='visible'; }
-  const _elEst = { maxH: el.style.maxHeight, ovf: el.style.overflow };
-  el.style.maxHeight='none'; el.style.overflow='visible';
   try{
-    if(typeof html2canvas==='undefined'){
-      await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-    }
-    if(!window.jspdf && typeof jsPDF==='undefined'){
-      await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    }
-    await generarPDF(el);
-    // restaurar como estaba
-    if(_padre){ _padre.style.maxHeight=_est.maxH; _padre.style.overflow=_est.ovf; }
-    el.style.maxHeight=_elEst.maxH; el.style.overflow=_elEst.ovf;
+    await prepararLibreriasPDF();
+    const pdf=await generarPDF(el);
+    pdf.save(nombreArchivoRecibo());
+    toast('✅ PDF completo descargado');
   }catch(e){
-    if(_padre){ _padre.style.maxHeight=_est.maxH; _padre.style.overflow=_est.ovf; }
-    el.style.maxHeight=_elEst.maxH; el.style.overflow=_elEst.ovf;
     console.warn('PDF:', e);
-    toast('⚠️ Sin internet no se puede armar el PDF. Probá con captura 📸');
+    toast('⚠️ No se pudo generar el PDF. Revisá internet e intentá otra vez.');
+  }
+}
+async function compartirReciboPDF(){
+  const el=document.getElementById('reciboPrint');
+  if(!el){ toast('No se encontró el recibo'); return; }
+  toast('📄 Preparando PDF para compartir...');
+  try{
+    await prepararLibreriasPDF();
+    const pdf=await generarPDF(el);
+    const nombre=nombreArchivoRecibo();
+    const archivo=new File([pdf.output('blob')], nombre, {type:'application/pdf'});
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[archivo]}))){
+      await navigator.share({title:'Plan de pagos AmarangoElectro', text:'Te enviamos tu plan de pagos.', files:[archivo]});
+      toast('✅ PDF compartido');
+    }else{
+      pdf.save(nombre);
+      toast('📥 PDF descargado. Ahora adjuntalo en WhatsApp.');
+    }
+  }catch(e){
+    if(e && e.name==='AbortError') return;
+    console.warn('Compartir PDF:',e);
+    toast('⚠️ No se pudo compartir. Probá con Descargar PDF.');
   }
 }
 async function generarPDF(el){
-  // 📐 Capturar el recibo COMPLETO, no solo lo que se ve en pantalla.
-  //    Antes el modal tenía scroll y el PDF salía cortado.
-  const canvas = await html2canvas(el, {
+  // Se clona fuera del modal para que el scroll de la pantalla nunca corte el recibo.
+  const copia=el.cloneNode(true);
+  copia.removeAttribute('id');
+  copia.style.cssText+=';position:fixed;left:-10000px;top:0;width:420px;max-width:none;max-height:none;overflow:visible;margin:0;border-radius:0;';
+  document.body.appendChild(copia);
+  await Promise.all(Array.from(copia.querySelectorAll('img')).map(img=>img.complete?Promise.resolve():new Promise(ok=>{img.onload=ok;img.onerror=ok;})));
+  const canvas = await html2canvas(copia, {
     scale: 2,
     backgroundColor: '#fff',
     scrollX: 0,
     scrollY: 0,
-    windowWidth: el.scrollWidth,
-    windowHeight: el.scrollHeight,
-    width: el.scrollWidth,
-    height: el.scrollHeight,
+    windowWidth: 420,
+    windowHeight: copia.scrollHeight,
+    width: 420,
+    height: copia.scrollHeight,
     useCORS: true
   });
-  const img = canvas.toDataURL('image/jpeg', 0.95);
+  copia.remove();
   const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-  if(!JsPDF){
-    // respaldo: si no cargó jsPDF, al menos baja la imagen
-    const a=document.createElement('a');
-    a.href=canvas.toDataURL('image/png'); a.download='recibo_amarango.png'; a.click();
-    toast('✅ Recibo descargado (imagen)');
-    return;
-  }
-  // A4 vertical, la imagen se ajusta al ancho respetando la proporción
+  if(!JsPDF) throw new Error('jsPDF no disponible');
   const pdf = new JsPDF({orientation:'p', unit:'mm', format:'a4'});
   const anchoPag = 210, altoPag = 297, margen = 10;
   const anchoImg = anchoPag - margen*2;
-  const altoImg = (canvas.height * anchoImg) / canvas.width;
-  if(altoImg <= altoPag - margen*2){
-    pdf.addImage(img, 'JPEG', margen, margen, anchoImg, altoImg);
-  } else {
-    // si es muy largo, lo parte en varias páginas
-    let restante = altoImg, y = margen, pagina = 0;
-    while(restante > 0){
-      if(pagina>0) pdf.addPage();
-      pdf.addImage(img, 'JPEG', margen, y - (pagina * (altoPag - margen*2)), anchoImg, altoImg);
-      restante -= (altoPag - margen*2);
-      pagina++;
-      if(pagina>10) break;
-    }
+  const altoUtil=altoPag-margen*2;
+  const altoCorte=Math.floor(canvas.width*altoUtil/anchoImg);
+  let y=0, pagina=0;
+  while(y<canvas.height){
+    const alto=Math.min(altoCorte,canvas.height-y);
+    const trozo=document.createElement('canvas');
+    trozo.width=canvas.width; trozo.height=alto;
+    trozo.getContext('2d').drawImage(canvas,0,y,canvas.width,alto,0,0,canvas.width,alto);
+    if(pagina>0) pdf.addPage();
+    pdf.addImage(trozo.toDataURL('image/jpeg',0.95),'JPEG',margen,margen,anchoImg,alto*anchoImg/canvas.width);
+    y+=alto; pagina++;
   }
-  const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
-  pdf.save('recibo_amarango_'+fecha+'.pdf');
-  toast('✅ PDF descargado');
+  return pdf;
 }
 async function archivarVenta(id){
   const v=DB.ventas.find(x=>x.id===id); if(!v)return;
