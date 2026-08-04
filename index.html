@@ -4360,7 +4360,13 @@ function renderVentas(){
     return `<div class="list-item" onclick="detalleVenta('${v.id}')">
       <div class="avatar" style="background:${pr?'var(--orange)':avatarColor(cli.nombre)}">${pr?'💰':initials(cli.nombre)}</div>
       <div class="li-info"><div class="li-name">${v.producto}</div><div class="li-meta">${cli.nombre} · ${v.cuotas>1?v.cuotas+' cuotas':'Contado'} · ${dispDate(v.fecha)}</div></div>
-      <div class="li-right"><div class="li-amt">$${fmt(v.precioVenta)}</div><div class="li-tag" style="color:var(--${e.cls==='green'?'green':e.cls==='red'?'red':'orange'});font-weight:700;">${e.label}</div></div></div>`;
+      <div class="li-right">
+        <div class="li-amt">$${fmt(v.precioVenta)}</div><div class="li-tag" style="color:var(--${e.cls==='green'?'green':e.cls==='red'?'red':'orange'});font-weight:700;">${e.label}</div>
+        <div style="display:flex;gap:5px;margin-top:6px;justify-content:flex-end;">
+          <button class="btn btn-ghost btn-sm" title="Editar" style="width:auto;padding:5px 8px;" onclick="event.stopPropagation();formEditarVenta('${v.id}')">✏️</button>
+          <button class="btn btn-ghost btn-sm" title="Eliminar" style="width:auto;padding:5px 8px;color:var(--red);" onclick="event.stopPropagation();delVenta('${v.id}')">🗑️</button>
+        </div>
+      </div></div>`;
   }).join('');
 }
 
@@ -9390,7 +9396,9 @@ function formEditarVenta(id){
     <div id="planPreview"></div>
     <div id="planEnviar"></div>
     <div class="alert" style="margin-top:4px;"><span class="alert-ico">ℹ️</span><div><div class="alert-x">Pagadas registradas: ${v.pagadas||0}/${v.cuotas||1}. Si cambiás el plan, revisá los pagos.</div></div></div>
-    <button class="btn btn-orange" onclick="guardarEdicionVenta('${id}')">💾 Guardar cambios</button>`);
+    <div style="position:sticky;bottom:-14px;z-index:20;background:#fff;padding:10px 0 calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--border);box-shadow:0 -8px 18px rgba(11,45,107,.10);">
+      <button class="btn btn-orange" onclick="guardarEdicionVenta('${id}')">💾 Guardar cambios</button>
+    </div>`);
   renderItems();
   renderInversoresForm();
   // 💳 poder cambiar el plan de cuotas al editar

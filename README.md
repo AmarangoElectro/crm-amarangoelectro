@@ -24,3 +24,5 @@ Versión simplificada:
 - Ediciones de ventas protegidas para que una copia vieja de la nube no vuelva a reemplazarlas.
 - Ventas eliminadas protegidas contra reapariciones al recargar, incluso si la sincronización tarda.
 - Ventas antiguas con porcentajes incompletos se pueden editar: el porcentaje faltante conserva la regla anterior y se asigna a Maxi.
+- Botones Editar y Eliminar visibles tanto en la lista normal como en la planilla de ventas.
+- Botón Guardar cambios fijo en la parte inferior del formulario de edición.
