@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script>if(location.pathname.endsWith('/crm-index.html')) location.replace('./index.html');</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AmarangoElectro</title>
@@ -1752,6 +1753,26 @@ function normPersona(n){
   // por defecto: el nombre normalizado con primera mayúscula
   return (n||'').trim();
 }
+function nombrePersonaCanonico(n){
+  const norm=normPersona(n);
+  if(norm==='Angela') return 'Angie';
+  if(norm==='Maxi'||norm==='Guido'||norm==='Victoria'||norm==='Selene'||norm==='Sabry'||norm==='Rosi') return norm;
+  return String(norm||'').toLowerCase().replace(/(^|[\s.\-])([a-záéíóúñ])/g,(m,a,b)=>a+b.toUpperCase());
+}
+function personasCanonicas(nombre){
+  const raw=String(nombre||'').trim(); if(!raw) return [];
+  if(raw.toLowerCase()==='amarango') return ['Angie','Maxi'];
+  let partes=[];
+  if(/\s*(?:\/|&|\+|\by\b)\s*/i.test(raw)) partes=raw.split(/\s*(?:\/|&|\+|\by\b)\s*/i).filter(Boolean);
+  else {
+    const palabras=raw.split(/\s+/).filter(Boolean);
+    const conocidas=palabras.map(nombrePersonaCanonico);
+    const permitidas=['Angie','Maxi','Sabry','Guido','Selene','Victoria','Rosi'];
+    if(palabras.length>1 && conocidas.every(x=>permitidas.includes(x))) partes=palabras;
+  }
+  const salida=(partes.length?partes:[raw]).map(nombrePersonaCanonico).filter(Boolean);
+  return [...new Set(salida)];
+}
 const nombreColor = n => {
   const k=normPersona(n).toLowerCase();
   if(k==='maxi') return '#1565C0'; // azul
@@ -2046,9 +2067,12 @@ function gananciaPorPersona(){
     const reparto = repartoInversores(v);
     if(reparto.length){
       reparto.forEach(r => {
-        if(!porPersona[r.nombre]) porPersona[r.nombre] = { ganancia:0, puso:0 };
-        porPersona[r.nombre].ganancia += r.ganancia;
-        porPersona[r.nombre].puso += r.puso;
+        const nombres=personasCanonicas(r.nombre); if(!nombres.length) return;
+        nombres.forEach((nombre,i) => {
+          if(!porPersona[nombre]) porPersona[nombre] = { ganancia:0, puso:0 };
+          porPersona[nombre].ganancia += i===nombres.length-1 ? r.ganancia-Math.round(r.ganancia/nombres.length)*(nombres.length-1) : Math.round(r.ganancia/nombres.length);
+          porPersona[nombre].puso += i===nombres.length-1 ? r.puso-Math.round(r.puso/nombres.length)*(nombres.length-1) : Math.round(r.puso/nombres.length);
+        });
       });
     } else {
       // sin inversores cargados => toda la ganancia es tuya (del responsable o Maxi)
@@ -5239,19 +5263,18 @@ function setModoFin(m){
 }
 let persSel=null;
 function renderPorPersona(){
-  // armar lista de personas (responsables + inversionistas + fijos)
-  const set=new Set(['Maxi','Angela','Sabry','Guido','Selene']);
-  DB.clientes.forEach(c=>{ if((c.responsable||'').trim()) set.add(c.responsable.trim()); });
+  const set=new Set(['Maxi','Angie']);
+  DB.clientes.forEach(c=>{ personasCanonicas(c.responsable).forEach(n=>set.add(n)); });
   DB.ventas.forEach(v=>{
     listaInversoresVenta(v).forEach(inv=>{
-      let n=(inv.nombre||'').trim();
-      if(!n) return;
-      if(n.toLowerCase()==='amarango'){ set.add('Angela'); set.add('Maxi'); }
-      else set.add(n);
+      personasCanonicas(inv.nombre).forEach(n=>set.add(n));
     });
   });
-  const personas=[...set];
-  if(!persSel) persSel=personas[0];
+  const personas=[...set].sort((a,b)=>{
+    const orden={Maxi:0,Angie:1}; return (orden[a]??9)-(orden[b]??9)||a.localeCompare(b,'es');
+  });
+  persSel=nombrePersonaCanonico(persSel||personas[0]);
+  if(!personas.includes(persSel)) persSel=personas[0];
   const chips=document.getElementById('persChips');
   if(chips) chips.innerHTML=personas.map(p=>`<span class="chip ${p===persSel?'sel':''}" onclick="selPersona('${p.replace(/'/g,"\\'")}')" style="${p===persSel?`background:${nombreColor(p)};color:#fff;`:''}">${p}</span>`).join('');
   const cont=document.getElementById('persContent'); if(!cont) return;
@@ -5261,12 +5284,8 @@ function renderPorPersona(){
     const invs=listaInversoresVenta(v);
     let g=0;
     invs.forEach(inv=>{
-      const nom=(inv.nombre||'').trim();
-      if(nom.toLowerCase()==='amarango'){
-        if(persona==='Angela'||persona==='Maxi') g+=Math.round(gan*inv.pct/100/2);
-      } else if(nom===persona){
-        g+=Math.round(gan*inv.pct/100);
-      }
+      const nombres=personasCanonicas(inv.nombre);
+      if(nombres.includes(persona)) g+=Math.round(gan*inv.pct/100/Math.max(1,nombres.length));
     });
     return g;
   }
@@ -6543,13 +6562,10 @@ function renderInversores(){
   const mapa={};
   function sumar(nom, inv, gan){
     nom=(nom||'').trim()||'Maxi';
-    // "Amarango" = sociedad: 50% Angela + 50% Maxi
-    if(nom.toLowerCase()==='amarango'){
-      sumarUno('Angela', Math.round(inv/2), Math.round(gan/2));
-      sumarUno('Maxi', inv-Math.round(inv/2), gan-Math.round(gan/2));
-      return;
-    }
-    sumarUno(nom, inv, gan);
+    const nombres=personasCanonicas(nom); if(!nombres.length) return;
+    nombres.forEach((n,i)=>sumarUno(n,
+      i===nombres.length-1?inv-Math.round(inv/nombres.length)*(nombres.length-1):Math.round(inv/nombres.length),
+      i===nombres.length-1?gan-Math.round(gan/nombres.length)*(nombres.length-1):Math.round(gan/nombres.length)));
   }
   function sumarUno(nom, inv, gan){
     if(!mapa[nom]) mapa[nom]={nombre:nom, invertido:0, ganancia:0, ventas:0};
@@ -6557,7 +6573,7 @@ function renderInversores(){
   }
   DB.ventas.forEach(v=>{
     const reparto=repartoInversores(v);
-    reparto.forEach(r=>{ sumarUno(r.nombre, r.puso, r.ganancia); });
+    reparto.forEach(r=>{ sumar(r.nombre, r.puso, r.ganancia); });
   });
   const lista=Object.values(mapa).sort((a,b)=>b.ganancia-a.ganancia);
   if(!lista.length){ cont.innerHTML=emptyState('💼','Sin operaciones','Registrá ventas para ver el reparto de ganancias'); return; }

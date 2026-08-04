@@ -657,32 +657,34 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
 
 <!-- INICIO -->
 <div class="view active" id="view-inicio">
-  <div id="dashInicio"></div>
+  <div id="dashInicio" style="display:none;"></div>
   <div class="hero" style="margin-bottom:12px">
     <div class="hero-label">Facturación del mes</div>
     <div class="hero-amt">$<span id="heroFact">0</span></div>
     <div class="hero-sub" id="heroSub">0 ventas registradas</div>
     <div class="hero-stats">
-      <div><div class="hs-val" id="heroGan">$0</div><div class="hs-lbl">Ganancia</div></div>
-      <div><div class="hs-val" id="heroHoy">$0</div><div class="hs-lbl">Hoy</div></div>
-      <div><div class="hs-val" id="heroCli">0</div><div class="hs-lbl">Clientes</div></div>
+      <div><div class="hs-val" id="heroGan">$0</div><div class="hs-lbl">Ganancia real</div></div>
     </div>
   </div>
-  <button class="btn-placas-star" onclick="go('finanzas');setTimeout(()=>abrirSeccionFin('placas'),80);">🎨 Armar precios y placas <span style="font-size:11px;font-weight:600;opacity:.85;">· tu herramienta estrella</span></button>
-  <div id="panelHoy"></div>
-  <div class="sec-title">📋 Mis tareas</div>
-  <div id="tareasInicio" style="margin-bottom:14px;"></div>
-  <div class="quick-grid">
+  <div class="sec-title">Ir a</div>
+  <div class="fin-menu-grid" style="margin-bottom:16px;">
+    <button class="fin-menu-btn" onclick="go('clientes')"><span class="fmb-ico">👥</span><span class="fmb-txt">Clientes<br><small>buscar y editar</small></span></button>
+    <button class="fin-menu-btn" onclick="go('ventas')"><span class="fmb-ico">💰</span><span class="fmb-txt">Ventas<br><small>cargar y revisar</small></span></button>
+    <button class="fin-menu-btn" onclick="go('cobranzas')"><span class="fmb-ico">📅</span><span class="fmb-txt">Cobranzas<br><small>cuotas y pagos</small></span></button>
+    <button class="fin-menu-btn" onclick="go('finanzas')"><span class="fmb-ico">📊</span><span class="fmb-txt">Finanzas<br><small>resumen y filtros</small></span></button>
+  </div>
+  <div id="panelHoy" style="display:none;"></div>
+  <span id="homePend" style="display:none;"></span><span id="homeVenc" style="display:none;"></span>
+  <div class="quick-grid" style="display:none;">
     <div class="quick" onclick="go('cobranzas')"><div class="quick-ico">🔴</div><div class="quick-val" id="qAtrasados">0</div><div class="quick-lbl">Cuotas vencidas</div></div>
     <div class="quick" onclick="go('cobranzas')"><div class="quick-ico">📅</div><div class="quick-val" id="qHoy">0</div><div class="quick-lbl">Vencen hoy</div></div>
     <div class="quick" onclick="go('ventas')"><div class="quick-ico">💰</div><div class="quick-val" id="qVentas">0</div><div class="quick-lbl">Ventas del mes</div></div>
     <div class="quick" onclick="go('clientes')"><div class="quick-ico">👥</div><div class="quick-val" id="qClientes">0</div><div class="quick-lbl">Clientes totales</div></div>
   </div>
-  <div class="sec-title">💰 Caja y capital</div>
-  <div class="card" id="cajaBox" style="margin-bottom:14px;"></div>
-  <div class="sec-title">📋 Resumen del día</div>
-  <div class="card" id="resumenDia" style="margin-bottom:14px;"></div>
-  <div class="sec-title">Cobranzas pendientes</div>
+  <div id="tareasInicio" style="display:none;"></div>
+  <div id="cajaBox" style="display:none;"></div>
+  <div id="resumenDia" style="display:none;"></div>
+  <div class="sec-title">Próximas cobranzas</div>
   <div id="inicioCobranzas"></div>
 </div>
 
@@ -739,15 +741,19 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
 
   <!-- MENÚ DE INICIO (botones grandes, simple) -->
   <div id="finMenu">
+    <div class="sec-title">Uso diario</div>
     <div class="fin-menu-grid">
-      <button class="fin-menu-btn" onclick="abrirSeccionFin('placas')" style="border-color:var(--orange);"><span class="fmb-ico">🎨</span><span class="fmb-txt">Armar precios y placas<br><small>lo que más usás</small></span></button>
-      <button class="fin-menu-btn" onclick="abrirSeccionFin('catalogo')"><span class="fmb-ico">📦</span><span class="fmb-txt">Catálogo<br><small>productos y celus</small></span></button>
-      <button class="fin-menu-btn" onclick="abrirSeccionFin('calc')"><span class="fmb-ico">🧮</span><span class="fmb-txt">Calculadora<br><small>cuotas y costos</small></span></button>
-      <button class="fin-menu-btn" onclick="abrirSeccionFin('respuestas')"><span class="fmb-ico">💬</span><span class="fmb-txt">Respuestas<br><small>listas para WhatsApp</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('finanzas')"><span class="fmb-ico">📊</span><span class="fmb-txt">Resumen<br><small>del negocio</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('persona')"><span class="fmb-ico">👤</span><span class="fmb-txt">Por persona<br><small>ventas de cada uno</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('planilla')"><span class="fmb-ico">📋</span><span class="fmb-txt">Planilla<br><small>tablero mes a mes</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('inv')"><span class="fmb-ico">💼</span><span class="fmb-txt">Inversores<br><small>reparto</small></span></button>
+    </div>
+    <div class="sec-title" style="margin-top:16px;">Más herramientas</div>
+    <div class="fin-menu-grid">
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('calc')"><span class="fmb-ico">🧮</span><span class="fmb-txt">Calculadora<br><small>cuotas y costos</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('catalogo')"><span class="fmb-ico">📦</span><span class="fmb-txt">Catálogo<br><small>productos y celus</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('placas')"><span class="fmb-ico">🎨</span><span class="fmb-txt">Placas<br><small>precios y diseños</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('respuestas')"><span class="fmb-ico">💬</span><span class="fmb-txt">Respuestas<br><small>para WhatsApp</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('panel')"><span class="fmb-ico">📈</span><span class="fmb-txt">Panel<br><small>estadísticas</small></span></button>
     </div>
   </div>
@@ -758,14 +764,11 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
   <!-- Switch principal: Finanzas / Calculadora / Inversores -->
   <div class="seg" id="finTabs" style="margin-bottom:14px;flex-wrap:wrap;display:none;">
     <button class="seg-btn active" id="modoFinBtn" onclick="setModoFin('finanzas')">📊 Finanzas</button>
-    <button class="seg-btn" id="modoCalcBtn" onclick="setModoFin('calc')">🧮 Calculadora</button>
     <button class="seg-btn" id="modoInvBtn" onclick="setModoFin('inv')">💼 Inversores</button>
     <button class="seg-btn" id="modoPersBtn" onclick="setModoFin('persona')">👤 Por persona</button>
     <button class="seg-btn" id="modoPlanillaBtn" onclick="setModoFin('planilla')">📋 Planilla</button>
-    <button class="seg-btn" id="modoCatBtn" onclick="setModoFin('catalogo')">📦 Catálogo</button>
-    <button class="seg-btn" id="modoPlacaBtn" onclick="setModoFin('placas')">🎨 Placas</button>
-    <button class="seg-btn" id="modoRespBtn" onclick="setModoFin('respuestas')">💬 Respuestas</button>
-    <button class="seg-btn" id="modoPanelBtn" onclick="setModoFin('panel')">📊 Panel</button>
+    <button class="seg-btn" onclick="volverMenuFin()">••• Más</button>
+    <button id="modoCalcBtn" style="display:none"></button><button id="modoCatBtn" style="display:none"></button><button id="modoPlacaBtn" style="display:none"></button><button id="modoRespBtn" style="display:none"></button><button id="modoPanelBtn" style="display:none"></button>
   </div>
 
   <!-- BLOQUE FINANZAS -->
@@ -774,6 +777,14 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
       <button class="seg-btn active" data-fin="mes" onclick="segFin('mes',this)">Este mes</button>
       <button class="seg-btn" data-fin="todo" onclick="segFin('todo',this)">Histórico</button>
     </div>
+    <div class="search-box" style="margin-top:12px;"><span>🔍</span><input id="finBuscar" placeholder="Buscar cliente o producto..." oninput="renderFinanzas()"></div>
+    <div class="seg" style="margin-bottom:12px;flex-wrap:wrap;">
+      <button class="seg-btn active" data-finestado="todos" onclick="segFinEstado('todos',this)">Todos</button>
+      <button class="seg-btn" data-finestado="vencidos" onclick="segFinEstado('vencidos',this)">🔴 Vencidos</button>
+      <button class="seg-btn" data-finestado="porcobrar" onclick="segFinEstado('porcobrar',this)">🟠 Por cobrar</button>
+      <button class="seg-btn" data-finestado="pagados" onclick="segFinEstado('pagados',this)">🟢 Pagados</button>
+    </div>
+    <div id="finLista"></div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <div><div class="info-lbl">Facturación</div><div style="font-size:26px;font-weight:800;color:var(--blue);" id="finFact">$0</div></div>
@@ -1725,6 +1736,30 @@ function normPersona(n){
   // por defecto: el nombre normalizado con primera mayúscula
   return (n||'').trim();
 }
+// Devuelve un nombre único para mostrar, aunque se haya escrito con otras
+// mayúsculas, tildes o apodos. Internamente Angela y Angie son la misma persona.
+function nombrePersonaCanonico(n){
+  const norm=normPersona(n);
+  if(norm==='Angela') return 'Angie';
+  if(norm==='Maxi'||norm==='Guido'||norm==='Victoria'||norm==='Selene'||norm==='Sabry'||norm==='Rosi') return norm;
+  return String(norm||'').toLowerCase().replace(/(^|[\s.\-])([a-záéíóúñ])/g,(m,a,b)=>a+b.toUpperCase());
+}
+// Separa sociedades escritas como "Angie/Maxi", "Maxi + Angie" o
+// "Angie Maxi". Si no es una combinación clara, conserva el nombre como grupo.
+function personasCanonicas(nombre){
+  const raw=String(nombre||'').trim(); if(!raw) return [];
+  if(raw.toLowerCase()==='amarango') return ['Angie','Maxi'];
+  let partes=[];
+  if(/\s*(?:\/|&|\+|\by\b)\s*/i.test(raw)) partes=raw.split(/\s*(?:\/|&|\+|\by\b)\s*/i).filter(Boolean);
+  else {
+    const palabras=raw.split(/\s+/).filter(Boolean);
+    const conocidas=palabras.map(nombrePersonaCanonico);
+    const permitidas=['Angie','Maxi','Sabry','Guido','Selene','Victoria','Rosi'];
+    if(palabras.length>1 && conocidas.every(x=>permitidas.includes(x))) partes=palabras;
+  }
+  const salida=(partes.length?partes:[raw]).map(nombrePersonaCanonico).filter(Boolean);
+  return [...new Set(salida)];
+}
 const nombreColor = n => {
   const k=normPersona(n).toLowerCase();
   if(k==='maxi') return '#1565C0'; // azul
@@ -2019,9 +2054,12 @@ function gananciaPorPersona(){
     const reparto = repartoInversores(v);
     if(reparto.length){
       reparto.forEach(r => {
-        if(!porPersona[r.nombre]) porPersona[r.nombre] = { ganancia:0, puso:0 };
-        porPersona[r.nombre].ganancia += r.ganancia;
-        porPersona[r.nombre].puso += r.puso;
+        const nombres=personasCanonicas(r.nombre); if(!nombres.length) return;
+        nombres.forEach((nombre,i) => {
+          if(!porPersona[nombre]) porPersona[nombre] = { ganancia:0, puso:0 };
+          porPersona[nombre].ganancia += i===nombres.length-1 ? r.ganancia-Math.round(r.ganancia/nombres.length)*(nombres.length-1) : Math.round(r.ganancia/nombres.length);
+          porPersona[nombre].puso += i===nombres.length-1 ? r.puso-Math.round(r.puso/nombres.length)*(nombres.length-1) : Math.round(r.puso/nombres.length);
+        });
       });
     } else {
       // sin inversores cargados => toda la ganancia es tuya (del responsable o Maxi)
@@ -3610,17 +3648,20 @@ function mesActual(f){ const d=new Date(f),n=new Date(); return d.getMonth()===n
 function renderInicio(){
   const baseV=ventasAmbito();
   const vMes=baseV.filter(v=>mesActual(v.fecha));
-  const fact=vMes.reduce((s,v)=>s+v.precioVenta,0);
-  const gan=vMes.reduce((s,v)=>s+(v.precioVenta-v.precioCosto-(v.envio||0)),0);
+  const fact=vMes.reduce((s,v)=>s+totalPagadoVenta(v),0);
+  const gan=vMes.reduce((s,v)=>s+gananciaVenta(v),0);
   const hoyStr=isoDate(today());
   const hoy=baseV.filter(v=>v.fecha===hoyStr).reduce((s,v)=>s+v.precioVenta,0);
   document.getElementById('heroFact').textContent=fmt(fact);
   document.getElementById('heroSub').textContent=vMes.length+' ventas registradas';
   document.getElementById('heroGan').textContent='$'+fmt(gan);
-  document.getElementById('heroHoy').textContent='$'+fmt(hoy);
-  document.getElementById('heroCli').textContent=clientesAmbito().length;
-  let atr=0,hoyC=0;
-  baseV.forEach(v=>{ const e=estadoVenta(v); if(e.key==='atrasado')atr++; if(e.key==='hoy')hoyC++; });
+  let atr=0,hoyC=0,totalPend=0,totalVenc=0;
+  baseV.forEach(v=>{
+    const e=estadoVenta(v); if(e.key==='atrasado')atr++; if(e.key==='hoy')hoyC++;
+    ventaCuotas(v).forEach(c=>{ if(!c.pagada){ const m=c.resta!=null?c.resta:c.monto; totalPend+=m; if(parseD(c.vence)<today()) totalVenc+=m; } });
+  });
+  const hp=document.getElementById('homePend'); if(hp) hp.textContent='$'+fmt(totalPend);
+  const hv=document.getElementById('homeVenc'); if(hv) hv.textContent='$'+fmt(totalVenc);
   document.getElementById('qAtrasados').textContent=atr;
   document.getElementById('qHoy').textContent=hoyC;
   document.getElementById('qVentas').textContent=vMes.length;
@@ -4684,8 +4725,9 @@ async function toggleCuotaPlanillaCobranza(ventaId,num,checkbox){
   renderCobranzas();
 }
 
-let finFiltro='mes';
+let finFiltro='mes', finEstado='todos';
 function segFin(f,el){ finFiltro=f; document.querySelectorAll('[data-fin]').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderFinanzas(); }
+function segFinEstado(f,el){ finEstado=f; document.querySelectorAll('[data-finestado]').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderFinanzas(); }
 function renderFinanzas(){
   const base=ventasAmbito();
   let vs=finFiltro==='mes'?base.filter(v=>mesActual(v.fecha)):base;
@@ -4704,6 +4746,24 @@ function renderFinanzas(){
   document.getElementById('finPend').textContent=fmt(pend);
   const tot=cobrado+pend;
   document.getElementById('finBar').style.width=(tot?(cobrado/tot*100):0)+'%';
+  const lista=document.getElementById('finLista'); if(!lista) return;
+  const q=((document.getElementById('finBuscar')||{}).value||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  let filas=[];
+  vs.forEach(v=>{
+    const cli=DB.clientes.find(c=>c.id===v.clienteId)||{nombre:'?'};
+    const texto=(cli.nombre+' '+(v.producto||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if(q&&!texto.includes(q)) return;
+    ventaCuotas(v).forEach(c=>{
+      const vencida=!c.pagada&&parseD(c.vence)<today();
+      if(finEstado==='vencidos'&&!vencida) return;
+      if(finEstado==='porcobrar'&&c.pagada) return;
+      if(finEstado==='pagados'&&!c.pagada) return;
+      filas.push({v,c,cli,vencida});
+    });
+  });
+  filas.sort((a,b)=>parseD(a.c.vence)-parseD(b.c.vence));
+  if(!filas.length){ lista.innerHTML=emptyState('🔍','Sin resultados','Probá con otro nombre o filtro'); return; }
+  lista.innerHTML=`<div class="planilla-wrap"><table class="planilla cob-planilla"><thead><tr><th>Estado</th><th>Cliente</th><th>Producto</th><th>Cuota</th><th>Monto</th><th>Fecha</th></tr></thead><tbody>${filas.slice(0,200).map(x=>`<tr class="${x.c.pagada?'cob-pagada':(x.vencida?'cob-vencida':'')}" onclick="detalleVenta('${x.v.id}')" style="cursor:pointer"><td>${x.c.pagada?'✅ Pagado':(x.vencida?'🔴 Vencido':'🟠 Pendiente')}</td><td><b>${x.cli.nombre}</b></td><td>${x.v.producto||'—'}</td><td>${x.c.num} de ${x.v.cuotas||1}</td><td class="col-monto">$${fmt(x.c.resta!=null&&!x.c.pagada?x.c.resta:x.c.monto)}</td><td>${dispDate(x.c.vence)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function finRow(l,val,c,plain){ return `<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:13px;"><span style="color:var(--muted);">${l}</span><span style="font-weight:700;color:${c};">${plain?val:'$'+fmt(val)}</span></div>`; }
 /* Reporte mensual del negocio. El TOTAL es del negocio (visible). La ganancia por persona NO se muestra acá (privada). */
@@ -5212,19 +5272,19 @@ function setModoFin(m){
 }
 let persSel=null;
 function renderPorPersona(){
-  // armar lista de personas (responsables + inversionistas + fijos)
-  const set=new Set(['Maxi','Angela','Sabry','Guido','Selene']);
-  DB.clientes.forEach(c=>{ if((c.responsable||'').trim()) set.add(c.responsable.trim()); });
+  // Armar una lista limpia: apodos, mayúsculas y sociedades quedan unificados.
+  const set=new Set(['Maxi','Angie']);
+  DB.clientes.forEach(c=>{ personasCanonicas(c.responsable).forEach(n=>set.add(n)); });
   DB.ventas.forEach(v=>{
     listaInversoresVenta(v).forEach(inv=>{
-      let n=(inv.nombre||'').trim();
-      if(!n) return;
-      if(n.toLowerCase()==='amarango'){ set.add('Angela'); set.add('Maxi'); }
-      else set.add(n);
+      personasCanonicas(inv.nombre).forEach(n=>set.add(n));
     });
   });
-  const personas=[...set];
-  if(!persSel) persSel=personas[0];
+  const personas=[...set].sort((a,b)=>{
+    const orden={Maxi:0,Angie:1}; return (orden[a]??9)-(orden[b]??9)||a.localeCompare(b,'es');
+  });
+  persSel=nombrePersonaCanonico(persSel||personas[0]);
+  if(!personas.includes(persSel)) persSel=personas[0];
   const chips=document.getElementById('persChips');
   if(chips) chips.innerHTML=personas.map(p=>`<span class="chip ${p===persSel?'sel':''}" onclick="selPersona('${p.replace(/'/g,"\\'")}')" style="${p===persSel?`background:${nombreColor(p)};color:#fff;`:''}">${p}</span>`).join('');
   const cont=document.getElementById('persContent'); if(!cont) return;
@@ -5234,12 +5294,8 @@ function renderPorPersona(){
     const invs=listaInversoresVenta(v);
     let g=0;
     invs.forEach(inv=>{
-      const nom=(inv.nombre||'').trim();
-      if(nom.toLowerCase()==='amarango'){
-        if(persona==='Angela'||persona==='Maxi') g+=Math.round(gan*inv.pct/100/2);
-      } else if(nom===persona){
-        g+=Math.round(gan*inv.pct/100);
-      }
+      const nombres=personasCanonicas(inv.nombre);
+      if(nombres.includes(persona)) g+=Math.round(gan*inv.pct/100/Math.max(1,nombres.length));
     });
     return g;
   }
@@ -6508,13 +6564,10 @@ function renderInversores(){
   const mapa={};
   function sumar(nom, inv, gan){
     nom=(nom||'').trim()||'Maxi';
-    // "Amarango" = sociedad: 50% Angela + 50% Maxi
-    if(nom.toLowerCase()==='amarango'){
-      sumarUno('Angela', Math.round(inv/2), Math.round(gan/2));
-      sumarUno('Maxi', inv-Math.round(inv/2), gan-Math.round(gan/2));
-      return;
-    }
-    sumarUno(nom, inv, gan);
+    const nombres=personasCanonicas(nom); if(!nombres.length) return;
+    nombres.forEach((n,i)=>sumarUno(n,
+      i===nombres.length-1?inv-Math.round(inv/nombres.length)*(nombres.length-1):Math.round(inv/nombres.length),
+      i===nombres.length-1?gan-Math.round(gan/nombres.length)*(nombres.length-1):Math.round(gan/nombres.length)));
   }
   function sumarUno(nom, inv, gan){
     if(!mapa[nom]) mapa[nom]={nombre:nom, invertido:0, ganancia:0, ventas:0};
@@ -6522,7 +6575,7 @@ function renderInversores(){
   }
   DB.ventas.forEach(v=>{
     const reparto=repartoInversores(v);
-    reparto.forEach(r=>{ sumarUno(r.nombre, r.puso, r.ganancia); });
+    reparto.forEach(r=>{ sumar(r.nombre, r.puso, r.ganancia); });
   });
   const lista=Object.values(mapa).sort((a,b)=>b.ganancia-a.ganancia);
   if(!lista.length){ cont.innerHTML=emptyState('💼','Sin operaciones','Registrá ventas para ver el reparto de ganancias'); return; }

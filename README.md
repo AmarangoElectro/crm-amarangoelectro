@@ -8,3 +8,7 @@ Versión simplificada:
 - Totales pendientes y vencidos separados.
 - Facturación total y ganancia real separadas en Ventas.
 - Acceso limitado a las cuentas de Maxi y Angie.
+- Personas e inversores unificados automáticamente por apodos, mayúsculas y combinaciones.
+- Inicio mínimo con total facturado, ganancia, enlaces principales y próximos cobros.
+- Finanzas con buscador por cliente/producto y filtros de vencidos, por cobrar y pagados.
+- Herramientas secundarias agrupadas dentro de “Más herramientas”.
