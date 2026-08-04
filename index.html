@@ -1309,6 +1309,9 @@ const PENDIENTES={
     const i=a.findIndex(p=>p.tabla===tabla && p.dato && p.dato.id===dato.id);
     if(i>=0) a[i]={tabla,dato,ts:Date.now()}; else a.push({tabla,dato,ts:Date.now()});
     this.save(a);
+  },
+  quitar(tabla,id){
+    this.save(this.load().filter(p=>!(p.tabla===tabla&&p.dato&&String(p.dato.id)===String(id))));
   }
 };
 // Fuerza bajar de nuevo TODO desde la nube y volver a dibujar (sin datos demo, sin caché)
@@ -1410,12 +1413,17 @@ function fusionar(nube, local, tabla){
   nube = Array.isArray(nube)?nube:[];
   local = Array.isArray(local)?local:[];
   const porId = new Map();
+  const idsPendientes=new Set(PENDIENTES.load().filter(p=>p.tabla===tabla&&p.dato).map(p=>String(p.dato.id)));
   // primero la nube (versión oficial)
   nube.forEach(r=>{ if(r&&r.id!=null) porId.set(r.id, r); });
   // después lo local: lo que NO esté en la nube, se conserva y se marca para subir
   local.forEach(r=>{
     if(!r||r.id==null) return;
-    if(!porId.has(r.id)){
+    if(idsPendientes.has(String(r.id))){
+      // Esta versión local fue editada y todavía espera sincronizar: no dejar
+      // que la copia vieja de la nube la pise al volver a abrir el CRM.
+      porId.set(r.id,r);
+    } else if(!porId.has(r.id)){
       porId.set(r.id, r);
       // estaba solo en el celu → a la cola para que suba
       try{ if(tabla==='clientes'||tabla==='ventas'||tabla==='productos') PENDIENTES.agregar(tabla, r); }catch(e){}
@@ -1439,6 +1447,13 @@ const DB = {
         const {data:cli} = await sb.from('clientes').select('*').order('num',{ascending:true}).limit(100000);
         const {data:ven} = await sb.from('ventas').select('*').limit(100000);
         let nubeCli = cli||[], nubeVen = ven||[];
+        // Una venta borrada queda oculta aunque Supabase tarde en aceptar el
+        // DELETE. Esto evita que la nube la "reviva" al recargar la aplicación.
+        let ventasBorradas=[];
+        try{ ventasBorradas=JSON.parse(localStorage.getItem('ae_ventas_borradas')||'[]').map(String); }catch(e){}
+        const setBorradas=new Set(ventasBorradas);
+        nubeVen=nubeVen.filter(v=>!setBorradas.has(String(v.id)));
+        locVen=locVen.filter(v=>!setBorradas.has(String(v.id)));
         let nubeMsg=[], nubeProd=[];
         try{ const {data:msg} = await sb.from('mensajes').select('*').limit(100000); nubeMsg = msg||[]; }catch(e){}
         try{ const {data:prod} = await sb.from('productos').select('*').limit(100000); nubeProd = prod||[]; }catch(e){}
@@ -1529,6 +1544,7 @@ const DB = {
     if(!okLocal){ return {ok:false, local:false, msg:'No se pudo guardar en el teléfono (memoria llena)'}; }
     const r=await subirNube('ventas', v);
     if(!r.ok){ PENDIENTES.agregar('ventas', v); console.warn('upsertVenta:', r.msg); }
+    else PENDIENTES.quitar('ventas',v.id);
     return r;
   },
   async delCliente(id){
@@ -1536,7 +1552,25 @@ const DB = {
     this.saveLocal();
   },
   async delVenta(id){
-    if(CLOUD){ try{ await sb.from('ventas').delete().eq('id',id); }catch(e){ console.warn(e); } }
+    // Si había una edición de esta venta esperando subir, cancelarla para
+    // que no vuelva a crear la fila después de haberla eliminado.
+    PENDIENTES.quitar('ventas',id);
+    let borradas=[];
+    try{ borradas=JSON.parse(localStorage.getItem('ae_ventas_borradas')||'[]'); }catch(e){}
+    if(!borradas.map(String).includes(String(id))) borradas.push(id);
+    try{ localStorage.setItem('ae_ventas_borradas',JSON.stringify(borradas)); }catch(e){}
+    if(CLOUD){
+      try{
+        const {error}=await sb.from('ventas').delete().eq('id',id);
+        const verificacion=error?null:await sb.from('ventas').select('id').eq('id',id).limit(1);
+        const sigueEnNube=verificacion&&verificacion.data&&verificacion.data.length>0;
+        if(error||sigueEnNube) console.warn('delVenta nube:',error?(error.message||error):'la fila sigue existiendo');
+        else {
+          borradas=borradas.filter(x=>String(x)!==String(id));
+          try{ localStorage.setItem('ae_ventas_borradas',JSON.stringify(borradas)); }catch(e){}
+        }
+      }catch(e){ console.warn(e); }
+    }
     this.saveLocal();
   },
   async enviarMensaje(m){
@@ -5326,23 +5360,33 @@ function renderPorPersona(){
   const chips=document.getElementById('persChips');
   if(chips) chips.innerHTML=personas.map(p=>`<span class="chip ${p===persSel?'sel':''}" onclick="selPersona('${p.replace(/'/g,"\\'")}')" style="${p===persSel?`background:${nombreColor(p)};color:#fff;`:''}">${p}</span>`).join('');
   const cont=document.getElementById('persContent'); if(!cont) return;
-  // ganancia de esta persona COMO INVERSIONISTA (según su % en cada venta)
-  function ganaEnVenta(v, persona){
-    const gan=gananciaVenta(v);
-    const invs=listaInversoresVenta(v);
-    let g=0;
-    invs.forEach(inv=>{
-      const nombres=personasCanonicas(inv.nombre);
-      if(nombres.includes(persona)) g+=Math.round(gan*inv.pct/100/Math.max(1,nombres.length));
+  // Usa el mismo reparto central que el detalle de la venta. Así dos inversores
+  // ven la misma operación y cada uno recibe solamente su capital y su ganancia.
+  function datosPersonaEnVenta(v, persona){
+    const total={participa:false,puso:0,ganancia:0,recibe:0,cobros:[]};
+    repartoInversores(v).forEach(r=>{
+      const nombres=personasCanonicas(r.nombre); if(!nombres.includes(persona)) return;
+      const pos=nombres.indexOf(persona), cant=Math.max(1,nombres.length);
+      const parte=(m)=>pos===cant-1 ? m-Math.round(m/cant)*(cant-1) : Math.round(m/cant);
+      total.participa=true;
+      total.puso+=parte(r.puso||0);
+      total.ganancia+=parte(r.ganancia||0);
+      total.recibe+=parte(r.recibe||0);
+      (r.cobraPorCuota||[]).forEach((m,i)=>{ total.cobros[i]=(total.cobros[i]||0)+parte(m||0); });
     });
-    return g;
+    return total;
   }
-  const ventas=DB.ventas.filter(v=>ganaEnVenta(v,persSel)!==0);
+  const ventas=DB.ventas.filter(v=>datosPersonaEnVenta(v,persSel).participa);
   let totVenta=0, totGan=0, cobrado=0, porCobrar=0;
   ventas.forEach(v=>{
-    totVenta+=(v.precioVenta||0);
-    totGan+=ganaEnVenta(v,persSel);
-    ventaCuotas(v).forEach(c=>{ if(c.pagada) cobrado+=c.monto; else porCobrar+=c.monto; });
+    const d=datosPersonaEnVenta(v,persSel);
+    totVenta+=d.recibe;
+    totGan+=d.ganancia;
+    const n=Math.max(1,v.cuotas||1), pagadas=Math.min(n,v.pagadas||0);
+    const cobradoVenta=d.cobros.slice(0,pagadas).reduce((s,m)=>s+m,0);
+    const totalCobros=d.cobros.reduce((s,m)=>s+m,0);
+    cobrado+=cobradoVenta;
+    porCobrar+=Math.max(0,totalCobros-cobradoVenta);
   });
   let html=`<div class="calc-result" style="background:linear-gradient(135deg,${nombreColor(persSel)},${nombreColor(persSel)}cc);">
     <div class="cr-lbl">Ganancia de ${persSel}</div><div class="cr-big">$<span>${fmt(totGan)}</span></div>
@@ -5360,7 +5404,7 @@ function renderPorPersona(){
     return `<div class="list-item" onclick="detalleVenta('${v.id}')">
       <div class="avatar" style="background:${avatarColor(c.nombre)}">${initials(c.nombre)}</div>
       <div class="li-info"><div class="li-name">${v.producto}</div><div class="li-meta">${c.nombre} · ${dispDate(v.fecha)}</div></div>
-      <div class="li-right"><div class="li-amt" style="color:var(--green);">$${fmt(ganaEnVenta(v,persSel))}</div></div>
+      <div class="li-right"><div class="li-amt" style="color:var(--green);">$${fmt(datosPersonaEnVenta(v,persSel).ganancia)}</div></div>
     </div>`;
   }).join('');
   cont.innerHTML=html;
@@ -7891,6 +7935,21 @@ async function saveVenta(){
   if(!invsValidos.length && respVenta && respVenta.trim()){
     invsValidos=[{nombre:respVenta.trim(), pct:100}];
   }
+  let totalPctInversores=invsValidos.reduce((s,x)=>s+(Number(x.pct)||0),0);
+  // Compatibilidad con ventas viejas: antes el porcentaje faltante pertenecía
+  // automáticamente a Maxi. Mantener esa regla permite editar fecha u otros
+  // datos sin que una operación antigua quede bloqueada.
+  if(totalPctInversores<100){
+    const falta=100-totalPctInversores;
+    const maxi=invsValidos.find(x=>normPersona(x.nombre)==='Maxi');
+    if(maxi) maxi.pct=(Number(maxi.pct)||0)+falta;
+    else invsValidos.push({nombre:'Maxi',pct:falta,tipo:'amarango'});
+    totalPctInversores=100;
+  }
+  if(Math.abs(totalPctInversores-100)>0.01){
+    toast(`Los inversionistas deben sumar 100%. Ahora suman ${fmt(totalPctInversores)}%`);
+    return;
+  }
   // === CAPITAL INVERTIDO (fórmula coherente con la calculadora): costo + comisión + envío − 1ra cuota ===
   const _costoVenta = ventaTipo==='prestamo' ? (+document.getElementById('p_monto')?.value||0) : itemsVenta.reduce((s,it)=>s+((it.costo||0)*(it.cantidad||1)),0);
   const _envioVenta = +document.getElementById('v_envio')?.value||0;
@@ -8234,7 +8293,7 @@ function repartoInversores(v){
   const _cuotaCliente = (v.tipo!=='prestamo' && _n>0)
     ? ((v.montoCuota>0?v.montoCuota:(planCuotas(v.precioVenta||0,_n)[0]))||Math.round((v.precioVenta||0)/_n))
     : Math.round((v.precioVenta||0)/_n);
-  return Object.entries(mapa).map(([nombre,pct])=>{
+  const resultado=Object.entries(mapa).map(([nombre,pct])=>{
     const puso = Math.round(costo*pct/100);
     let ganancia;
     if(esInvitado(nombre)){
@@ -8251,6 +8310,29 @@ function repartoInversores(v){
       recibePorCuota: Math.round(recibe / (_n>0?_n:1))
     };
   });
+  // Lo que se entrega en cada cobro se calcula sobre el dinero que realmente
+  // queda de esa cuota DESPUÉS de pagar la parte de comisión. No modifica el
+  // cálculo de la comisión: solamente reparte el remanente entre inversores.
+  const cuotasVenta=ventaCuotas(v);
+  const comisionPorCuota=reparteComisionEnCuotas(v);
+  const sumaPct=resultado.reduce((s,r)=>s+(Number(r.pct)||0),0)||100;
+  resultado.forEach(r=>{ r.cobraPorCuota=[]; });
+  cuotasVenta.forEach((c,i)=>{
+    const restante=Math.max(0,(Number(c.monto)||0)-(Number(comisionPorCuota[i])||0));
+    let asignado=0;
+    resultado.forEach((r,j)=>{
+      const monto=(j===resultado.length-1)
+        ? restante-asignado
+        : Math.round(restante*(Number(r.pct)||0)/sumaPct);
+      r.cobraPorCuota.push(Math.max(0,monto));
+      asignado+=monto;
+    });
+  });
+  resultado.forEach(r=>{
+    r.totalSegunCuotas=r.cobraPorCuota.reduce((s,m)=>s+m,0);
+    r.recibePorCuota=r.cobraPorCuota[0]||0;
+  });
+  return resultado;
 }
 /* ============ SOLICITUD DE INVERSIÓN ============ */
 // muestra los inversores de una venta para elegir a quién mandarle la solicitud
@@ -8347,10 +8429,10 @@ function bloquePagosTercerosHTML(v){
   // INVERSIONISTA
   if(hayInv){
     reparto.forEach((r,idx)=>{
-      const recibePorCuota = r.recibePorCuota||Math.round(r.recibe/nCuotas);
-      const debeAcum = recibePorCuota*cuotasCobradas;     // lo que le corresponde por lo cobrado hasta ahora
+      const cobros=r.cobraPorCuota||Array(nCuotas).fill(r.recibePorCuota||Math.round(r.recibe/nCuotas));
+      const debeAcum = cobros.slice(0,cuotasCobradas).reduce((s,m)=>s+m,0); // remanente real de las cuotas cobradas
       const yaPagado = (v.pagoInv && v.pagoInv[r.nombre]) ? v.pagoInv[r.nombre] : 0; // cuántas cuotas ya le pagué
-      const pagadoMonto = recibePorCuota*yaPagado;
+      const pagadoMonto = cobros.slice(0,yaPagado).reduce((s,m)=>s+m,0);
       const pendiente = debeAcum - pagadoMonto;
       const col = nombreColor(r.nombre);
       html += `<div style="border-bottom:1px solid var(--border);padding:9px 0;">
@@ -8453,12 +8535,12 @@ function detalleVenta(id){
               <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:3px;">
                 <span>💰 Puso $${fmt(r.puso)}</span>
                 <span>📈 Gana $${fmt(r.ganancia)}</span>
-                <span>↩️ $${fmt(r.recibePorCuota||Math.round(r.recibe/v.cuotas))}/cuota</span>
+                <span>↩️ según el restante de cada cuota</span>
               </div>
               <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:auto;padding:6px 12px;font-size:12px;" onclick="solicitudInversion('${v.id}','${r.nombre.replace(/'/g,"\\'")}')">📨 Solicitar inversión a ${r.nombre}</button>
             </div>`).join('')}
-          <div style="font-size:11px;color:var(--muted);margin-top:8px;">Por cada cuota cobrada, repartís así:</div>
-          ${reparto.map(r=>`<div class="calc-line" style="font-size:12px;"><span class="cl-lbl" style="color:${nombreColor(r.nombre)};">${r.nombre}</span><span class="cl-val">$${fmt(r.recibePorCuota||Math.round(r.recibe/v.cuotas))}/cuota</span></div>`).join('')}
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;">Por cada cuota cobrada, primero se descuenta la comisión y el restante se reparte:</div>
+          ${cuotas.map((c,i)=>`<div style="border-top:1px solid var(--border);padding:6px 0;font-size:11px;"><b>Cuota ${i+1}</b> · restante $${fmt(Math.max(0,c.monto-(repCom[i]||0)))}<br>${reparto.map(r=>`<span style="color:${nombreColor(r.nombre)};font-weight:700;margin-right:10px;">${r.nombre}: $${fmt((r.cobraPorCuota||[])[i]||0)}</span>`).join('')}</div>`).join('')}
         </div>`;
     }
   }
@@ -8502,7 +8584,7 @@ function avisarInversoresCobro(v, numCuota){
     const cli=DB.clientes.find(c=>c.id===v.clienteId);
     const nomCli=cli?cli.nombre:'un cliente';
     reparto.forEach(r=>{
-      const porCuota = r.recibePorCuota||Math.round(r.recibe/(v.cuotas||1));
+      const porCuota = (r.cobraPorCuota||[])[numCuota-1]||0;
       AUDIT.registrar('cobró', 'inversion',
         `la cuota ${numCuota} de <b>${nomCli}</b> (${v.producto}). A <b>${r.nombre}</b> le corresponden <b>$${fmt(porCuota)}</b> de esa cuota.`);
     });
@@ -9352,6 +9434,18 @@ async function guardarEdicionVenta(id){
   if(!invsValidos.length && v.responsable && v.responsable.trim()){
     invsValidos=[{nombre:v.responsable.trim(), pct:100}];
   }
+  let totalPctInversores=invsValidos.reduce((s,x)=>s+(Number(x.pct)||0),0);
+  if(totalPctInversores<100){
+    const falta=100-totalPctInversores;
+    const maxi=invsValidos.find(x=>normPersona(x.nombre)==='Maxi');
+    if(maxi) maxi.pct=(Number(maxi.pct)||0)+falta;
+    else invsValidos.push({nombre:'Maxi',pct:falta,tipo:'amarango'});
+    totalPctInversores=100;
+  }
+  if(Math.abs(totalPctInversores-100)>0.01){
+    toast(`Los inversionistas deben sumar 100%. Ahora suman ${fmt(totalPctInversores)}%`);
+    return;
+  }
   v.inversores=invsValidos.map(x=>({nombre:x.nombre.trim(), pct:x.pct, tipo:x.tipo||'amarango'}));
   v.inversionista=(invsValidos[0]?invsValidos[0].nombre.trim():'');
   v.inversionista2=(invsValidos[1]?invsValidos[1].nombre.trim():'');
@@ -9371,13 +9465,17 @@ async function guardarEdicionVenta(id){
   v.cuotas=ventaCuotasSel;
   v.montoCuota=ventaMontoCuotaManual||0;
   if((v.pagadas||0)>v.cuotas) v.pagadas=v.cuotas;
-  await DB.upsertVenta(v);
+  const resultadoGuardado=await DB.upsertVenta(v);
   // auditoría: registrar si no es "propiedad propia" del que edita
   if(!esPropiedadPropia(v)){
     const cli=DB.clientes.find(c=>c.id===v.clienteId);
     AUDIT.registrar('editó', 'venta', `la venta "${v.producto}" de ${cli?cli.nombre:'?'}`);
   }
-  closeModal(); toast('✅ Venta actualizada'); render();
+  closeModal();
+  if(resultadoGuardado&&resultadoGuardado.ok) toast('✅ Cambios guardados en la nube');
+  else if(resultadoGuardado&&resultadoGuardado.local===false) toast('⚠️ No se pudo guardar: liberá espacio en el dispositivo');
+  else toast('✅ Cambios guardados en este dispositivo · sincronización pendiente');
+  render();
 }
 function waLink(tel,msg){ const t=tel.replace(/\D/g,''); const full=t.startsWith('54')?t:'54'+t; return `https://wa.me/${full}?text=${encodeURIComponent(msg)}`; }
 function waCliente(id){ const c=DB.clientes.find(x=>x.id===id); window.open(waLink(c.telefono,`¡Hola ${c.nombre.split(' ')[0]}! 👋 Te escribimos de *AmarangoElectro* 🐝`),'_blank'); }

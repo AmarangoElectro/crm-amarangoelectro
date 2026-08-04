@@ -18,3 +18,9 @@ Versión simplificada:
 - Ventas con botones visibles para editar, corregir la fecha y guardar cambios.
 - Ventas duplicadas eliminables desde la planilla, con recuperación desde la papelera durante 30 días.
 - Plan de pagos descargable y compartible como archivo PDF completo (no como captura de imagen).
+- Reparto de ventas con dos o más inversionistas corregido: cada operación aparece para todos los participantes y muestra solamente la parte de cada uno.
+- Control obligatorio para que los porcentajes de los inversionistas sumen 100% antes de guardar.
+- Pago por cuota a inversionistas: primero descuenta la parte de comisión ya configurada y divide el restante según sus porcentajes (50/50 cuando participan por mitades).
+- Ediciones de ventas protegidas para que una copia vieja de la nube no vuelva a reemplazarlas.
+- Ventas eliminadas protegidas contra reapariciones al recargar, incluso si la sincronización tarda.
+- Ventas antiguas con porcentajes incompletos se pueden editar: el porcentaje faltante conserva la regla anterior y se asigna a Maxi.
