@@ -346,6 +346,16 @@
   table.planilla tr:nth-child(even) td{background:#f7f9ff;}
   table.planilla .col-monto{font-weight:800;color:var(--green);}
   table.planilla .col-num{color:var(--muted);font-weight:700;text-align:center;}
+  .cob-resumen{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0;}
+  .cob-resumen .card{margin:0;padding:13px;}
+  .cob-resumen-lbl{font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:800;letter-spacing:.04em;}
+  .cob-resumen-val{font-size:20px;font-weight:900;color:var(--blue);margin-top:3px;}
+  table.planilla.cob-planilla{min-width:760px;font-size:12px;table-layout:auto;}
+  table.planilla.cob-planilla th,table.planilla.cob-planilla td{padding:9px 8px;white-space:nowrap;max-width:none;}
+  table.planilla.cob-planilla th:first-child,table.planilla.cob-planilla td:first-child{width:54px;text-align:center;}
+  table.planilla.cob-planilla tr.cob-pagada td{background:#ecfdf3;color:#55705f;}
+  table.planilla.cob-planilla tr.cob-vencida td{background:#fff1f1;}
+  .cob-check{width:22px;height:22px;accent-color:var(--green);cursor:pointer;}
   .planilla-hint{font-size:10px;color:var(--muted);margin-bottom:6px;text-align:center;}
   .chat-bg{position:fixed;inset:0;background:rgba(11,45,107,.4);z-index:200;display:none;align-items:flex-end;}
   .chat-bg.show{display:flex;}
@@ -740,15 +750,11 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
 <!-- COBRANZAS -->
 <div class="view" id="view-cobranzas">
   <div class="view-title">Cobranzas</div>
-  <div class="view-desc">Control de cuotas y vencimientos</div>
-  <div class="seg" style="flex-wrap:wrap;">
-    <button class="seg-btn active" data-cob="agenda" onclick="segCob('agenda',this)">🗓️ Agenda</button>
+  <div class="view-desc">Planilla de cuotas y vencimientos</div>
+  <div class="seg" style="margin-bottom:12px;">
+    <button class="seg-btn active" data-cob="planilla" onclick="segCob('planilla',this)">📊 Planilla</button>
     <button class="seg-btn" data-cob="atrasados" onclick="segCob('atrasados',this)">🔴 Vencidas</button>
-    <button class="seg-btn" data-cob="hoy" onclick="segCob('hoy',this)">📅 Hoy</button>
-    <button class="seg-btn" data-cob="prox" onclick="segCob('prox',this)">🔜 Próximas</button>
     <button class="seg-btn" data-cob="pagadas" onclick="segCob('pagadas',this)">🟢 Pagadas</button>
-    <button class="seg-btn" data-cob="seguimiento" onclick="segCob('seguimiento',this)">🎯 Seguimiento</button>
-    <button class="seg-btn" data-cob="pordia" onclick="segCob('pordia',this)">📆 Por día</button>
   </div>
   <div id="listaCobranzas"></div>
 </div>
@@ -992,29 +998,28 @@ const SUPABASE_URL  = "https://zctaukyrhsmpjkcddcqq.supabase.co";
 const SUPABASE_KEY  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpjdGF1a3lyaHNtcGprY2RkY3FxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MzQ0ODAsImV4cCI6MjA5NzQxMDQ4MH0.lxhPH9bASIV__jETAwYZvoJmSpk0Q32CJl9tSlQeLdA";
 
 const APP_PASSWORD = "Amara4"; // contraseña maestra (compatibilidad)
-// Usuarios del CRM. PIN por defecto editable. Maxi y Angela son administradores.
+// Usuarios del CRM. Solo Maxi y Angie pueden iniciar sesión.
 const USUARIOS_DEFAULT = [
   { nombre:'Maxi',   pin:'1111', admin:true },
-  { nombre:'Angela', pin:'2222', admin:true },
-  { nombre:'Guido',  pin:'3333', admin:false },
-  { nombre:'Vicky',  pin:'4444', admin:false },
-  { nombre:'Selene', pin:'5555', admin:false },
-  { nombre:'Rosi',   pin:'6666', admin:false }
+  { nombre:'Angie',  pin:'2222', admin:true }
 ];
+function soloUsuariosPrincipales(lista){
+  const src=Array.isArray(lista)?lista:[];
+  return USUARIOS_DEFAULT.map(base=>{
+    const viejo=src.find(x=>normPersona(x.nombre)===normPersona(base.nombre));
+    return {nombre:base.nombre,pin:(viejo&&viejo.pin)||base.pin,admin:true};
+  });
+}
 function getUsuarios(){
   try{
     let u=JSON.parse(localStorage.getItem('ae_usuarios')||'null');
     if(!u||!u.length) return USUARIOS_DEFAULT.slice();
-    // asegurar que Rosi esté (para listas guardadas antes de sumarla)
-    if(!u.some(x=>normPersona(x.nombre)===normPersona('Rosi'))){
-      u.push({ nombre:'Rosi', pin:'6666', admin:false });
-      saveUsuarios(u);
-    }
-    return u;
+    return soloUsuariosPrincipales(u);
   }
   catch(e){ return USUARIOS_DEFAULT.slice(); }
 }
 function saveUsuarios(u){
+  u=soloUsuariosPrincipales(u);
   try{ localStorage.setItem('ae_usuarios', JSON.stringify(u)); }catch(e){}
   // ☁️ además, guardar en la NUBE para que los PIN sean iguales en todos los dispositivos
   subirUsuariosNube(u);
@@ -1033,7 +1038,9 @@ async function bajarUsuariosNube(){
     if(typeof CLOUD==='undefined' || !CLOUD || !sb) return;
     const r = await sb.from('amarango_config').select('datos').eq('id','usuarios_crm').maybeSingle();
     if(r && r.data && Array.isArray(r.data.datos) && r.data.datos.length){
-      try{ localStorage.setItem('ae_usuarios', JSON.stringify(r.data.datos)); }catch(e){}
+      const permitidos=soloUsuariosPrincipales(r.data.datos);
+      try{ localStorage.setItem('ae_usuarios', JSON.stringify(permitidos)); }catch(e){}
+      await subirUsuariosNube(permitidos);
     }
   }catch(e){ console.warn('bajar usuarios:', e && e.message); }
 }
@@ -4253,12 +4260,11 @@ function renderVentas(){
   }
 
   // resumen del total filtrado
-  const totalMonto=vs.reduce((s,v)=>s+(v.precioVenta||0),0);
-  const resumenTxt = tipoVentas==='prestamo'?'Total prestado (a cobrar)':tipoVentas==='producto'?'Total en electro':'Total general';
-  const resumen=`<div class="card" style="padding:12px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;background:${tipoVentas==='prestamo'?'#FFF4E6':'var(--card)'};">
-    <div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;">${resumenTxt}</div>
-    <div style="font-size:22px;font-weight:800;color:${tipoVentas==='prestamo'?'var(--orange)':'var(--blue)'};">$${fmt(totalMonto)}</div></div>
-    <div style="text-align:right;"><div style="font-size:11px;color:var(--muted);">${vs.length} ${vs.length===1?'registro':'registros'}</div></div>
+  const facturacion=vs.reduce((s,v)=>s+totalPagadoVenta(v),0);
+  const ganancia=vs.reduce((s,v)=>s+gananciaVenta(v),0);
+  const resumen=`<div class="cob-resumen">
+    <div class="card"><div class="cob-resumen-lbl">Facturación total</div><div class="cob-resumen-val">$${fmt(facturacion)}</div><div style="font-size:10px;color:var(--muted);margin-top:3px;">${vs.length} ${vs.length===1?'venta':'ventas'}</div></div>
+    <div class="card"><div class="cob-resumen-lbl">Ganancia real</div><div class="cob-resumen-val" style="color:var(--green);">$${fmt(ganancia)}</div><div style="font-size:10px;color:var(--muted);margin-top:3px;">Descontando costos, envío y comisión</div></div>
   </div>`;
 
   if(vistaVentas==='planilla'){
@@ -4292,7 +4298,7 @@ function renderVentas(){
   }).join('');
 }
 
-let cobFiltro='agenda';
+let cobFiltro='planilla';
 function segCob(f,el){ cobFiltro=f; document.querySelectorAll('[data-cob]').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderCobranzas(); }
 /* ============ SEGUIMIENTO DE COBRANZA (estilo Pipedrive) ============ */
 // Cada deuda pendiente puede tener una GESTIÓN: contactado, prometió pagar (con
@@ -4558,6 +4564,39 @@ function renderCobranzas(){
       rows.push({v,c,estado,venc});
     });
   });
+  // PLANILLA PRINCIPAL: una fila por cuota, con casilla de pago estilo Excel.
+  if(cobFiltro==='planilla'){
+    rows.sort((a,b)=>{
+      if(a.c.pagada!==b.c.pagada) return a.c.pagada?1:-1;
+      return a.venc-b.venc;
+    });
+    if(!rows.length){ cont.innerHTML=emptyState('📊','Sin cuotas','Las cuotas de las ventas aparecerán acá'); return; }
+    const pendientes=rows.filter(r=>!r.c.pagada);
+    const totalPendiente=pendientes.reduce((s,r)=>s+(r.c.resta!=null?r.c.resta:r.c.monto),0);
+    const totalVencido=pendientes.filter(r=>r.estado==='atrasados').reduce((s,r)=>s+(r.c.resta!=null?r.c.resta:r.c.monto),0);
+    cont.innerHTML=`<div class="cob-resumen">
+      <div class="card"><div class="cob-resumen-lbl">Total pendiente</div><div class="cob-resumen-val">$${fmt(totalPendiente)}</div></div>
+      <div class="card"><div class="cob-resumen-lbl">Total vencido</div><div class="cob-resumen-val" style="color:var(--red);">$${fmt(totalVencido)}</div></div>
+    </div>
+    <div class="planilla-hint">← Deslizá la planilla para ver todas las columnas →</div>
+    <div class="planilla-wrap"><table class="planilla cob-planilla">
+      <thead><tr><th>Pagó</th><th>Cliente</th><th>Producto</th><th>N.º cuota</th><th>Monto</th><th>Fecha a abonar</th></tr></thead>
+      <tbody>${rows.map(r=>{
+        const cli=DB.clientes.find(c=>c.id===r.v.clienteId)||{nombre:'?'};
+        const clase=r.c.pagada?'cob-pagada':(r.estado==='atrasados'?'cob-vencida':'');
+        const monto=r.c.resta!=null&&!r.c.pagada?r.c.resta:r.c.monto;
+        return `<tr class="${clase}">
+          <td><input class="cob-check" type="checkbox" ${r.c.pagada?'checked':''} onchange="toggleCuotaPlanillaCobranza('${r.v.id}',${r.c.num},this)"></td>
+          <td onclick="detalleVenta('${r.v.id}')" style="cursor:pointer;font-weight:800;">${cli.nombre}</td>
+          <td onclick="detalleVenta('${r.v.id}')" style="cursor:pointer;">${r.v.producto||'—'}</td>
+          <td class="col-num">${r.c.num} de ${r.v.cuotas||1}</td>
+          <td class="col-monto">$${fmt(monto)}</td>
+          <td>${dispDate(r.c.vence)}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>`;
+    return;
+  }
   // VISTA AGENDA: hoy, mañana, esta semana, vencidas — con totales y recordatorio masivo
   if(cobFiltro==='agenda'){
     const hoy=today();
@@ -4658,6 +4697,18 @@ function renderCobranzas(){
       <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div>
       ${r.estado!=='pagadas'&&cli.telefono?`<div class="li-tag" style="color:var(--green);font-weight:700;" onclick="event.stopPropagation();waCobranza('${r.v.id}')">📲 Recordar</div>`:''}</div></div>`;
   }).join('');
+}
+
+// Marca o desmarca una cuota sin abandonar la planilla de cobranzas.
+async function toggleCuotaPlanillaCobranza(ventaId,num,checkbox){
+  const v=DB.ventas.find(x=>x.id===ventaId); if(!v) return;
+  const antes=v.pagadas||0;
+  if(checkbox.checked){ v.pagadas=Math.max(antes,num); }
+  else if(num<=antes){ v.pagadas=Math.max(0,num-1); }
+  const res=await DB.upsertVenta(v);
+  if(res&&res.ok) toastOK(checkbox.checked?'Pago registrado':'Pago quitado');
+  else toast('⚠️ El cambio quedó guardado en el dispositivo');
+  renderCobranzas();
 }
 
 let finFiltro='mes';
