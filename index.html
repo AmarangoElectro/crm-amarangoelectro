@@ -355,6 +355,17 @@
   table.planilla.cob-planilla th:first-child,table.planilla.cob-planilla td:first-child{width:54px;text-align:center;}
   table.planilla.cob-planilla tr.cob-pagada td{background:#ecfdf3;color:#55705f;}
   table.planilla.cob-planilla tr.cob-vencida td{background:#fff1f1;}
+  /* Cobranzas conserva formato Excel en el celular: la tabla no se comprime ni
+     se corta; se desplaza dentro de su propio contenedor. */
+  .cob-planilla-wrap{overflow-x:auto !important;overflow-y:visible;max-width:100%;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;scrollbar-width:thin;}
+  .cob-planilla-wrap::-webkit-scrollbar{height:7px;}
+  .cob-planilla-wrap::-webkit-scrollbar-thumb{background:#a9b8d2;border-radius:10px;}
+  @media(max-width:700px){
+    table.planilla.cob-planilla{min-width:720px;font-size:11px;}
+    table.planilla.cob-planilla th,table.planilla.cob-planilla td{padding:8px 7px;}
+    .cob-planilla-wrap{border-radius:10px;margin-bottom:18px;}
+    .planilla-hint{font-size:11px;font-weight:700;color:var(--blue);}
+  }
   .cob-check{width:22px;height:22px;accent-color:var(--green);cursor:pointer;}
   .planilla-hint{font-size:10px;color:var(--muted);margin-bottom:6px;text-align:center;}
   .chat-bg{position:fixed;inset:0;background:rgba(11,45,107,.4);z-index:200;display:none;align-items:flex-end;}
@@ -1279,6 +1290,81 @@ function iniciarPresencia(){
   setInterval(latido, 20000);     // aviso que estoy cada 20s
   setInterval(leerPresencia, 15000); // reviso quién está cada 15s
 }
+
+/* ============ SINCRONIZACIÓN DE COBRANZAS ENTRE DISPOSITIVOS ============
+   - Broadcast actualiza al otro usuario casi al instante si tiene la app abierta.
+   - Al volver a primer plano hacemos UNA consulta chica (id,pagadas) para recuperar
+     cualquier cambio perdido mientras la app estuvo suspendida.
+   No descargamos ventas completas en intervalos: cuidamos el Egress. */
+let CANAL_PAGOS=null;
+let _syncPagosEnCurso=false;
+function aplicarCambioPagoRemoto(id,pagadas){
+  const v=DB.ventas.find(x=>String(x.id)===String(id));
+  if(!v) return;
+  const nuevo=Number(pagadas||0);
+  if(Number(v.pagadas||0)===nuevo) return;
+  v.pagadas=nuevo;
+  DB.saveLocal();
+  try{ refrescarVistasPago(); }catch(e){}
+  try{ if(currentView==='ventas') renderVentas(); }catch(e){}
+  try{ toast('☁️ Cobranza actualizada por '+(usuarioActual()==='Maxi'?'Angie':'Maxi')); }catch(e){}
+}
+function avisarCambioPago(id,pagadas){
+  if(!CANAL_PAGOS) return;
+  try{ CANAL_PAGOS.send({type:'broadcast',event:'pago',payload:{id,pagadas}}); }catch(e){}
+}
+function aplicarVentaEliminadaRemota(id){
+  const antes=DB.ventas.length;
+  DB.ventas=DB.ventas.filter(v=>String(v.id)!==String(id));
+  PENDIENTES.quitar('ventas',id);
+  if(DB.ventas.length!==antes){ DB.saveLocal(); try{ render(); }catch(e){} }
+}
+function avisarVentaEliminada(id){
+  if(!CANAL_PAGOS) return;
+  try{ CANAL_PAGOS.send({type:'broadcast',event:'venta_eliminada',payload:{id}}); }catch(e){}
+}
+async function sincronizarPagosDesdeNube(){
+  if(!CLOUD || !sb || _syncPagosEnCurso || document.hidden) return;
+  _syncPagosEnCurso=true;
+  try{
+    const {data,error}=await sb.from('ventas').select('id,pagadas');
+    if(error || !data) return;
+    let cambio=false;
+    const porId=new Map(data.map(r=>[String(r.id),Number(r.pagadas||0)]));
+    DB.ventas.forEach(v=>{
+      if(!porId.has(String(v.id))) return;
+      const n=porId.get(String(v.id));
+      if(Number(v.pagadas||0)!==n){ v.pagadas=n; cambio=true; }
+    });
+    // Si una venta ya no está en Supabase, el otro dispositivo la eliminó.
+    // La nube es la autoridad compartida: no conservar una copia local huérfana.
+    const largoAntes=DB.ventas.length;
+    DB.ventas=DB.ventas.filter(v=>porId.has(String(v.id)));
+    if(DB.ventas.length!==largoAntes) cambio=true;
+    if(cambio){
+      DB.saveLocal();
+      try{ refrescarVistasPago(); }catch(e){}
+      try{ if(currentView==='ventas') renderVentas(); }catch(e){}
+    }
+  }catch(e){ console.warn('sync pagos:',e); }
+  finally{ _syncPagosEnCurso=false; }
+}
+function iniciarSyncPagos(){
+  if(!CLOUD || !sb || CANAL_PAGOS) return;
+  try{
+    CANAL_PAGOS=sb.channel('crm-pagos-v1')
+      .on('broadcast',{event:'pago'},({payload})=>{
+        if(payload) aplicarCambioPagoRemoto(payload.id,payload.pagadas);
+      })
+      .on('broadcast',{event:'venta_eliminada'},({payload})=>{
+        if(payload) aplicarVentaEliminadaRemota(payload.id);
+      }).subscribe();
+  }catch(e){ CANAL_PAGOS=null; }
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible') sincronizarPagosDesdeNube();
+  });
+  window.addEventListener('focus',sincronizarPagosDesdeNube);
+}
 function initCloud(){
   if(SUPABASE_URL && SUPABASE_KEY && window.supabase){
     try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); CLOUD = true; }
@@ -1360,24 +1446,40 @@ async function vaciarPendientesAtascados(){
   if(!ok) return;
   // Último intento de subirlos por si alguno todavía sirve
   const quedan=[];
-  for(const p of a){ const r=await subirNube(p.tabla, p.dato); if(!r.ok) quedan.push(p); }
+  for(const p of a){
+    if(p.tabla==='ventas') continue; // nunca revivir snapshots viejos de cobranzas
+    const r=await subirNube(p.tabla, p.dato); if(!r.ok) quedan.push(p);
+  }
   // Vaciar del todo (los que subieron ya están; los viejos que fallan se descartan)
   PENDIENTES.save([]);
   toast('🧹 Cola vaciada. Recargando datos desde la nube...');
   await DB.load();
   render();
+  iniciarSyncPagos();       // Angie/Maxi: compartir cambios de cuotas entre las dos apps
   setTimeout(()=>{ try{ alert('✅ Listo. Ahora la app muestra lo que está guardado en la nube. Probá cerrar y volver a entrar: debería quedar todo.'); }catch(e){} }, 400);
 }
 // intenta subir un registro a la nube; NUNCA lanza error (devuelve ok:true/false)
-async function subirNube(tabla, dato){
+async function subirNube(tabla, dato, opciones){
   // Si la nube NO está activa (ej: se abrió sin señal y no cargó la librería),
   // NO mentimos con ok:true. Devolvemos fallo para que el dato vaya a PENDIENTES
   // y suba solo cuando vuelva la señal. Así nunca se pierde un cliente.
   if(!CLOUD || !sb) return {ok:false, msg:'nube no activa (se guardó en el celu y sube al volver la señal)'};
   try{
+    opciones=opciones||{};
+    let datoEnviar=dato;
+    // SEGURIDAD COBRANZAS: una edición general o una copia pendiente vieja NO
+    // puede retroceder "pagadas". Los pagos se escriben aparte con setPagadas().
+    // Esto protege especialmente cuando Angie y Maxi usan dos dispositivos.
+    if(tabla==='ventas' && dato && dato.id!=null && !opciones.incluirPagadas){
+      const actual=await sb.from('ventas').select('id,pagadas').eq('id',dato.id).limit(1);
+      if(!actual.error && actual.data && actual.data.length){
+        datoEnviar=Object.assign({},dato,{pagadas:Number(actual.data[0].pagadas||0)});
+        dato.pagadas=datoEnviar.pagadas;
+      }
+    }
     // .select() OBLIGA a Supabase a devolver la fila escrita. Si RLS bloquea en silencio,
     // no vuelve ninguna fila -> lo detectamos como fallo (antes pasaba desapercibido).
-    const { data, error } = await sb.from(tabla).upsert(dato).select();
+    const { data, error } = await sb.from(tabla).upsert(datoEnviar).select();
     if(error){
       const msg=(error.message||'')+(error.details?' · '+error.details:'')+(error.hint?' · '+error.hint:'');
       alert('⚠️ La nube rechazó el guardado en "'+tabla+'":\n\n'+msg+'\n\n(Se guardó en el celu, pero NO en la nube. Por eso al salir se pierde.)');
@@ -1397,6 +1499,10 @@ async function procesarPendientes(){
   const a=PENDIENTES.load(); if(!a.length) return;
   const quedan=[];
   for(const p of a){
+    // Las ventas viejas completas NO se reintentan: desde dos dispositivos una
+    // copia atrasada podría deshacer una cobranza más nueva. Los cobros se
+    // confirman directamente contra Supabase con setPagadas().
+    if(p.tabla==='ventas') continue;
     const r=await subirNube(p.tabla, p.dato);
     if(!r.ok) quedan.push(p);
   }
@@ -1414,7 +1520,7 @@ function fusionar(nube, local, tabla){
   nube = Array.isArray(nube)?nube:[];
   local = Array.isArray(local)?local:[];
   const porId = new Map();
-  const idsPendientes=new Set(PENDIENTES.load().filter(p=>p.tabla===tabla&&p.dato).map(p=>String(p.dato.id)));
+  const idsPendientes=new Set((tabla==='ventas'?[]:PENDIENTES.load().filter(p=>p.tabla===tabla&&p.dato)).map(p=>String(p.dato.id)));
   // primero la nube (versión oficial)
   nube.forEach(r=>{ if(r&&r.id!=null) porId.set(r.id, r); });
   // después lo local: lo que NO esté en la nube, se conserva y se marca para subir
@@ -1425,6 +1531,10 @@ function fusionar(nube, local, tabla){
       // que la copia vieja de la nube la pise al volver a abrir el CRM.
       porId.set(r.id,r);
     } else if(!porId.has(r.id)){
+      // En ventas la nube manda de forma estricta. Si ya no existe allí,
+      // probablemente Angie o Maxi la eliminaron desde el otro dispositivo.
+      // No volver a crearla desde una copia local vieja.
+      if(tabla==='ventas') return;
       porId.set(r.id, r);
       // estaba solo en el celu → a la cola para que suba
       try{ if(tabla==='clientes'||tabla==='ventas'||tabla==='productos') PENDIENTES.agregar(tabla, r); }catch(e){}
@@ -1544,9 +1654,39 @@ const DB = {
     const okLocal = this.saveLocal(); // primero el celu: nunca se pierde nada
     if(!okLocal){ return {ok:false, local:false, msg:'No se pudo guardar en el teléfono (memoria llena)'}; }
     const r=await subirNube('ventas', v);
-    if(!r.ok){ PENDIENTES.agregar('ventas', v); console.warn('upsertVenta:', r.msg); }
+    // No encolamos ventas completas: un snapshot viejo de otro dispositivo
+    // podría volver después y pisar pagos recientes. Si falla, se informa y se
+    // debe reintentar con conexión.
+    if(!r.ok){ PENDIENTES.quitar('ventas',v.id); console.warn('upsertVenta:', r.msg); }
     else PENDIENTES.quitar('ventas',v.id);
     return r;
+  },
+  // Los cobros son datos sensibles: primero se escriben SOLO en Supabase y
+  // Supabase debe devolver el valor guardado. Recién entonces se confirma local.
+  // No se encolan snapshots completos que otro dispositivo pueda pisar después.
+  async setPagadas(v,nuevo){
+    if(!v) return {ok:false,msg:'venta inexistente'};
+    nuevo=Math.max(0,Math.min(Number(v.cuotas||1),Number(nuevo||0)));
+    if(!CLOUD || !sb){
+      toast('⚠️ Sin conexión: el pago NO se marcó. Reintentá cuando vuelva internet.');
+      return {ok:false,msg:'sin conexión'};
+    }
+    try{
+      const {data,error}=await sb.from('ventas').update({pagadas:nuevo}).eq('id',v.id).select('id,pagadas');
+      if(error || !data || !data.length){
+        const msg=error?(error.message||String(error)):'Supabase no confirmó el cambio';
+        alert('⚠️ El pago NO se guardó en la nube.\n\n'+msg+'\n\nNo se modificó la cuota.');
+        return {ok:false,msg};
+      }
+      v.pagadas=Number(data[0].pagadas||0);
+      this.saveLocal();
+      PENDIENTES.quitar('ventas',v.id); // evita que un snapshot viejo reviva este estado
+      avisarCambioPago(v.id,v.pagadas);
+      return {ok:true,pagadas:v.pagadas};
+    }catch(e){
+      toast('⚠️ No se pudo confirmar el pago en la nube. Reintentá.');
+      return {ok:false,msg:e.message||String(e)};
+    }
   },
   async delCliente(id){
     if(CLOUD){ try{ await sb.from('ventas').delete().eq('clienteId',id); await sb.from('clientes').delete().eq('id',id); }catch(e){ console.warn(e); } }
@@ -1560,6 +1700,7 @@ const DB = {
     try{ borradas=JSON.parse(localStorage.getItem('ae_ventas_borradas')||'[]'); }catch(e){}
     if(!borradas.map(String).includes(String(id))) borradas.push(id);
     try{ localStorage.setItem('ae_ventas_borradas',JSON.stringify(borradas)); }catch(e){}
+    let borradoNube=false;
     if(CLOUD){
       try{
         const {error}=await sb.from('ventas').delete().eq('id',id);
@@ -1567,12 +1708,20 @@ const DB = {
         const sigueEnNube=verificacion&&verificacion.data&&verificacion.data.length>0;
         if(error||sigueEnNube) console.warn('delVenta nube:',error?(error.message||error):'la fila sigue existiendo');
         else {
+          borradoNube=true;
           borradas=borradas.filter(x=>String(x)!==String(id));
           try{ localStorage.setItem('ae_ventas_borradas',JSON.stringify(borradas)); }catch(e){}
+          avisarVentaEliminada(id);
         }
       }catch(e){ console.warn(e); }
     }
+    if(!borradoNube){
+      // No afirmar que se eliminó si Supabase no lo confirmó.
+      borradas=borradas.filter(x=>String(x)!==String(id));
+      try{ localStorage.setItem('ae_ventas_borradas',JSON.stringify(borradas)); }catch(e){}
+    }
     this.saveLocal();
+    return {ok:borradoNube};
   },
   async enviarMensaje(m){
     if(CLOUD){
@@ -4476,6 +4625,7 @@ function gestionarCuota(ventaId, num){
 // Registrar un abono (pago parcial o total) sobre una cuota
 async function registrarAbono(ventaId, num, todo){
   const v=DB.ventas.find(x=>x.id===ventaId); if(!v) return;
+  const pagadasAntes=Number(v.pagadas||0);
   const cuota=(ventaCuotas(v)||[]).find(c=>c.num===num); if(!cuota) return;
   let monto;
   if(todo){ monto=cuota.resta; }
@@ -4488,7 +4638,8 @@ async function registrarAbono(ventaId, num, todo){
   const abonoActual = Number(v.abonos[num]||0);
   let nuevoAbono = abonoActual + monto;
   // si el abono cubre (o supera) el monto de la cuota, se marca como pagada completa
-  if(nuevoAbono >= cuota.monto - 0.5){
+  const cuotaSaldada=nuevoAbono >= cuota.monto - 0.5;
+  if(cuotaSaldada){
     // marcar esta cuota como pagada: subimos v.pagadas si es la próxima en orden
     marcarCuotaPagadaHasta(v, num);
     delete v.abonos[num]; // ya no hace falta el parcial
@@ -4500,7 +4651,8 @@ async function registrarAbono(ventaId, num, todo){
   closeModal();
   try{
     const _r = await DB.upsertVenta(v);
-    if(_r && !_r.ok && _r.local!==false){ toast('⚠️ Quedó guardado en el celu, sube solo al volver la señal'); }
+    if(_r && _r.ok && cuotaSaldada) await DB.setPagadas(v,Math.max(pagadasAntes,num));
+    else if(_r && !_r.ok){ toast('⚠️ No se pudo confirmar el abono en la nube'); }
   }catch(e){ console.warn('upsertVenta:', e); }
   refrescarVistasPago();
 }
@@ -4514,11 +4666,12 @@ function marcarCuotaPagadaHasta(v, num){
 async function anularPagoCuota(ventaId, num){
   const v=DB.ventas.find(x=>x.id===ventaId); if(!v) return;
   if(v.abonos && v.abonos[num]) delete v.abonos[num];
-  if((v.pagadas||0) >= num){ v.pagadas = num-1; }
+  const nuevasPagadas=(v.pagadas||0)>=num ? num-1 : (v.pagadas||0);
   closeModal(); toast('Pago anulado');
   try{
     const _r = await DB.upsertVenta(v);
-    if(_r && !_r.ok && _r.local!==false){ toast('⚠️ Quedó guardado en el celu, sube solo al volver la señal'); }
+    if(_r && _r.ok) await DB.setPagadas(v,nuevasPagadas);
+    else if(_r && !_r.ok){ toast('⚠️ No se pudo confirmar el cambio en la nube'); }
   }catch(e){ console.warn('upsertVenta:', e); }
   refrescarVistasPago();
 }
@@ -4684,7 +4837,7 @@ function renderCobranzas(){
       <div class="card"><div class="cob-resumen-lbl">Total vencido</div><div class="cob-resumen-val" style="color:var(--red);">$${fmt(totalVencido)}</div></div>
     </div>
     <div class="planilla-hint">← Deslizá la planilla para ver todas las columnas →</div>
-    <div class="planilla-wrap"><table class="planilla cob-planilla">
+    <div class="planilla-wrap cob-planilla-wrap"><table class="planilla cob-planilla">
       <thead><tr><th>Pagó</th><th>Cliente</th><th>Producto</th><th>N.º cuota</th><th>Monto</th><th>Fecha a abonar</th></tr></thead>
       <tbody>${rows.map(r=>{
         const cli=DB.clientes.find(c=>c.id===r.v.clienteId)||{nombre:'?'};
@@ -4808,11 +4961,10 @@ function renderCobranzas(){
 async function toggleCuotaPlanillaCobranza(ventaId,num,checkbox){
   const v=DB.ventas.find(x=>x.id===ventaId); if(!v) return;
   const antes=v.pagadas||0;
-  if(checkbox.checked){ v.pagadas=Math.max(antes,num); }
-  else if(num<=antes){ v.pagadas=Math.max(0,num-1); }
-  const res=await DB.upsertVenta(v);
+  const nuevas=checkbox.checked?Math.max(antes,num):(num<=antes?Math.max(0,num-1):antes);
+  const res=await DB.setPagadas(v,nuevas);
   if(res&&res.ok) toastOK(checkbox.checked?'Pago registrado':'Pago quitado');
-  else toast('⚠️ El cambio quedó guardado en el dispositivo');
+  else checkbox.checked=!checkbox.checked;
   renderCobranzas();
 }
 
@@ -4854,7 +5006,7 @@ function renderFinanzas(){
   });
   filas.sort((a,b)=>parseD(a.c.vence)-parseD(b.c.vence));
   if(!filas.length){ lista.innerHTML=emptyState('🔍','Sin resultados','Probá con otro nombre o filtro'); return; }
-  lista.innerHTML=`<div class="planilla-wrap"><table class="planilla cob-planilla"><thead><tr><th>Estado</th><th>Cliente</th><th>Producto</th><th>Cuota</th><th>Monto</th><th>Fecha</th></tr></thead><tbody>${filas.slice(0,200).map(x=>`<tr class="${x.c.pagada?'cob-pagada':(x.vencida?'cob-vencida':'')}" onclick="detalleVenta('${x.v.id}')" style="cursor:pointer"><td>${x.c.pagada?'✅ Pagado':(x.vencida?'🔴 Vencido':'🟠 Pendiente')}</td><td><b>${x.cli.nombre}</b></td><td>${x.v.producto||'—'}</td><td>${x.c.num} de ${x.v.cuotas||1}</td><td class="col-monto">$${fmt(x.c.resta!=null&&!x.c.pagada?x.c.resta:x.c.monto)}</td><td>${dispDate(x.c.vence)}</td></tr>`).join('')}</tbody></table></div>`;
+  lista.innerHTML=`<div class="planilla-wrap cob-planilla-wrap"><table class="planilla cob-planilla"><thead><tr><th>Estado</th><th>Cliente</th><th>Producto</th><th>Cuota</th><th>Monto</th><th>Fecha</th></tr></thead><tbody>${filas.slice(0,200).map(x=>`<tr class="${x.c.pagada?'cob-pagada':(x.vencida?'cob-vencida':'')}" onclick="detalleVenta('${x.v.id}')" style="cursor:pointer"><td>${x.c.pagada?'✅ Pagado':(x.vencida?'🔴 Vencido':'🟠 Pendiente')}</td><td><b>${x.cli.nombre}</b></td><td>${x.v.producto||'—'}</td><td>${x.c.num} de ${x.v.cuotas||1}</td><td class="col-monto">$${fmt(x.c.resta!=null&&!x.c.pagada?x.c.resta:x.c.monto)}</td><td>${dispDate(x.c.vence)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function finRow(l,val,c,plain){ return `<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:13px;"><span style="color:var(--muted);">${l}</span><span style="font-weight:700;color:${c};">${plain?val:'$'+fmt(val)}</span></div>`; }
 /* Reporte mensual del negocio. El TOTAL es del negocio (visible). La ganancia por persona NO se muestra acá (privada). */
@@ -5663,11 +5815,8 @@ async function marcarCuotaPlanilla(ventaId){
   var tot=(v.cuotas||1), pag=(v.pagadas||0);
   if(pag>=tot){ toast('Ya está todo pagado ✅'); return; }
   if(!confirm('¿Registrar el pago de la cuota '+(pag+1)+' de '+tot+'?')) return;
-  v.pagadas=pag+1;
-  try{
-    const _r = await DB.upsertVenta(v);
-    if(_r && !_r.ok && _r.local!==false){ toast('⚠️ Quedó guardado en el celu, sube solo al volver la señal'); }
-  }catch(e){ console.warn('upsertVenta:', e); }
+  const _r=await DB.setPagadas(v,pag+1);
+  if(!_r || !_r.ok){ renderPlanillaMes(); return; }
   try{ if(typeof avisarInversoresCobro==='function') avisarInversoresCobro(v, v.pagadas); }catch(e){}
   try{ if(typeof AUDIT!=='undefined') AUDIT.registrar('cobró','venta','cuota '+v.pagadas+' de '+tot+' — '+(v.producto||'')); }catch(e){}
   toast('Pago registrado ✅');
@@ -8590,15 +8739,14 @@ function detalleVenta(id){
 }
 async function cobrarCuota(id){
   const v=DB.ventas.find(x=>x.id===id);
-  v.pagadas=(v.pagadas||0)+1;
-  // UI al instante (optimista): redibujo primero, guardo después
-  detalleVenta(id);
-  // avisar a los inversionistas cuánto les corresponde de esta cuota
-  avisarInversoresCobro(v, v.pagadas);
-  const res = await DB.upsertVenta(v);
-  if(res && res.ok){ toastOK('Pago registrado ✅'); }
-  else if(res && res.local===false){ /* memoria llena: cartel ya salió */ }
-  else { toast('⚠️ No se pudo guardar en la nube, quedó en el celu'); }
+  if(!v) return;
+  const nuevo=(v.pagadas||0)+1;
+  const res = await DB.setPagadas(v,nuevo);
+  if(res && res.ok){
+    avisarInversoresCobro(v, v.pagadas);
+    toastOK('Pago registrado y verificado en la nube ✅');
+    detalleVenta(id);
+  }
 }
 // registra un aviso para cada inversionista con cuánto le toca de la cuota cobrada
 function avisarInversoresCobro(v, numCuota){
@@ -8812,16 +8960,11 @@ async function toggleCuota(id, num){
   const pagadas=v.pagadas||0;
   // Si la cuota tocada ya estaba pagada -> desmarca desde ahí (quedan pagadas las anteriores)
   // Si no estaba pagada -> marca esta y todas las anteriores como pagadas
-  if(num<=pagadas){ v.pagadas=num-1; }
-  else { v.pagadas=num; }
-  if(v.pagadas<0) v.pagadas=0;
-  if(v.pagadas>v.cuotas) v.pagadas=v.cuotas;
-  // UI al instante (optimista): redibujo primero, guardo después
-  detalleVenta(id);
-  const res = await DB.upsertVenta(v);
+  let nuevas=num<=pagadas?num-1:num;
+  nuevas=Math.max(0,Math.min(v.cuotas||1,nuevas));
+  const res = await DB.setPagadas(v,nuevas);
   if(res && res.ok){ toastOK(num<=pagadas?'Pago quitado ✅':'Pago registrado ✅'); }
-  else if(res && res.local===false){ /* memoria llena: el cartel ya salió solo */ }
-  else { toast('⚠️ No se pudo guardar en la nube, quedó en el celu'); }
+  detalleVenta(id);
 }
 async function delVenta(id){
   const v=DB.ventas.find(x=>x.id===id); if(!v)return;
@@ -8839,8 +8982,15 @@ async function delVenta(id){
   PAPELERA.agregar('venta', v);
   ultimoBorrado = {tipo:'venta', dato:v};
   DB.ventas=DB.ventas.filter(x=>x.id!==id);
-  await DB.delVenta(id);
-  closeModal(); toastUndo('Venta movida a papelera'); render();
+  const borrado=await DB.delVenta(id);
+  if(!borrado || !borrado.ok){
+    DB.ventas.push(v); DB.saveLocal();
+    PAPELERA.items=PAPELERA.items.filter(x=>String(x.dato&&x.dato.id)!==String(id)); PAPELERA.save();
+    ultimoBorrado=null;
+    alert('⚠️ Supabase no confirmó la eliminación.\n\nLa venta NO se borró. Reintentá con conexión para evitar que reaparezca después.');
+    render(); return;
+  }
+  closeModal(); toastUndo('Venta eliminada y confirmada en la nube'); render();
 }
 
 /* ============ DESHACER + RESTAURAR ============ */
@@ -10273,6 +10423,7 @@ async function startApp(){
   // Con nube activa jamás metemos demo: evita pisar tus clientes reales por un parpadeo de carga.
   if(!CLOUD && !DB.clientes.length && !DB.ventas.length){ seedDemo(); await DB.load(); }
   render();
+  iniciarSyncPagos();       // Angie/Maxi: compartir cambios de cuotas entre las dos apps
   autoBackupGuardar();      // red de seguridad: copia automática al abrir la app (silenciosa)
   // Los avisos ya NO se abren solos al arrancar (interrumpían). Siguen disponibles
   // en sus íconos (🔔 avisos, campana de pagos, tareas). Solo se actualizan los contadores.
@@ -10888,7 +11039,7 @@ const APP_NOMBRE = "AmarangoElectro";
 /* ═══════ 🔄 AUTO-ACTUALIZADOR ═══════
    Revisa si hay una versión nueva del CRM y avisa para recargar.
    Así nadie tiene que borrar caché nunca más. */
-const CRM_VERSION = '2026-07-22-a';   // ← cambiar en cada actualización
+const CRM_VERSION = '2026-08-05-v14-movil';   // ← cambiar en cada actualización
 
 async function forzarActualizarCRM(){
   try{ toast('🔄 Actualizando…'); }catch(e){}
