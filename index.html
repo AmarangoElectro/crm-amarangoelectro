@@ -1313,6 +1313,19 @@ function avisarCambioPago(id,pagadas){
   if(!CANAL_PAGOS) return;
   try{ CANAL_PAGOS.send({type:'broadcast',event:'pago',payload:{id,pagadas}}); }catch(e){}
 }
+function aplicarAplazamientoRemoto(id,num,fecha){
+  const v=DB.ventas.find(x=>String(x.id)===String(id)); if(!v) return;
+  v.abonos=v.abonos||{};
+  v.abonos.__fechasAplazadas=v.abonos.__fechasAplazadas||{};
+  v.abonos.__fechasAplazadas[num]=fecha;
+  DB.saveLocal();
+  try{ refrescarVistasPago(); actualizarPagoBadge(); }catch(e){}
+  try{ toast('☁️ Fecha de cobro actualizada'); }catch(e){}
+}
+function avisarAplazamiento(id,num,fecha){
+  if(!CANAL_PAGOS) return;
+  try{ CANAL_PAGOS.send({type:'broadcast',event:'aplazamiento',payload:{id,num,fecha}}); }catch(e){}
+}
 function aplicarVentaEliminadaRemota(id){
   const antes=DB.ventas.length;
   DB.ventas=DB.ventas.filter(v=>String(v.id)!==String(id));
@@ -1327,14 +1340,18 @@ async function sincronizarPagosDesdeNube(){
   if(!CLOUD || !sb || _syncPagosEnCurso || document.hidden) return;
   _syncPagosEnCurso=true;
   try{
-    const {data,error}=await sb.from('ventas').select('id,pagadas');
+    const {data,error}=await sb.from('ventas').select('id,pagadas,abonos');
     if(error || !data) return;
     let cambio=false;
-    const porId=new Map(data.map(r=>[String(r.id),Number(r.pagadas||0)]));
+    const porId=new Map(data.map(r=>[String(r.id),r]));
     DB.ventas.forEach(v=>{
       if(!porId.has(String(v.id))) return;
-      const n=porId.get(String(v.id));
+      const remoto=porId.get(String(v.id));
+      const n=Number(remoto.pagadas||0);
       if(Number(v.pagadas||0)!==n){ v.pagadas=n; cambio=true; }
+      if(JSON.stringify(v.abonos||{})!==JSON.stringify(remoto.abonos||{})){
+        v.abonos=remoto.abonos||{}; cambio=true;
+      }
     });
     // Si una venta ya no está en Supabase, el otro dispositivo la eliminó.
     // La nube es la autoridad compartida: no conservar una copia local huérfana.
@@ -1358,6 +1375,9 @@ function iniciarSyncPagos(){
       })
       .on('broadcast',{event:'venta_eliminada'},({payload})=>{
         if(payload) aplicarVentaEliminadaRemota(payload.id);
+      })
+      .on('broadcast',{event:'aplazamiento'},({payload})=>{
+        if(payload) aplicarAplazamientoRemoto(payload.id,payload.num,payload.fecha);
       }).subscribe();
   }catch(e){ CANAL_PAGOS=null; }
   document.addEventListener('visibilitychange',()=>{
@@ -1837,11 +1857,26 @@ function aplicarOcultarTotal(){
   });
 }
 const today = () => { const d=new Date(); d.setHours(0,0,0,0); return d; };
-const parseD = s => { const d=new Date(s); d.setHours(0,0,0,0); return d; };
-const addMonths = (d,m) => { const x=new Date(d); x.setMonth(x.getMonth()+m); return x; };
+// Fechas comerciales = fechas LOCALES, nunca UTC. `new Date('2026-08-12')`
+// se interpreta como UTC y en Argentina cae el día anterior; al guardar varias
+// veces podía hacer que un 12 terminara como 11/10. Parseamos YYYY-MM-DD a mano.
+const parseD = s => {
+  if(s instanceof Date){ const d=new Date(s); d.setHours(0,0,0,0); return d; }
+  const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),0,0,0,0);
+  const d=new Date(s); d.setHours(0,0,0,0); return d;
+};
+// Mantiene el día original del mes. Si no existe (ej. 31 de febrero), usa el
+// último día de ese mes en vez de saltar al mes siguiente.
+const addMonths = (d,m) => {
+  const x=new Date(d), dia=x.getDate();
+  x.setDate(1); x.setMonth(x.getMonth()+m);
+  const ultimo=new Date(x.getFullYear(),x.getMonth()+1,0).getDate();
+  x.setDate(Math.min(dia,ultimo)); return x;
+};
 const addDays = (d,days) => { const x=new Date(d); x.setDate(x.getDate()+days); return x; };
-const isoDate = d => d.toISOString().slice(0,10);
-const dispDate = s => { const d=new Date(s); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}); };
+const isoDate = d => { const x=new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
+const dispDate = s => { const d=parseD(s); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}); };
 const initials = n => {
   let s=(n||'');
   s=s.replace(/["""].*?["""]/g,' '); // saca apodos entre comillas dobles
@@ -2064,6 +2099,17 @@ function primeraParteComision(comTotal, n){
   else partes=(Math.floor(comTotal/3) < 10000) ? 2 : 3;
   const base=Math.floor(comTotal/partes/100)*100;  // 1ra parte redondeada a $100
   return base>0 ? base : comTotal;
+}
+/* Para calcular CAPITAL A INVERTIR usamos la parte exacta de comisión, sin
+   cambiar cómo se liquida/redondea la comisión del revendedor en el CRM.
+   Ej.: $97.125 / 3 = $32.375 exactos para cubrir con la 1ra cuota. */
+function primeraParteComisionParaInversion(comTotal,n){
+  if(comTotal<=0) return 0;
+  let partes;
+  if(n<=1) partes=1;
+  else if(n===2) partes=2;
+  else partes=(Math.floor(comTotal/3)<10000)?2:3;
+  return Math.round(comTotal/Math.max(1,partes));
 }
 function partesComision(v){
   const com=comisionRevendedor(v);
@@ -2814,6 +2860,11 @@ function ventaCuotas(v){
     if(v.venceManual && i===0){ vence=v.venceManual; }  // préstamo: fecha de vencimiento elegida
     else if(n<=1){ vence=isoDate(inicio); }
     else { vence=isoDate(quinc ? addDays(inicio, i*15) : addMonths(inicio,i)); }
+    // Una cuota aplazada conserva su número y monto; solamente cambia su fecha.
+    // Se guarda dentro de `abonos` (JSON ya existente en Supabase), así no
+    // necesitamos agregar una columna nueva a la base.
+    const fechasAplazadas=v.abonos&&v.abonos.__fechasAplazadas;
+    if(fechasAplazadas && fechasAplazadas[i+1]) vence=fechasAplazadas[i+1];
     const abono = (v.abonos && v.abonos[i+1]) ? Number(v.abonos[i+1]) : 0;
     const pagadaFull = (v.pagadas||0) > i;
     const monto = montos[i];
@@ -4039,19 +4090,14 @@ function renderCaja(){
       }
     });
   });
-  // plata de inversores que está en la calle (lo que les debés devolver: su capital + su 50% de ganancia aún no cobrada)
+  // Plata de inversores que todavía falta devolver. Usamos el reparto central
+  // por cuota (ya descuenta comisión y respeta 1 o 2 inversionistas).
   let invEnCalle=0;
   DB.ventas.forEach(v=>{
-    const nom=(v.inversionista||'').trim(); if(!nom) return;
-    const cuotas=ventaCuotas(v); const totalVenta=cuotas.reduce((s,c)=>s+c.monto,0);
-    const pagado=cuotas.filter(c=>c.pagada).reduce((s,c)=>s+c.monto,0);
-    const pendiente=totalVenta-pagado;
-    if(pendiente<=0) return;
-    // proporción de la venta que aún no se cobró
-    const prop = totalVenta>0 ? pendiente/totalVenta : 0;
-    const ganVenta=gananciaVenta(v);
-    const parteInv = (v.montoInvertido||0) + Math.round(ganVenta*0.5); // capital + su 50%
-    invEnCalle += Math.round(parteInv*prop);
+    const pagadas=Math.max(0,Number(v.pagadas||0));
+    repartoInversores(v).forEach(r=>{
+      invEnCalle+=(r.cobraPorCuota||[]).slice(pagadas).reduce((s,m)=>s+(Number(m)||0),0);
+    });
   });
   const tuyoEnCalle = Math.max(0, enCalle - invEnCalle);
   const filas=[
@@ -4838,7 +4884,7 @@ function renderCobranzas(){
     </div>
     <div class="planilla-hint">← Deslizá la planilla para ver todas las columnas →</div>
     <div class="planilla-wrap cob-planilla-wrap"><table class="planilla cob-planilla">
-      <thead><tr><th>Pagó</th><th>Cliente</th><th>Producto</th><th>N.º cuota</th><th>Monto</th><th>Fecha a abonar</th></tr></thead>
+      <thead><tr><th>Pagó</th><th>Cliente</th><th>Producto</th><th>N.º cuota</th><th>Monto</th><th>Fecha a abonar</th><th>Acción</th></tr></thead>
       <tbody>${rows.map(r=>{
         const cli=DB.clientes.find(c=>c.id===r.v.clienteId)||{nombre:'?'};
         const clase=r.c.pagada?'cob-pagada':(r.estado==='atrasados'?'cob-vencida':'');
@@ -4850,6 +4896,7 @@ function renderCobranzas(){
           <td class="col-num">${r.c.num} de ${r.v.cuotas||1}</td>
           <td class="col-monto">$${fmt(monto)}</td>
           <td>${dispDate(r.c.vence)}</td>
+          <td><button class="btn btn-ghost btn-sm" style="white-space:nowrap;" onclick="event.stopPropagation();abrirAplazarCuota('${r.v.id}',${r.c.num})">⏰ Aplazar</button></td>
         </tr>`;
       }).join('')}</tbody>
     </table></div>`;
@@ -4882,7 +4929,7 @@ function renderCobranzas(){
           <input type="checkbox" id="${chkId}" class="chkAgenda" data-clave="${claveWa}" data-tel="${cli.telefono||''}" data-vid="${r.v.id}" checked style="width:20px;height:20px;margin-right:8px;flex-shrink:0;" onclick="event.stopPropagation();">
           <div class="avatar" style="background:${nombreColor(inv)};width:34px;height:34px;font-size:13px;" onclick="detalleVenta('${r.v.id}')">${initials(cli.nombre)}</div>
           <div class="li-info" onclick="detalleVenta('${r.v.id}')"><div class="li-name" style="font-size:14px;">${cli.nombre}</div><div class="li-meta">${r.v.producto} · ${dispDate(r.c.vence)}</div></div>
-          <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div></div></div>`;
+          <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div><div class="li-tag" style="color:var(--blue);font-weight:700;" onclick="event.stopPropagation();abrirAplazarCuota('${r.v.id}',${r.c.num})">⏰ Aplazar</div></div></div>`;
       }).join('');
       return `<div class="card" style="margin-bottom:14px;padding:12px;border-left:4px solid ${color};">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -4925,7 +4972,7 @@ function renderCobranzas(){
           <input type="checkbox" id="${chkId}" data-dia="${dia}" data-tel="${cli.telefono||''}" data-vid="${r.v.id}" checked style="width:20px;height:20px;margin-right:8px;flex-shrink:0;" onclick="event.stopPropagation();">
           <div class="avatar" style="background:${nombreColor(inv)};width:34px;height:34px;font-size:13px;" onclick="detalleVenta('${r.v.id}')">${initials(cli.nombre)}</div>
           <div class="li-info" onclick="detalleVenta('${r.v.id}')"><div class="li-name" style="font-size:14px;">${cli.nombre}</div><div class="li-meta">${r.v.producto} · ${dispDate(r.c.vence)}</div></div>
-          <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div></div></div>`;
+          <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div><div class="li-tag" style="color:var(--blue);font-weight:700;" onclick="event.stopPropagation();abrirAplazarCuota('${r.v.id}',${r.c.num})">⏰ Aplazar</div></div></div>`;
       }).join('');
       return `<div class="card" style="margin-bottom:14px;padding:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -4953,8 +5000,47 @@ function renderCobranzas(){
       <div class="li-info"><div class="li-name">${cli.nombre}</div><div class="li-meta">${r.v.producto} · Cuota ${r.c.num}/${r.v.cuotas} · ${dispDate(r.c.vence)}</div>
       <div style="margin-top:3px;"><span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;color:${nombreColor(inv)};background:${nombreColor(inv)}1a;padding:2px 8px;border-radius:8px;">💼 Cobra: ${inv}</span></div></div>
       <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div>
+      ${r.estado!=='pagadas'?`<div class="li-tag" style="color:var(--blue);font-weight:700;" onclick="event.stopPropagation();abrirAplazarCuota('${r.v.id}',${r.c.num})">⏰ Aplazar</div>`:''}
       ${r.estado!=='pagadas'&&cli.telefono?`<div class="li-tag" style="color:var(--green);font-weight:700;" onclick="event.stopPropagation();waCobranza('${r.v.id}')">📲 Recordar</div>`:''}</div></div>`;
   }).join('');
+}
+
+// Aplazar una cuota: cambia solamente la fecha de ESA cuota y se guarda en
+// Supabase dentro del JSON `abonos`, para que Angie y Maxi vean lo mismo.
+function abrirAplazarCuota(ventaId,num){
+  const v=DB.ventas.find(x=>String(x.id)===String(ventaId)); if(!v) return;
+  const c=(ventaCuotas(v)||[]).find(x=>Number(x.num)===Number(num)); if(!c) return;
+  const cli=DB.clientes.find(x=>x.id===v.clienteId)||{nombre:'Cliente'};
+  const sugerida=isoDate(addDays(parseD(c.vence),7));
+  openModal(`<div class="modal-title">⏰ Aplazar pago</div>
+    <div class="modal-sub">${cli.nombre} · ${v.producto||''} · Cuota ${num}/${v.cuotas||1}</div>
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--muted);">Fecha actual</div>
+      <div style="font-size:17px;font-weight:900;color:var(--blue);">${dispDate(c.vence)}</div>
+    </div>
+    <div class="field"><label>Nueva fecha de pago</label><input id="aplazar_fecha" type="date" min="${isoDate(today())}" value="${sugerida}"></div>
+    <button class="btn btn-orange" onclick="guardarAplazamiento('${v.id}',${num})">💾 Guardar nueva fecha</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>`);
+}
+async function guardarAplazamiento(ventaId,num){
+  const v=DB.ventas.find(x=>String(x.id)===String(ventaId)); if(!v) return;
+  const inp=document.getElementById('aplazar_fecha');
+  const fecha=inp&&inp.value; if(!fecha){ toast('Elegí la nueva fecha'); return; }
+  if(parseD(fecha)<today()){ toast('La nueva fecha no puede quedar en el pasado'); return; }
+  const previo=JSON.parse(JSON.stringify(v.abonos||{}));
+  v.abonos=v.abonos||{};
+  v.abonos.__fechasAplazadas=v.abonos.__fechasAplazadas||{};
+  v.abonos.__fechasAplazadas[num]=fecha;
+  const res=await DB.upsertVenta(v);
+  if(!res || !res.ok){
+    v.abonos=previo; DB.saveLocal();
+    toast('⚠️ No se pudo guardar la nueva fecha en la nube'); return;
+  }
+  avisarAplazamiento(v.id,num,fecha);
+  closeModal();
+  try{ actualizarPagoBadge(); }catch(e){}
+  try{ refrescarVistasPago(); }catch(e){}
+  toastOK('Pago aplazado al '+dispDate(fecha)+' ✅');
 }
 
 // Marca o desmarca una cuota sin abandonar la planilla de cobranzas.
@@ -5043,7 +5129,7 @@ function tableroDatos(){
     }
     if(m===mesPasado){ factAnt+=venta; }
     // día de semana (todas las ventas, para detectar patrón)
-    const ds=new Date(v.fecha).getDay();
+    const ds=parseD(v.fecha).getDay();
     if(ds>=0&&ds<=6) diaSemana[ds]++;
   });
 
@@ -5260,7 +5346,7 @@ function auditoriaVendedorDatos(rangoDias){
 
   // Ventas por responsable
   DB.ventas.forEach(v=>{
-    const t = new Date(v.fecha).getTime();
+    const t = parseD(v.fecha).getTime();
     if(t < desde) return;
     const s = asegurar(v.responsable);
     s.ventas++;
@@ -6895,10 +6981,10 @@ function restaurarRetornos(){
 function waInversor(nombre){
   let invertido=0, ganancia=0, ventas=0;
   DB.ventas.forEach(v=>{
-    let nom=(v.inversionista||'').trim(); if(!nom) nom='Maxi';
-    if(nom!==nombre) return;
-    const ganVenta=gananciaVenta(v);
-    invertido+=(v.montoInvertido||0); ganancia+=ganVenta; ventas++;
+    const partes=repartoInversores(v).filter(r=>personasCanonicas(r.nombre).includes(nombrePersonaCanonico(nombre)));
+    if(!partes.length) return;
+    partes.forEach(r=>{ invertido+=r.puso||0; ganancia+=r.ganancia||0; });
+    ventas++;
   });
   const msg=`💼 *Resumen - AmarangoElectro*\n\nHola ${nombre.split(' ')[0]}, te paso tu resumen:\n\n📦 Operaciones: ${ventas}\n💵 Invertido: $${fmt(invertido)}\n💰 Ganancia: $${fmt(ganancia)}\n\n🐝 ¡Gracias por confiar en AmarangoElectro!`;
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
@@ -7207,18 +7293,18 @@ function calcInversionHTML(){
         <input id="ci_descPct" type="number" inputmode="decimal" value="10" min="0" max="90" oninput="calcInversion();renderTablaCuotas()" style="width:80px;">
       </div>
     </div>
-    <div class="field"><label>¿Hay revendedor?</label>
+    <div class="field"><label>¿Hay revendedor? <span style="color:var(--muted);font-weight:400;">— si hay, su 1ra comisión se suma a la inversión</span></label>
       <div class="chips" style="display:flex;gap:6px;">
-        <div class="chip sel" id="ci_revNo" onclick="ciSetRev(false)">No</div>
-        <div class="chip" id="ci_revSi" onclick="ciSetRev(true)">Sí</div>
+        <div class="chip" id="ci_revNo" onclick="ciSetRev(false)">No</div>
+        <div class="chip sel" id="ci_revSi" onclick="ciSetRev(true)">Sí</div>
       </div>
     </div>
-    <div class="field" id="ci_comBox" style="display:none;"><label>Comisión revendedor ($) <span style="color:var(--muted);font-weight:400;">— auto, editable</span></label><input id="ci_comision" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('comision');calcInversion()"></div>
+    <div class="field" id="ci_comBox"><label>Comisión TOTAL revendedor ($) <span style="color:var(--muted);font-weight:400;">— auto, editable</span></label><input id="ci_comision" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('comision');calcInversion()"></div>
     <div class="field"><label>Cantidad de inversionistas</label><input id="ci_inv" type="number" inputmode="numeric" value="1" oninput="calcInversion()"></div>
     <div id="ci_planTabla"></div>
     <div id="ci_out"></div>`;
 }
-let ciCuotas=1, ciHayRev=false, ciManualFlags={costo:false,cuota:false,comision:false};
+let ciCuotas=1, ciHayRev=true, ciManualFlags={costo:false,cuota:false,comision:false};
 function ciManual(campo){ ciManualFlags[campo]=true; }
 function ciSelPlan(n){
   ciCuotas=n;
@@ -7337,11 +7423,13 @@ function renderTablaCuotas(){
               const envioQ=+document.getElementById('ci_envio').value||0;
               const invQ=Math.max(1,+document.getElementById('ci_inv').value||1);
               if(!costoQ) return `<div style="font-size:12px;color:var(--muted);">Cargá el costo arriba para ver el capital.</div>`;
-              return `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Entrega = 1ra cuota MENSUAL completa. Capital = costo − entrega + envío.</div>`+
+              const comTotalQ=ciHayRev?(+document.getElementById('ci_comision').value||0):0;
+              return `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Capital = costo + 1ra parte de comisión + envío − 1ra cuota.</div>`+
               opciones.filter(n=>n<=6).map(n=>{
                 const plan=planCuotas(venta,n);
                 const cuotaMes=plan[0];               // 1ra cuota mensual completa
-                const cap=costoQ-cuotaMes+envioQ;     // capital con esa entrega
+                const com1Q=primeraParteComisionParaInversion(comTotalQ,n);
+                const cap=costoQ+com1Q-cuotaMes+envioQ; // capital real a cubrir
                 const porInv=Math.round(cap/invQ);
                 return `<div class="calc-line"><span class="cl-lbl">${n} cuotas <span style="color:var(--muted);font-size:11px;">(entrega $${fmt(cuotaMes)})</span></span><span class="cl-val" style="color:var(--orange);font-weight:800;">$${fmt(cap)}${invQ>1?` <span style="font-size:11px;color:var(--muted);">($${fmt(porInv)} c/u)</span>`:''}</span></div>`;
               }).join('');
@@ -7373,7 +7461,7 @@ function calcInversion(){
   if(!venta){ out.innerHTML=''; return; }
   // capital a invertir = costo + 1ra parte de comisión + envío - 1ra cuota del cliente
   // (solo se adelanta la 1ra parte de la comisión; el resto se paga cuando entran las cuotas)
-  const comision1ra = primeraParteComision(comision, ciCuotas);
+  const comision1ra = primeraParteComisionParaInversion(comision, ciCuotas);
   const capital=costo+comision1ra+envio-cuota;
   const porInv=Math.round(capital/inv);
   // descuento al contado (siempre se muestra el precio rebajado del contado, sin importar el plan)
@@ -7967,7 +8055,7 @@ function recalcInv(){
   const tv=totalVentaItems();
   const tieneRev=document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const comision = tieneRev ? Math.round(tv*((ventaCuotasSel>1)?0.15:0.10)) : 0;
-  const comision1ra = primeraParteComision(comision, ventaCuotasSel);  // solo lo que se adelanta
+  const comision1ra = primeraParteComisionParaInversion(comision, ventaCuotasSel);  // capital: parte exacta
   // 1ra cuota del cliente (la entrega)
   let primeraCuota=0;
   if(ventaTipo!=='prestamo' && ventaCuotasSel>1){
@@ -8124,7 +8212,7 @@ async function saveVenta(){
   const _tvVenta = totalVentaItems();
   const _tieneRevVenta = document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const _comisionVenta = _tieneRevVenta ? Math.round(_tvVenta*((ventaCuotasSel>1)?0.15:0.10)) : 0;
-  const _comision1raVenta = primeraParteComision(_comisionVenta, ventaCuotasSel);
+  const _comision1raVenta = primeraParteComisionParaInversion(_comisionVenta, ventaCuotasSel);
   let _primeraCuotaVenta = 0;
   if(ventaTipo!=='prestamo' && ventaCuotasSel>1){ _primeraCuotaVenta = planCuotas(_tvVenta, ventaCuotasSel)[0]||0; }
   const _sumaPctVenta = invsValidos.reduce((s,x)=>s+(x.pct||0),0);
@@ -8195,7 +8283,7 @@ async function recalcularVentasCliente(id){
     const n=v.cuotas||1;
     // comisión total (15% cuotas / 10% contado) si hay revendedor
     const comisionTotal = (v.revendedor||'').trim() ? Math.round(venta*((n>1)?0.15:0.10)) : 0;
-    const comision1ra = primeraParteComision(comisionTotal, n);
+    const comision1ra = primeraParteComisionParaInversion(comisionTotal, n);
     // 1ra cuota del cliente
     let primeraCuota=0;
     if(n>1){ primeraCuota = (v.montoCuota>0?v.montoCuota:planCuotas(venta,n)[0])||0; }
@@ -8439,7 +8527,9 @@ function repartoInversores(v){
   const _envio=v.envio||0;
   const _n=v.cuotas||1;
   const _comTotal=(v.revendedor||'').trim() ? Math.round((v.precioVenta||0)*((_n>1)?0.15:0.10)) : 0;
-  const _com1ra=primeraParteComision(_comTotal, _n);
+  // Para saber cuánto capital falta poner se usa la parte exacta de comisión.
+  // La liquidación/comisión del revendedor NO se modifica.
+  const _com1ra=primeraParteComisionParaInversion(_comTotal, _n);
   let _primeraCuota=0;
   if(v.tipo!=='prestamo' && _n>1){ _primeraCuota=(v.montoCuota>0?v.montoCuota:planCuotas(v.precioVenta||0,_n)[0])||0; }
   const costo=Math.max(0, _costo + _com1ra + _envio - _primeraCuota);
@@ -9632,7 +9722,7 @@ async function guardarEdicionVenta(id){
   const _tvE=totalVentaItems();
   const _tieneRevE=document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const _comE=_tieneRevE ? Math.round(_tvE*((ventaCuotasSel>1)?0.15:0.10)) : 0;
-  const _com1raE=primeraParteComision(_comE, ventaCuotasSel);
+  const _com1raE=primeraParteComisionParaInversion(_comE, ventaCuotasSel);
   let _pcE=0; if(v.tipo!=='prestamo' && ventaCuotasSel>1){ _pcE=planCuotas(_tvE, ventaCuotasSel)[0]||0; }
   const _capE=Math.max(0, v.precioCosto + _com1raE + v.envio - _pcE);
   const _sumaPctE=invsValidos.reduce((s,x)=>s+(x.pct||0),0);
@@ -10429,6 +10519,8 @@ async function startApp(){
   // en sus íconos (🔔 avisos, campana de pagos, tareas). Solo se actualizan los contadores.
   iniciarPresencia();
   pedirPermisoNotif();
+  // Dar tiempo a que el usuario acepte el permiso y avisar vencimientos del día.
+  setTimeout(()=>{ try{ revisarVencimientosParaNotificar(); }catch(e){} },3500);
   actualizarTareaBadge();   // mostrar puntito si hay tareas pendientes (sin popup)
   try{ actualizarCalBadge(); }catch(e){}  // badge de cobros/eventos de hoy en el calendario
   iniciarRecordatorioHorario();  // recordatorio cada hora si hay tareas
@@ -10440,6 +10532,7 @@ async function startApp(){
     await DB.recargarMensajes();
     if(typeof actualizarBadge==='function') actualizarBadge();
     if(typeof revisarYNotificar==='function') revisarYNotificar();
+    if(typeof revisarVencimientosParaNotificar==='function') revisarVencimientosParaNotificar();
     try{ await AUDIT.recargar(); actualizarAvisoBadge(); }catch(e){}
   }, 20000);
 }
@@ -11039,7 +11132,7 @@ const APP_NOMBRE = "AmarangoElectro";
 /* ═══════ 🔄 AUTO-ACTUALIZADOR ═══════
    Revisa si hay una versión nueva del CRM y avisa para recargar.
    Así nadie tiene que borrar caché nunca más. */
-const CRM_VERSION = '2026-08-05-v14-movil';   // ← cambiar en cada actualización
+const CRM_VERSION = '2026-08-07-v16-fechas';   // ← cambiar en cada actualización
 
 async function forzarActualizarCRM(){
   try{ toast('🔄 Actualizando…'); }catch(e){}
@@ -11106,10 +11199,10 @@ function activarNotificaciones(){
 }
 
 // Muestra una notificación del navegador
-function notificar(titulo, cuerpo){
+function notificar(titulo, cuerpo, tag){
   try{
     if(!('Notification' in window) || Notification.permission!=='granted') return;
-    const opciones = { body: cuerpo||'', tag:'ae-msg', renotify:true, vibrate:[200,100,200] };
+    const opciones = { body: cuerpo||'', tag:tag||'ae-msg', renotify:true, vibrate:[200,100,200] };
     const icon = (typeof LOGO_AE==='string' && LOGO_AE && LOGO_AE.length<300000) ? LOGO_AE : '';
     if(icon){ opciones.icon=icon; opciones.badge=icon; }
     if(navigator.serviceWorker && navigator.serviceWorker.ready){
@@ -11151,6 +11244,27 @@ function revisarYNotificar(){
       _ultimoNotificado = Math.max(_ultimoNotificado, ...nuevos.map(m=>m.ts));
     }
   }catch(e){ console.warn('revisarNotif', e); }
+}
+
+// Aviso del sistema para cobranzas. Se muestra una sola vez por día en cada
+// dispositivo y resume vencidas / hoy / próximas 48 h. No hace consultas extra:
+// usa las ventas que el CRM ya tiene cargadas.
+function revisarVencimientosParaNotificar(){
+  try{
+    if(!('Notification' in window) || Notification.permission!=='granted') return;
+    const d=cuotasPorVencer();
+    const urgentes=d.vencidas.length+d.hoy.length+d.prontas.length;
+    if(!urgentes) return;
+    const dia=isoDate(today());
+    const clave='ae_notif_cobranzas_'+dia;
+    if(localStorage.getItem(clave)==='1') return;
+    const partes=[];
+    if(d.vencidas.length) partes.push(d.vencidas.length+' vencida'+(d.vencidas.length>1?'s':''));
+    if(d.hoy.length) partes.push(d.hoy.length+' para hoy');
+    if(d.prontas.length) partes.push(d.prontas.length+' en las próximas 48 h');
+    notificar('📅 Cobranzas Amarango',partes.join(' · '),'ae-cobranzas-'+dia);
+    localStorage.setItem(clave,'1');
+  }catch(e){ console.warn('notif cobranzas',e); }
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
