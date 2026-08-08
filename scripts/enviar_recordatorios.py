@@ -9,7 +9,10 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("America/Argentina/Buenos_Aires")
-DESTINATARIOS = ("angie.palavecino96@gmail.com", "max.huracan73@gmail.com")
+DESTINATARIOS = {
+    "Angie": "angie.palavecino96@gmail.com",
+    "Maxi": "max.huracan73@gmail.com",
+}
 CRM_URL = "https://amarangoelectro.github.io/crm-amarangoelectro/"
 PORCENTAJES = {2: 15, 3: 36, 4: 55, 5: 66, 6: 78}
 
@@ -74,12 +77,44 @@ def cuotas_venta(v):
         if restante>0: salida.append({"num":num,"total":n,"vence":vence,"monto":restante})
     return salida
 
+def persona_canonica(nombre):
+    """Unifica los nombres que el CRM considera la misma persona."""
+    clave = re.sub(r"[^a-z0-9]+", " ", str(nombre or "").lower()).strip()
+    if clave in {"angie", "angela", "angela palavecino", "angie palavecino"}: return "Angie"
+    if clave in {"max", "maxi", "maximo", "maxi huracan"}: return "Maxi"
+    return str(nombre or "").strip()
+
+def personas_venta(v, cliente):
+    """Responsable + inversores explícitos. Si son Angie y Maxi, reciben ambos."""
+    personas=set()
+    responsable=v.get("responsable") or (cliente or {}).get("responsable")
+    r=persona_canonica(responsable)
+    if r in DESTINATARIOS: personas.add(r)
+
+    inversores=v.get("inversores")
+    if isinstance(inversores,list) and inversores:
+        nombres=[x.get("nombre") for x in inversores if isinstance(x,dict)]
+    else:
+        # Compatibilidad con ventas viejas, pero sin inventar a Maxi si el campo
+        # nunca existió: para esas ventas manda el responsable.
+        nombres=[v.get("inversionista"),v.get("inversionista2")]
+    for nombre in nombres:
+        p=persona_canonica(nombre)
+        if p in DESTINATARIOS: personas.add(p)
+
+    # Venta histórica sin responsable ni inversor: conserva el criterio viejo del CRM.
+    if not personas and not responsable and not any(nombres): personas.add("Maxi")
+    return personas
+
 def proximas(ventas, clientes, hoy):
-    nombres={str(c.get("id")):c.get("nombre") or "Cliente" for c in clientes}; limite=hoy+timedelta(days=3); out=[]
+    clientes_por_id={str(c.get("id")):c for c in clientes}
+    limite=hoy+timedelta(days=3); out=[]
     for v in ventas:
+        cli=clientes_por_id.get(str(v.get("clienteId")),{})
+        personas=personas_venta(v,cli)
         for c in cuotas_venta(v):
             if hoy <= c["vence"] <= limite:
-                out.append({**c,"cliente":nombres.get(str(v.get("clienteId")),"Cliente"),"producto":v.get("producto") or "—"})
+                out.append({**c,"cliente":cli.get("nombre") or "Cliente","producto":v.get("producto") or "—","personas":personas})
     return sorted(out,key=lambda x:(x["vence"],str(x["cliente"]).lower()))
 
 def pesos(v): return "$"+f"{round(v):,}".replace(",", ".")
@@ -87,25 +122,31 @@ def cuando(f,h):
     d=(f-h).days
     return "Hoy" if d==0 else "Mañana" if d==1 else f"En {d} días"
 
-def crear_email(items,hoy,remitente):
+def crear_email(items,hoy,remitente,destinatario,persona):
     th=[]; tt=[]; total=0
     for x in items:
         total+=x["monto"]; dia=cuando(x["vence"],hoy); fecha=x["vence"].strftime("%d/%m/%Y")
         tt.append(f'{dia} {fecha} · {x["cliente"]} · {x["producto"]} · Cuota {x["num"]}/{x["total"]} · {pesos(x["monto"])}')
         th.append(f'<tr><td>{dia}<br><small>{fecha}</small></td><td><b>{html.escape(str(x["cliente"]))}</b></td><td>{html.escape(str(x["producto"]))}</td><td>Cuota {x["num"]}/{x["total"]}</td><td style="text-align:right"><b>{pesos(x["monto"])}</b></td></tr>')
-    msg=EmailMessage(); msg["Subject"]=f"🐝 AmarangoElectro · {len(items)} cobro(s) próximo(s)"; msg["From"]=remitente; msg["To"]=', '.join(DESTINATARIOS)
+    msg=EmailMessage(); msg["Subject"]=f"🐝 AmarangoElectro · {len(items)} cobro(s) próximo(s) de {persona}"; msg["From"]=remitente; msg["To"]=destinatario
     msg.set_content("Cobranzas de hoy y próximos 3 días\n\n"+'\n'.join(tt)+f"\n\nTotal a cobrar: {pesos(total)}\n\nAbrir Cobranzas: {CRM_URL}\n")
     msg.add_alternative(f'''<html><body style="font-family:Arial,sans-serif;color:#18213a"><h2>🐝 Cobranzas de hoy y próximos 3 días</h2><p>Sin vencidos: solamente los pagos que toca recordar ahora.</p><div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;max-width:900px" cellpadding="9" border="1"><thead style="background:#123878;color:white"><tr><th>Cuándo</th><th>Cliente</th><th>Producto</th><th>Cuota</th><th>Monto</th></tr></thead><tbody>{''.join(th)}</tbody></table></div><p style="font-size:18px"><b>Total a cobrar: {pesos(total)}</b></p><p><a href="{CRM_URL}" style="background:#ff7900;color:white;padding:11px 18px;text-decoration:none;border-radius:8px">Abrir Cobranzas</a></p></body></html>''',subtype="html")
     return msg
 
 def main():
-    password=os.getenv("SMTP_APP_PASSWORD","").replace(" ",""); remitente=os.getenv("SMTP_EMAIL",DESTINATARIOS[0]).strip()
+    password=os.getenv("SMTP_APP_PASSWORD","").replace(" ",""); remitente=os.getenv("SMTP_EMAIL",DESTINATARIOS["Angie"]).strip()
     if not password: raise RuntimeError("Falta el secret SMTP_APP_PASSWORD en GitHub.")
     hoy=datetime.now(TZ).date(); items=proximas(supabase_get("ventas"),supabase_get("clientes"),hoy)
-    if not items:
-        print("No hay cobranzas entre hoy y los próximos 3 días. No se envía mail."); return
     with smtplib.SMTP_SSL("smtp.gmail.com",465,context=ssl.create_default_context(),timeout=30) as smtp:
-        smtp.login(remitente,password); smtp.send_message(crear_email(items,hoy,remitente))
-    print(f"Recordatorio enviado correctamente: {len(items)} cuota(s).")
+        smtp.login(remitente,password)
+        enviados=0
+        for persona,destinatario in DESTINATARIOS.items():
+            propios=[x for x in items if persona in x["personas"]]
+            if not propios:
+                print(f"{persona}: sin cobranzas entre hoy y los próximos 3 días. No se envía mail.")
+                continue
+            smtp.send_message(crear_email(propios,hoy,remitente,destinatario,persona)); enviados+=1
+            print(f"{persona}: recordatorio enviado ({len(propios)} cuota(s)).")
+    if not enviados: print("No hubo recordatorios para enviar hoy.")
 
 if __name__ == "__main__": main()
