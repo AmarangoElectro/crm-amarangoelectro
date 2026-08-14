@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>if(location.pathname.endsWith('/crm-index.html')) location.replace('./index.html');</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>AmarangoElectro</title>
@@ -356,6 +355,17 @@
   table.planilla.cob-planilla th:first-child,table.planilla.cob-planilla td:first-child{width:54px;text-align:center;}
   table.planilla.cob-planilla tr.cob-pagada td{background:#ecfdf3;color:#55705f;}
   table.planilla.cob-planilla tr.cob-vencida td{background:#fff1f1;}
+  /* Cobranzas conserva formato Excel en el celular: la tabla no se comprime ni
+     se corta; se desplaza dentro de su propio contenedor. */
+  .cob-planilla-wrap{overflow-x:auto !important;overflow-y:visible;max-width:100%;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y;scrollbar-width:thin;}
+  .cob-planilla-wrap::-webkit-scrollbar{height:7px;}
+  .cob-planilla-wrap::-webkit-scrollbar-thumb{background:#a9b8d2;border-radius:10px;}
+  @media(max-width:700px){
+    table.planilla.cob-planilla{min-width:720px;font-size:11px;}
+    table.planilla.cob-planilla th,table.planilla.cob-planilla td{padding:8px 7px;}
+    .cob-planilla-wrap{border-radius:10px;margin-bottom:18px;}
+    .planilla-hint{font-size:11px;font-weight:700;color:var(--blue);}
+  }
   .cob-check{width:22px;height:22px;accent-color:var(--green);cursor:pointer;}
   .planilla-hint{font-size:10px;color:var(--muted);margin-bottom:6px;text-align:center;}
   .chat-bg{position:fixed;inset:0;background:rgba(11,45,107,.4);z-index:200;display:none;align-items:flex-end;}
@@ -656,62 +666,37 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
   <button class="ambito-btn" id="ambitoGeneral" onclick="setAmbito('general')"><span data-ico="people" data-size="16"></span> General</button>
 </div>
 
-<!-- INICIO (rediseñado simple) -->
+<!-- INICIO -->
 <div class="view active" id="view-inicio">
-
-  <!-- 1) LO QUE MÁS SE USA: cargar venta -->
-  <button onclick="formVenta()" style="width:100%;background:linear-gradient(135deg,#0B2D6B,#1e5bc8);color:#fff;border:none;border-radius:16px;padding:20px;font-size:1.15rem;font-weight:900;cursor:pointer;font-family:inherit;box-shadow:0 4px 16px rgba(11,45,107,.3);margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:10px;">➕ Cargar venta nueva</button>
-  <div style="display:flex;gap:10px;margin-bottom:16px;">
-    <button onclick="formCliente()" style="flex:1;background:#fff;color:var(--blue);border:2px solid var(--blue);border-radius:13px;padding:13px;font-size:.9rem;font-weight:800;cursor:pointer;font-family:inherit;">👤 Nuevo cliente</button>
-    <button onclick="go('cobranzas')" style="flex:1;background:#fff;color:var(--orange);border:2px solid var(--orange);border-radius:13px;padding:13px;font-size:.9rem;font-weight:800;cursor:pointer;font-family:inherit;">📅 Cobranzas</button>
-  </div>
-
-  <!-- 2) A QUIÉN COBRAR (lo segundo más importante) -->
-  <div class="sec-title" style="display:flex;align-items:center;justify-content:space-between;">
-    <span>🔔 A quién cobrar</span>
-    <span onclick="go('cobranzas')" style="font-size:.7rem;color:var(--blue);font-weight:700;cursor:pointer;">Ver todo ›</span>
-  </div>
-  <div id="inicioCobranzas" style="margin-bottom:16px;"></div>
-
-  <!-- 3) ACCESOS GRANDES -->
-  <div class="quick-grid" style="margin-bottom:16px;">
-    <div class="quick" onclick="go('clientes')"><div class="quick-ico">👥</div><div class="quick-val" id="qClientes">0</div><div class="quick-lbl">Clientes</div></div>
-    <div class="quick" onclick="go('ventas')"><div class="quick-ico">💰</div><div class="quick-val" id="qVentas">0</div><div class="quick-lbl">Ventas del mes</div></div>
-    <div class="quick" onclick="go('cobranzas')"><div class="quick-ico">🔴</div><div class="quick-val" id="qAtrasados">0</div><div class="quick-lbl">Cuotas vencidas</div></div>
-    <div class="quick" onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('planilla');},80);"><div class="quick-ico">📋</div><div class="quick-val" id="qHoy">0</div><div class="quick-lbl">Vencen hoy · Planilla</div></div>
-  </div>
-
-  <!-- 4) RESUMEN CHICO DEL MES (uno solo, sin repetir) -->
-  <div class="hero" style="margin-bottom:16px;">
+  <div id="dashInicio" style="display:none;"></div>
+  <div class="hero" style="margin-bottom:12px">
     <div class="hero-label">Facturación del mes</div>
     <div class="hero-amt">$<span id="heroFact">0</span></div>
     <div class="hero-sub" id="heroSub">0 ventas registradas</div>
     <div class="hero-stats">
-      <div><div class="hs-val" id="heroGan">$0</div><div class="hs-lbl">Ganancia</div></div>
-      <div><div class="hs-val" id="heroHoy">$0</div><div class="hs-lbl">Hoy</div></div>
-      <div><div class="hs-val" id="heroCli">0</div><div class="hs-lbl">Clientes</div></div>
+      <div><div class="hs-val" id="heroGan">$0</div><div class="hs-lbl">Ganancia real</div></div>
     </div>
   </div>
-
-  <!-- 5) MÁS HERRAMIENTAS (todo lo avanzado, encajonado) -->
-  <details style="margin-bottom:16px;">
-    <summary style="cursor:pointer;list-style:none;padding:13px;background:#f2f5fa;border:1.5px solid var(--border);border-radius:12px;font-size:.85rem;font-weight:800;color:var(--blue);text-align:center;">⚙️ Más herramientas ▾</summary>
-    <div style="padding-top:10px;display:flex;flex-direction:column;gap:8px;">
-      <button onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('placas');},80);" style="width:100%;background:#fff;color:var(--orange);border:2px solid var(--orange);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">🎨 Armar precios y placas</button>
-      <button onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('persona');},80);" style="width:100%;background:#fff;color:var(--blue);border:2px solid var(--blue);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">👤 Panel por persona</button>
-      <button onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('calc');},80);" style="width:100%;background:#fff;color:var(--blue);border:2px solid var(--border);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">🧮 Calculadora de cuotas</button>
-      <button onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('inv');},80);" style="width:100%;background:#fff;color:var(--blue);border:2px solid var(--border);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">💼 Inversores</button>
-      <button onclick="go('finanzas');setTimeout(function(){abrirSeccionFin('panel');},80);" style="width:100%;background:#fff;color:var(--blue);border:2px solid var(--border);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">📊 Estadísticas del negocio</button>
-      <button onclick="go('finanzas')" style="width:100%;background:#fff;color:var(--blue);border:2px solid var(--border);border-radius:11px;padding:12px;font-size:.85rem;font-weight:800;cursor:pointer;font-family:inherit;">📈 Finanzas completo</button>
-    </div>
-  </details>
-
-  <!-- bloques viejos ocultos (se siguen calculando, no rompen nada) -->
-  <div id="dashInicio" style="display:none;"></div>
+  <div class="sec-title">Ir a</div>
+  <div class="fin-menu-grid" style="margin-bottom:16px;">
+    <button class="fin-menu-btn" onclick="go('clientes')"><span class="fmb-ico">👥</span><span class="fmb-txt">Clientes<br><small>buscar y editar</small></span></button>
+    <button class="fin-menu-btn" onclick="go('ventas')"><span class="fmb-ico">💰</span><span class="fmb-txt">Ventas<br><small>cargar y revisar</small></span></button>
+    <button class="fin-menu-btn" onclick="go('cobranzas')"><span class="fmb-ico">📅</span><span class="fmb-txt">Cobranzas<br><small>cuotas y pagos</small></span></button>
+    <button class="fin-menu-btn" onclick="go('finanzas')"><span class="fmb-ico">📊</span><span class="fmb-txt">Finanzas<br><small>resumen y filtros</small></span></button>
+  </div>
   <div id="panelHoy" style="display:none;"></div>
+  <span id="homePend" style="display:none;"></span><span id="homeVenc" style="display:none;"></span>
+  <div class="quick-grid" style="display:none;">
+    <div class="quick" onclick="go('cobranzas')"><div class="quick-ico">🔴</div><div class="quick-val" id="qAtrasados">0</div><div class="quick-lbl">Cuotas vencidas</div></div>
+    <div class="quick" onclick="go('cobranzas')"><div class="quick-ico">📅</div><div class="quick-val" id="qHoy">0</div><div class="quick-lbl">Vencen hoy</div></div>
+    <div class="quick" onclick="go('ventas')"><div class="quick-ico">💰</div><div class="quick-val" id="qVentas">0</div><div class="quick-lbl">Ventas del mes</div></div>
+    <div class="quick" onclick="go('clientes')"><div class="quick-ico">👥</div><div class="quick-val" id="qClientes">0</div><div class="quick-lbl">Clientes totales</div></div>
+  </div>
   <div id="tareasInicio" style="display:none;"></div>
   <div id="cajaBox" style="display:none;"></div>
   <div id="resumenDia" style="display:none;"></div>
+  <div class="sec-title">Próximas cobranzas</div>
+  <div id="inicioCobranzas"></div>
 </div>
 
 <!-- CLIENTES -->
@@ -736,6 +721,7 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
   <div class="view-title">Ventas</div>
   <div class="view-desc">Registro de ventas, costos y ganancias</div>
   <button class="btn btn-orange" style="width:100%;margin-bottom:10px;" onclick="formVenta()">➕ Agregar venta</button>
+  <div class="search-box" style="margin-bottom:10px;"><span>🔍</span><input id="searchVentas" placeholder="Buscar cliente, producto, responsable o revendedor..." oninput="renderVentas()"></div>
   <div class="seg" style="margin-bottom:8px;">
     <button class="seg-btn active" data-vv="lista" onclick="setVistaVentas('lista',this)">📋 Lista</button>
     <button class="seg-btn" data-vv="planilla" onclick="setVistaVentas('planilla',this)">📊 Planilla</button>
@@ -757,6 +743,11 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
     <button class="seg-btn" data-cob="atrasados" onclick="segCob('atrasados',this)">🔴 Vencidas</button>
     <button class="seg-btn" data-cob="pagadas" onclick="segCob('pagadas',this)">🟢 Pagadas</button>
   </div>
+  <div class="search-box"><span>🔍</span><input id="cobBuscar" placeholder="Buscar cliente o producto..." oninput="renderCobranzas()"></div>
+  <div class="field-row" style="margin-bottom:12px;">
+    <div class="field" style="margin:0;"><label>Mostrar</label><select id="cobPlanFiltro" onchange="renderCobranzas()"><option value="pendientes">Pendientes</option><option value="proximos">Próximos</option><option value="vencidos">Vencidos</option><option value="pagados">Pagados</option><option value="todos">Todos</option></select></div>
+    <div class="field" style="margin:0;"><label>Ordenar por</label><select id="cobPlanOrden" onchange="renderCobranzas()"><option value="fechaAsc">Fecha: próxima primero</option><option value="fechaDesc">Fecha: última primero</option><option value="nombre">Nombre del cliente</option><option value="montoDesc">Monto: mayor primero</option><option value="montoAsc">Monto: menor primero</option></select></div>
+  </div>
   <div id="listaCobranzas"></div>
 </div>
 
@@ -767,15 +758,19 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
 
   <!-- MENÚ DE INICIO (botones grandes, simple) -->
   <div id="finMenu">
+    <div class="sec-title">Uso diario</div>
     <div class="fin-menu-grid">
-      <button class="fin-menu-btn" onclick="abrirSeccionFin('placas')" style="border-color:var(--orange);"><span class="fmb-ico">🎨</span><span class="fmb-txt">Armar precios y placas<br><small>lo que más usás</small></span></button>
-      <button class="fin-menu-btn" onclick="abrirSeccionFin('catalogo')" style="display:none;"><span class="fmb-ico">📦</span><span class="fmb-txt">Catálogo<br><small>productos y celus</small></span></button>
-      <button class="fin-menu-btn" onclick="abrirSeccionFin('calc')"><span class="fmb-ico">🧮</span><span class="fmb-txt">Calculadora<br><small>cuotas y costos</small></span></button>
-      <button class="fin-menu-btn" onclick="abrirSeccionFin('respuestas')" style="display:none;"><span class="fmb-ico">💬</span><span class="fmb-txt">Respuestas<br><small>listas para WhatsApp</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('finanzas')"><span class="fmb-ico">📊</span><span class="fmb-txt">Resumen<br><small>del negocio</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('persona')"><span class="fmb-ico">👤</span><span class="fmb-txt">Por persona<br><small>ventas de cada uno</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('planilla')"><span class="fmb-ico">📋</span><span class="fmb-txt">Planilla<br><small>tablero mes a mes</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('inv')"><span class="fmb-ico">💼</span><span class="fmb-txt">Inversores<br><small>reparto</small></span></button>
+    </div>
+    <div class="sec-title" style="margin-top:16px;">Más herramientas</div>
+    <div class="fin-menu-grid">
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('calc')"><span class="fmb-ico">🧮</span><span class="fmb-txt">Calculadora<br><small>cuotas y costos</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('catalogo')"><span class="fmb-ico">📦</span><span class="fmb-txt">Catálogo<br><small>productos y celus</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('placas')"><span class="fmb-ico">🎨</span><span class="fmb-txt">Placas<br><small>precios y diseños</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('respuestas')"><span class="fmb-ico">💬</span><span class="fmb-txt">Respuestas<br><small>para WhatsApp</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('panel')"><span class="fmb-ico">📈</span><span class="fmb-txt">Panel<br><small>estadísticas</small></span></button>
     </div>
   </div>
@@ -786,14 +781,11 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
   <!-- Switch principal: Finanzas / Calculadora / Inversores -->
   <div class="seg" id="finTabs" style="margin-bottom:14px;flex-wrap:wrap;display:none;">
     <button class="seg-btn active" id="modoFinBtn" onclick="setModoFin('finanzas')">📊 Finanzas</button>
-    <button class="seg-btn" id="modoCalcBtn" onclick="setModoFin('calc')">🧮 Calculadora</button>
     <button class="seg-btn" id="modoInvBtn" onclick="setModoFin('inv')">💼 Inversores</button>
     <button class="seg-btn" id="modoPersBtn" onclick="setModoFin('persona')">👤 Por persona</button>
     <button class="seg-btn" id="modoPlanillaBtn" onclick="setModoFin('planilla')">📋 Planilla</button>
-    <button class="seg-btn" id="modoCatBtn" onclick="setModoFin('catalogo')" style="display:none;">📦 Catálogo</button>
-    <button class="seg-btn" id="modoPlacaBtn" onclick="setModoFin('placas')">🎨 Placas</button>
-    <button class="seg-btn" id="modoRespBtn" onclick="setModoFin('respuestas')" style="display:none;">💬 Respuestas</button>
-    <button class="seg-btn" id="modoPanelBtn" onclick="setModoFin('panel')">📊 Panel</button>
+    <button class="seg-btn" onclick="volverMenuFin()">••• Más</button>
+    <button id="modoCalcBtn" style="display:none"></button><button id="modoCatBtn" style="display:none"></button><button id="modoPlacaBtn" style="display:none"></button><button id="modoRespBtn" style="display:none"></button><button id="modoPanelBtn" style="display:none"></button>
   </div>
 
   <!-- BLOQUE FINANZAS -->
@@ -802,6 +794,14 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
       <button class="seg-btn active" data-fin="mes" onclick="segFin('mes',this)">Este mes</button>
       <button class="seg-btn" data-fin="todo" onclick="segFin('todo',this)">Histórico</button>
     </div>
+    <div class="search-box" style="margin-top:12px;"><span>🔍</span><input id="finBuscar" placeholder="Buscar cliente o producto..." oninput="renderFinanzas()"></div>
+    <div class="seg" style="margin-bottom:12px;flex-wrap:wrap;">
+      <button class="seg-btn active" data-finestado="todos" onclick="segFinEstado('todos',this)">Todos</button>
+      <button class="seg-btn" data-finestado="vencidos" onclick="segFinEstado('vencidos',this)">🔴 Vencidos</button>
+      <button class="seg-btn" data-finestado="porcobrar" onclick="segFinEstado('porcobrar',this)">🟠 Por cobrar</button>
+      <button class="seg-btn" data-finestado="pagados" onclick="segFinEstado('pagados',this)">🟢 Pagados</button>
+    </div>
+    <div id="finLista"></div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
         <div><div class="info-lbl">Facturación</div><div style="font-size:26px;font-weight:800;color:var(--blue);" id="finFact">$0</div></div>
@@ -1290,6 +1290,101 @@ function iniciarPresencia(){
   setInterval(latido, 20000);     // aviso que estoy cada 20s
   setInterval(leerPresencia, 15000); // reviso quién está cada 15s
 }
+
+/* ============ SINCRONIZACIÓN DE COBRANZAS ENTRE DISPOSITIVOS ============
+   - Broadcast actualiza al otro usuario casi al instante si tiene la app abierta.
+   - Al volver a primer plano hacemos UNA consulta chica (id,pagadas) para recuperar
+     cualquier cambio perdido mientras la app estuvo suspendida.
+   No descargamos ventas completas en intervalos: cuidamos el Egress. */
+let CANAL_PAGOS=null;
+let _syncPagosEnCurso=false;
+function aplicarCambioPagoRemoto(id,pagadas){
+  const v=DB.ventas.find(x=>String(x.id)===String(id));
+  if(!v) return;
+  const nuevo=Number(pagadas||0);
+  if(Number(v.pagadas||0)===nuevo) return;
+  v.pagadas=nuevo;
+  DB.saveLocal();
+  try{ refrescarVistasPago(); }catch(e){}
+  try{ if(currentView==='ventas') renderVentas(); }catch(e){}
+  try{ toast('☁️ Cobranza actualizada por '+(usuarioActual()==='Maxi'?'Angie':'Maxi')); }catch(e){}
+}
+function avisarCambioPago(id,pagadas){
+  if(!CANAL_PAGOS) return;
+  try{ CANAL_PAGOS.send({type:'broadcast',event:'pago',payload:{id,pagadas}}); }catch(e){}
+}
+function aplicarAplazamientoRemoto(id,num,fecha){
+  const v=DB.ventas.find(x=>String(x.id)===String(id)); if(!v) return;
+  v.abonos=v.abonos||{};
+  v.abonos.__fechasAplazadas=v.abonos.__fechasAplazadas||{};
+  v.abonos.__fechasAplazadas[num]=fecha;
+  DB.saveLocal();
+  try{ refrescarVistasPago(); actualizarPagoBadge(); }catch(e){}
+  try{ toast('☁️ Fecha de cobro actualizada'); }catch(e){}
+}
+function avisarAplazamiento(id,num,fecha){
+  if(!CANAL_PAGOS) return;
+  try{ CANAL_PAGOS.send({type:'broadcast',event:'aplazamiento',payload:{id,num,fecha}}); }catch(e){}
+}
+function aplicarVentaEliminadaRemota(id){
+  const antes=DB.ventas.length;
+  DB.ventas=DB.ventas.filter(v=>String(v.id)!==String(id));
+  PENDIENTES.quitar('ventas',id);
+  if(DB.ventas.length!==antes){ DB.saveLocal(); try{ render(); }catch(e){} }
+}
+function avisarVentaEliminada(id){
+  if(!CANAL_PAGOS) return;
+  try{ CANAL_PAGOS.send({type:'broadcast',event:'venta_eliminada',payload:{id}}); }catch(e){}
+}
+async function sincronizarPagosDesdeNube(){
+  if(!CLOUD || !sb || _syncPagosEnCurso || document.hidden) return;
+  _syncPagosEnCurso=true;
+  try{
+    const {data,error}=await sb.from('ventas').select('id,pagadas,abonos');
+    if(error || !data) return;
+    let cambio=false;
+    const porId=new Map(data.map(r=>[String(r.id),r]));
+    DB.ventas.forEach(v=>{
+      if(!porId.has(String(v.id))) return;
+      const remoto=porId.get(String(v.id));
+      const n=Number(remoto.pagadas||0);
+      if(Number(v.pagadas||0)!==n){ v.pagadas=n; cambio=true; }
+      if(JSON.stringify(v.abonos||{})!==JSON.stringify(remoto.abonos||{})){
+        v.abonos=remoto.abonos||{}; cambio=true;
+      }
+    });
+    // Si una venta ya no está en Supabase, el otro dispositivo la eliminó.
+    // La nube es la autoridad compartida: no conservar una copia local huérfana.
+    const largoAntes=DB.ventas.length;
+    DB.ventas=DB.ventas.filter(v=>porId.has(String(v.id)));
+    if(DB.ventas.length!==largoAntes) cambio=true;
+    if(cambio){
+      DB.saveLocal();
+      try{ refrescarVistasPago(); }catch(e){}
+      try{ if(currentView==='ventas') renderVentas(); }catch(e){}
+    }
+  }catch(e){ console.warn('sync pagos:',e); }
+  finally{ _syncPagosEnCurso=false; }
+}
+function iniciarSyncPagos(){
+  if(!CLOUD || !sb || CANAL_PAGOS) return;
+  try{
+    CANAL_PAGOS=sb.channel('crm-pagos-v1')
+      .on('broadcast',{event:'pago'},({payload})=>{
+        if(payload) aplicarCambioPagoRemoto(payload.id,payload.pagadas);
+      })
+      .on('broadcast',{event:'venta_eliminada'},({payload})=>{
+        if(payload) aplicarVentaEliminadaRemota(payload.id);
+      })
+      .on('broadcast',{event:'aplazamiento'},({payload})=>{
+        if(payload) aplicarAplazamientoRemoto(payload.id,payload.num,payload.fecha);
+      }).subscribe();
+  }catch(e){ CANAL_PAGOS=null; }
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible') sincronizarPagosDesdeNube();
+  });
+  window.addEventListener('focus',sincronizarPagosDesdeNube);
+}
 function initCloud(){
   if(SUPABASE_URL && SUPABASE_KEY && window.supabase){
     try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); CLOUD = true; }
@@ -1321,6 +1416,9 @@ const PENDIENTES={
     const i=a.findIndex(p=>p.tabla===tabla && p.dato && p.dato.id===dato.id);
     if(i>=0) a[i]={tabla,dato,ts:Date.now()}; else a.push({tabla,dato,ts:Date.now()});
     this.save(a);
+  },
+  quitar(tabla,id){
+    this.save(this.load().filter(p=>!(p.tabla===tabla&&p.dato&&String(p.dato.id)===String(id))));
   }
 };
 // Fuerza bajar de nuevo TODO desde la nube y volver a dibujar (sin datos demo, sin caché)
@@ -1368,24 +1466,40 @@ async function vaciarPendientesAtascados(){
   if(!ok) return;
   // Último intento de subirlos por si alguno todavía sirve
   const quedan=[];
-  for(const p of a){ const r=await subirNube(p.tabla, p.dato); if(!r.ok) quedan.push(p); }
+  for(const p of a){
+    if(p.tabla==='ventas') continue; // nunca revivir snapshots viejos de cobranzas
+    const r=await subirNube(p.tabla, p.dato); if(!r.ok) quedan.push(p);
+  }
   // Vaciar del todo (los que subieron ya están; los viejos que fallan se descartan)
   PENDIENTES.save([]);
   toast('🧹 Cola vaciada. Recargando datos desde la nube...');
   await DB.load();
   render();
+  iniciarSyncPagos();       // Angie/Maxi: compartir cambios de cuotas entre las dos apps
   setTimeout(()=>{ try{ alert('✅ Listo. Ahora la app muestra lo que está guardado en la nube. Probá cerrar y volver a entrar: debería quedar todo.'); }catch(e){} }, 400);
 }
 // intenta subir un registro a la nube; NUNCA lanza error (devuelve ok:true/false)
-async function subirNube(tabla, dato){
+async function subirNube(tabla, dato, opciones){
   // Si la nube NO está activa (ej: se abrió sin señal y no cargó la librería),
   // NO mentimos con ok:true. Devolvemos fallo para que el dato vaya a PENDIENTES
   // y suba solo cuando vuelva la señal. Así nunca se pierde un cliente.
   if(!CLOUD || !sb) return {ok:false, msg:'nube no activa (se guardó en el celu y sube al volver la señal)'};
   try{
+    opciones=opciones||{};
+    let datoEnviar=dato;
+    // SEGURIDAD COBRANZAS: una edición general o una copia pendiente vieja NO
+    // puede retroceder "pagadas". Los pagos se escriben aparte con setPagadas().
+    // Esto protege especialmente cuando Angie y Maxi usan dos dispositivos.
+    if(tabla==='ventas' && dato && dato.id!=null && !opciones.incluirPagadas){
+      const actual=await sb.from('ventas').select('id,pagadas').eq('id',dato.id).limit(1);
+      if(!actual.error && actual.data && actual.data.length){
+        datoEnviar=Object.assign({},dato,{pagadas:Number(actual.data[0].pagadas||0)});
+        dato.pagadas=datoEnviar.pagadas;
+      }
+    }
     // .select() OBLIGA a Supabase a devolver la fila escrita. Si RLS bloquea en silencio,
     // no vuelve ninguna fila -> lo detectamos como fallo (antes pasaba desapercibido).
-    const { data, error } = await sb.from(tabla).upsert(dato).select();
+    const { data, error } = await sb.from(tabla).upsert(datoEnviar).select();
     if(error){
       const msg=(error.message||'')+(error.details?' · '+error.details:'')+(error.hint?' · '+error.hint:'');
       alert('⚠️ La nube rechazó el guardado en "'+tabla+'":\n\n'+msg+'\n\n(Se guardó en el celu, pero NO en la nube. Por eso al salir se pierde.)');
@@ -1405,6 +1519,10 @@ async function procesarPendientes(){
   const a=PENDIENTES.load(); if(!a.length) return;
   const quedan=[];
   for(const p of a){
+    // Las ventas viejas completas NO se reintentan: desde dos dispositivos una
+    // copia atrasada podría deshacer una cobranza más nueva. Los cobros se
+    // confirman directamente contra Supabase con setPagadas().
+    if(p.tabla==='ventas') continue;
     const r=await subirNube(p.tabla, p.dato);
     if(!r.ok) quedan.push(p);
   }
@@ -1422,12 +1540,21 @@ function fusionar(nube, local, tabla){
   nube = Array.isArray(nube)?nube:[];
   local = Array.isArray(local)?local:[];
   const porId = new Map();
+  const idsPendientes=new Set((tabla==='ventas'?[]:PENDIENTES.load().filter(p=>p.tabla===tabla&&p.dato)).map(p=>String(p.dato.id)));
   // primero la nube (versión oficial)
   nube.forEach(r=>{ if(r&&r.id!=null) porId.set(r.id, r); });
   // después lo local: lo que NO esté en la nube, se conserva y se marca para subir
   local.forEach(r=>{
     if(!r||r.id==null) return;
-    if(!porId.has(r.id)){
+    if(idsPendientes.has(String(r.id))){
+      // Esta versión local fue editada y todavía espera sincronizar: no dejar
+      // que la copia vieja de la nube la pise al volver a abrir el CRM.
+      porId.set(r.id,r);
+    } else if(!porId.has(r.id)){
+      // En ventas la nube manda de forma estricta. Si ya no existe allí,
+      // probablemente Angie o Maxi la eliminaron desde el otro dispositivo.
+      // No volver a crearla desde una copia local vieja.
+      if(tabla==='ventas') return;
       porId.set(r.id, r);
       // estaba solo en el celu → a la cola para que suba
       try{ if(tabla==='clientes'||tabla==='ventas'||tabla==='productos') PENDIENTES.agregar(tabla, r); }catch(e){}
@@ -1451,6 +1578,13 @@ const DB = {
         const {data:cli} = await sb.from('clientes').select('*').order('num',{ascending:true}).limit(100000);
         const {data:ven} = await sb.from('ventas').select('*').limit(100000);
         let nubeCli = cli||[], nubeVen = ven||[];
+        // Una venta borrada queda oculta aunque Supabase tarde en aceptar el
+        // DELETE. Esto evita que la nube la "reviva" al recargar la aplicación.
+        let ventasBorradas=[];
+        try{ ventasBorradas=JSON.parse(localStorage.getItem('ae_ventas_borradas')||'[]').map(String); }catch(e){}
+        const setBorradas=new Set(ventasBorradas);
+        nubeVen=nubeVen.filter(v=>!setBorradas.has(String(v.id)));
+        locVen=locVen.filter(v=>!setBorradas.has(String(v.id)));
         let nubeMsg=[], nubeProd=[];
         try{ const {data:msg} = await sb.from('mensajes').select('*').limit(100000); nubeMsg = msg||[]; }catch(e){}
         try{ const {data:prod} = await sb.from('productos').select('*').limit(100000); nubeProd = prod||[]; }catch(e){}
@@ -1540,16 +1674,74 @@ const DB = {
     const okLocal = this.saveLocal(); // primero el celu: nunca se pierde nada
     if(!okLocal){ return {ok:false, local:false, msg:'No se pudo guardar en el teléfono (memoria llena)'}; }
     const r=await subirNube('ventas', v);
-    if(!r.ok){ PENDIENTES.agregar('ventas', v); console.warn('upsertVenta:', r.msg); }
+    // No encolamos ventas completas: un snapshot viejo de otro dispositivo
+    // podría volver después y pisar pagos recientes. Si falla, se informa y se
+    // debe reintentar con conexión.
+    if(!r.ok){ PENDIENTES.quitar('ventas',v.id); console.warn('upsertVenta:', r.msg); }
+    else PENDIENTES.quitar('ventas',v.id);
     return r;
+  },
+  // Los cobros son datos sensibles: primero se escriben SOLO en Supabase y
+  // Supabase debe devolver el valor guardado. Recién entonces se confirma local.
+  // No se encolan snapshots completos que otro dispositivo pueda pisar después.
+  async setPagadas(v,nuevo){
+    if(!v) return {ok:false,msg:'venta inexistente'};
+    nuevo=Math.max(0,Math.min(Number(v.cuotas||1),Number(nuevo||0)));
+    if(!CLOUD || !sb){
+      toast('⚠️ Sin conexión: el pago NO se marcó. Reintentá cuando vuelva internet.');
+      return {ok:false,msg:'sin conexión'};
+    }
+    try{
+      const {data,error}=await sb.from('ventas').update({pagadas:nuevo}).eq('id',v.id).select('id,pagadas');
+      if(error || !data || !data.length){
+        const msg=error?(error.message||String(error)):'Supabase no confirmó el cambio';
+        alert('⚠️ El pago NO se guardó en la nube.\n\n'+msg+'\n\nNo se modificó la cuota.');
+        return {ok:false,msg};
+      }
+      v.pagadas=Number(data[0].pagadas||0);
+      this.saveLocal();
+      PENDIENTES.quitar('ventas',v.id); // evita que un snapshot viejo reviva este estado
+      avisarCambioPago(v.id,v.pagadas);
+      return {ok:true,pagadas:v.pagadas};
+    }catch(e){
+      toast('⚠️ No se pudo confirmar el pago en la nube. Reintentá.');
+      return {ok:false,msg:e.message||String(e)};
+    }
   },
   async delCliente(id){
     if(CLOUD){ try{ await sb.from('ventas').delete().eq('clienteId',id); await sb.from('clientes').delete().eq('id',id); }catch(e){ console.warn(e); } }
     this.saveLocal();
   },
   async delVenta(id){
-    if(CLOUD){ try{ await sb.from('ventas').delete().eq('id',id); }catch(e){ console.warn(e); } }
+    // Si había una edición de esta venta esperando subir, cancelarla para
+    // que no vuelva a crear la fila después de haberla eliminado.
+    PENDIENTES.quitar('ventas',id);
+    let borradas=[];
+    try{ borradas=JSON.parse(localStorage.getItem('ae_ventas_borradas')||'[]'); }catch(e){}
+    if(!borradas.map(String).includes(String(id))) borradas.push(id);
+    try{ localStorage.setItem('ae_ventas_borradas',JSON.stringify(borradas)); }catch(e){}
+    let borradoNube=false;
+    if(CLOUD){
+      try{
+        const {error}=await sb.from('ventas').delete().eq('id',id);
+        const verificacion=error?null:await sb.from('ventas').select('id').eq('id',id).limit(1);
+        const sigueEnNube=verificacion&&verificacion.data&&verificacion.data.length>0;
+        if(error||sigueEnNube) console.warn('delVenta nube:',error?(error.message||error):'la fila sigue existiendo');
+        else {
+          borradoNube=true;
+          borradas=borradas.filter(x=>String(x)!==String(id));
+          try{ localStorage.setItem('ae_ventas_borradas',JSON.stringify(borradas)); }catch(e){}
+          avisarVentaEliminada(id);
+        }
+      }catch(e){ console.warn(e); }
+    }
+    if(!borradoNube){
+      // No afirmar que se eliminó si Supabase no lo confirmó.
+      borradas=borradas.filter(x=>String(x)!==String(id));
+      try{ localStorage.setItem('ae_ventas_borradas',JSON.stringify(borradas)); }catch(e){}
+    }
     this.saveLocal();
+    return {ok:borradoNube};
   },
   async enviarMensaje(m){
     if(CLOUD){
@@ -1665,11 +1857,26 @@ function aplicarOcultarTotal(){
   });
 }
 const today = () => { const d=new Date(); d.setHours(0,0,0,0); return d; };
-const parseD = s => { const d=new Date(s); d.setHours(0,0,0,0); return d; };
-const addMonths = (d,m) => { const x=new Date(d); x.setMonth(x.getMonth()+m); return x; };
+// Fechas comerciales = fechas LOCALES, nunca UTC. `new Date('2026-08-12')`
+// se interpreta como UTC y en Argentina cae el día anterior; al guardar varias
+// veces podía hacer que un 12 terminara como 11/10. Parseamos YYYY-MM-DD a mano.
+const parseD = s => {
+  if(s instanceof Date){ const d=new Date(s); d.setHours(0,0,0,0); return d; }
+  const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),0,0,0,0);
+  const d=new Date(s); d.setHours(0,0,0,0); return d;
+};
+// Mantiene el día original del mes. Si no existe (ej. 31 de febrero), usa el
+// último día de ese mes en vez de saltar al mes siguiente.
+const addMonths = (d,m) => {
+  const x=new Date(d), dia=x.getDate();
+  x.setDate(1); x.setMonth(x.getMonth()+m);
+  const ultimo=new Date(x.getFullYear(),x.getMonth()+1,0).getDate();
+  x.setDate(Math.min(dia,ultimo)); return x;
+};
 const addDays = (d,days) => { const x=new Date(d); x.setDate(x.getDate()+days); return x; };
-const isoDate = d => d.toISOString().slice(0,10);
-const dispDate = s => { const d=new Date(s); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}); };
+const isoDate = d => { const x=new Date(d); return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`; };
+const dispDate = s => { const d=parseD(s); return d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}); };
 const initials = n => {
   let s=(n||'');
   s=s.replace(/["""].*?["""]/g,' '); // saca apodos entre comillas dobles
@@ -1753,12 +1960,20 @@ function normPersona(n){
   // por defecto: el nombre normalizado con primera mayúscula
   return (n||'').trim();
 }
+// Devuelve un nombre único para mostrar, aunque se haya escrito con otras
+// mayúsculas, tildes o apodos. Internamente Angela y Angie son la misma persona.
 function nombrePersonaCanonico(n){
+  const clave=String(n||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim().replace(/\s+/g,' ');
+  if(['marce','marcelo','marce campitelli','marcelo campitelli'].includes(clave)) return 'Marcelo Campitelli';
+  if(['elec round','electro round','electroround'].includes(clave)) return 'Marcelo Campitelli';
+  if(['papas','papas angie'].includes(clave)) return 'Papas Angie';
   const norm=normPersona(n);
   if(norm==='Angela') return 'Angie';
   if(norm==='Maxi'||norm==='Guido'||norm==='Victoria'||norm==='Selene'||norm==='Sabry'||norm==='Rosi') return norm;
   return String(norm||'').toLowerCase().replace(/(^|[\s.\-])([a-záéíóúñ])/g,(m,a,b)=>a+b.toUpperCase());
 }
+// Separa sociedades escritas como "Angie/Maxi", "Maxi + Angie" o
+// "Angie Maxi". Si no es una combinación clara, conserva el nombre como grupo.
 function personasCanonicas(nombre){
   const raw=String(nombre||'').trim(); if(!raw) return [];
   if(raw.toLowerCase()==='amarango') return ['Angie','Maxi'];
@@ -1885,19 +2100,24 @@ function primeraParteComision(comTotal, n){
   const base=Math.floor(comTotal/partes/100)*100;  // 1ra parte redondeada a $100
   return base>0 ? base : comTotal;
 }
-/* Capital que realmente falta aportar.
-   La 1ra cuota primero paga la 1ra parte de la comisión y, si se cargó, el envío.
-   El resto de esa cuota baja el costo del producto. */
+/* Para calcular CAPITAL A INVERTIR usamos la parte exacta de comisión, sin
+   cambiar cómo se liquida/redondea la comisión del revendedor en el CRM.
+   Ej.: $97.125 / 3 = $32.375 exactos para cubrir con la 1ra cuota. */
+function primeraParteComisionParaInversion(comTotal,n){
+  if(comTotal<=0) return 0;
+  let partes;
+  if(n<=1) partes=1;
+  else if(n===2) partes=2;
+  else partes=(Math.floor(comTotal/3)<10000)?2:3;
+  return Math.round(comTotal/Math.max(1,partes));
+}
+/* La primera cuota paga primero la primera parte de comisión y el envío
+   únicamente cuando fue cargado. Lo que queda reduce el costo del producto. */
 function capitalFaltanteInversion(costo, primeraCuota, comisionPrimeraParte, envio){
   costo=+costo||0; primeraCuota=+primeraCuota||0;
   comisionPrimeraParte=+comisionPrimeraParte||0; envio=+envio||0;
   const aportePrimeraCuota=Math.max(0, primeraCuota-comisionPrimeraParte-envio);
   return Math.max(0, costo-aportePrimeraCuota);
-}
-function primeraCuotaVenta(v){
-  if(!v || v.tipo==='prestamo' || (v.cuotas||1)<=1) return 0;
-  if((+v.montoCuota||0)>0) return +v.montoCuota;
-  return planCuotas(+v.precioVenta||0, v.cuotas||1)[0]||0;
 }
 function partesComision(v){
   const com=comisionRevendedor(v);
@@ -2648,6 +2868,11 @@ function ventaCuotas(v){
     if(v.venceManual && i===0){ vence=v.venceManual; }  // préstamo: fecha de vencimiento elegida
     else if(n<=1){ vence=isoDate(inicio); }
     else { vence=isoDate(quinc ? addDays(inicio, i*15) : addMonths(inicio,i)); }
+    // Una cuota aplazada conserva su número y monto; solamente cambia su fecha.
+    // Se guarda dentro de `abonos` (JSON ya existente en Supabase), así no
+    // necesitamos agregar una columna nueva a la base.
+    const fechasAplazadas=v.abonos&&v.abonos.__fechasAplazadas;
+    if(fechasAplazadas && fechasAplazadas[i+1]) vence=fechasAplazadas[i+1];
     const abono = (v.abonos && v.abonos[i+1]) ? Number(v.abonos[i+1]) : 0;
     const pagadaFull = (v.pagadas||0) > i;
     const monto = montos[i];
@@ -3432,7 +3657,7 @@ function amaraResponder(txt){
 
   // CÓMO USAR INVERSORES / REPARTO
   if(tiene('inversor','inversores','reparto','dividir ganancia','repartir','quien puso','socios','quien invirtio') || (preguntaComo && tiene('inversor','reparto','socio'))){
-    amaraBot(`🤝 <b>Inversores y reparto — fácil:</b><br><br>1️⃣ Cuando cargás una venta, podés poner quién <b>invirtió</b> y su <b>%</b><br>2️⃣ El sistema reparte solo: cuánto <b>puso</b> cada uno y cuánto <b>gana</b><br>3️⃣ Para ver el resumen general: <b>Finanzas → 💼 Inversores</b><br><br>💡 Fórmula real: del costo se descuenta lo que queda de la 1ra cuota después de pagar la 1ra parte de comisión y el envío cargado.`);
+    amaraBot(`🤝 <b>Inversores y reparto — fácil:</b><br><br>1️⃣ Cuando cargás una venta, podés poner quién <b>invirtió</b> y su <b>%</b><br>2️⃣ El sistema reparte solo: cuánto <b>puso</b> cada uno y cuánto <b>gana</b><br>3️⃣ Para ver el resumen general: <b>Finanzas → 💼 Inversores</b><br><br>💡 El "puso" usa tu fórmula real: costo + 1ra parte comisión + envío − 1ra cuota.`);
     amaraAccion('💼 Llevame a Inversores', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('inv'); },250); });
     return;
   }
@@ -3675,30 +3900,38 @@ function mesActual(f){ const d=new Date(f),n=new Date(); return d.getMonth()===n
 function renderInicio(){
   const baseV=ventasAmbito();
   const vMes=baseV.filter(v=>mesActual(v.fecha));
-  const fact=vMes.reduce((s,v)=>s+v.precioVenta,0);
-  const gan=vMes.reduce((s,v)=>s+(v.precioVenta-v.precioCosto-(v.envio||0)),0);
+  const fact=vMes.reduce((s,v)=>s+totalPagadoVenta(v),0);
+  const gan=vMes.reduce((s,v)=>s+gananciaVenta(v),0);
   const hoyStr=isoDate(today());
   const hoy=baseV.filter(v=>v.fecha===hoyStr).reduce((s,v)=>s+v.precioVenta,0);
   document.getElementById('heroFact').textContent=fmt(fact);
   document.getElementById('heroSub').textContent=vMes.length+' ventas registradas';
   document.getElementById('heroGan').textContent='$'+fmt(gan);
-  document.getElementById('heroHoy').textContent='$'+fmt(hoy);
-  document.getElementById('heroCli').textContent=clientesAmbito().length;
-  let atr=0,hoyC=0;
-  baseV.forEach(v=>{ const e=estadoVenta(v); if(e.key==='atrasado')atr++; if(e.key==='hoy')hoyC++; });
+  let atr=0,hoyC=0,totalPend=0,totalVenc=0;
+  baseV.forEach(v=>{
+    const e=estadoVenta(v); if(e.key==='atrasado')atr++; if(e.key==='hoy')hoyC++;
+    ventaCuotas(v).forEach(c=>{ if(!c.pagada){ const m=c.resta!=null?c.resta:c.monto; totalPend+=m; if(parseD(c.vence)<today()) totalVenc+=m; } });
+  });
+  const hp=document.getElementById('homePend'); if(hp) hp.textContent='$'+fmt(totalPend);
+  const hv=document.getElementById('homeVenc'); if(hv) hv.textContent='$'+fmt(totalVenc);
   document.getElementById('qAtrasados').textContent=atr;
   document.getElementById('qHoy').textContent=hoyC;
   document.getElementById('qVentas').textContent=vMes.length;
   document.getElementById('qClientes').textContent=clientesAmbito().length;
-  const pend=baseV.map(v=>({v,e:estadoVenta(v)})).filter(x=>x.e.key==='atrasado'||x.e.key==='hoy').sort((a,b)=>parseD(a.e.px.vence)-parseD(b.e.px.vence));
+  const pend=[];
+  baseV.forEach(v=>ventaCuotas(v).forEach(c=>{
+    const venc=parseD(c.vence);
+    if(!c.pagada && venc>=today()) pend.push({v,c,venc});
+  }));
+  pend.sort((a,b)=>a.venc-b.venc);
   const cont=document.getElementById('inicioCobranzas');
-  if(!pend.length){ cont.innerHTML='<div class="alert green"><span class="alert-ico">✅</span><div><div class="alert-t">Todo al día</div><div class="alert-x">No hay cobranzas pendientes</div></div></div>'; return; }
+  if(!pend.length){ cont.innerHTML='<div class="alert green"><span class="alert-ico">✅</span><div><div class="alert-t">Sin próximos cobros</div><div class="alert-x">No hay cuotas futuras pendientes</div></div></div>'; return; }
   cont.innerHTML=pend.slice(0,6).map(x=>{
     const cli=DB.clientes.find(c=>c.id===x.v.clienteId)||{nombre:'?'};
-    return `<div class="alert ${x.e.key==='atrasado'?'red':''}" onclick="detalleVenta('${x.v.id}')">
-      <span class="alert-ico">${x.e.key==='atrasado'?'🔴':'📅'}</span>
-      <div><div class="alert-t">${cli.nombre}</div><div class="alert-x">${x.v.producto} · Cuota ${x.e.px.num} · vence ${dispDate(x.e.px.vence)}</div></div>
-      <span class="alert-go" style="color:var(--blue);font-weight:800;font-size:13px;">$${fmt(x.e.px.monto)}</span></div>`;
+    return `<div class="alert" onclick="detalleVenta('${x.v.id}')">
+      <span class="alert-ico">📅</span>
+      <div><div class="alert-t">${cli.nombre}</div><div class="alert-x">${x.v.producto} · Cuota ${x.c.num} · abona ${dispDate(x.c.vence)}</div></div>
+      <span class="alert-go" style="color:var(--blue);font-weight:800;font-size:13px;">$${fmt(x.c.resta!=null?x.c.resta:x.c.monto)}</span></div>`;
   }).join('');
   // Resumen del día
   const rd=document.getElementById('resumenDia');
@@ -3865,17 +4098,14 @@ function renderCaja(){
       }
     });
   });
-  // plata de inversores que está en la calle (lo que les debés devolver: su capital + su 50% de ganancia aún no cobrada)
+  // Plata de inversores que todavía falta devolver. Usamos el reparto central
+  // por cuota (ya descuenta comisión y respeta 1 o 2 inversionistas).
   let invEnCalle=0;
   DB.ventas.forEach(v=>{
-    const cuotas=ventaCuotas(v); const totalVenta=cuotas.reduce((s,c)=>s+c.monto,0);
-    const pagado=cuotas.filter(c=>c.pagada).reduce((s,c)=>s+c.monto,0);
-    const pendiente=totalVenta-pagado;
-    if(pendiente<=0) return;
-    // proporción de la venta que aún no se cobró
-    const prop = totalVenta>0 ? pendiente/totalVenta : 0;
-    const reparto=repartoInversores(v);
-    invEnCalle += reparto.reduce((s,r)=>s+Math.round((r.recibe||0)*prop),0);
+    const pagadas=Math.max(0,Number(v.pagadas||0));
+    repartoInversores(v).forEach(r=>{
+      invEnCalle+=(r.cobraPorCuota||[]).slice(pagadas).reduce((s,m)=>s+(Number(m)||0),0);
+    });
   });
   const tuyoEnCalle = Math.max(0, enCalle - invEnCalle);
   const filas=[
@@ -4120,7 +4350,10 @@ function renderClientes(){
       `<div class="cli-det-row">
         <div class="cli-det-linea">
           <div class="cli-det-prod">📦 ${d.producto}</div>
-          <button class="cli-del-btn" onclick="borrarVentaCajon('${d.id}','${c.id}',${d.debe},event)" title="Borrar">🗑️</button>
+          <div style="display:flex;gap:5px;flex-shrink:0;">
+            <button class="cli-del-btn" style="color:var(--blue);" onclick="event.stopPropagation();formEditarVenta('${d.id}')" title="Editar venta">✏️</button>
+            <button class="cli-del-btn" onclick="borrarVentaCajon('${d.id}','${c.id}',${d.debe},event)" title="Borrar venta">🗑️</button>
+          </div>
         </div>
         <div class="cli-det-info">${d.cuotasTxt}${d.fechaTxt?' · '+d.fechaTxt:''} <span class="cli-det-est ${d.cls}">${d.estado}</span></div>
       </div>`
@@ -4286,6 +4519,15 @@ function renderVentas(){
   // detectar tipo de cada venta (compatible con ventas viejas sin campo 'tipo')
   const esPrestamo=v=> (v.tipo==='prestamo') || (!v.tipo && /pr[eé]stamo/i.test(v.producto||''));
   let vs=[...ventasAmbito()].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+  const busqueda=String((document.getElementById('searchVentas')||{}).value||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  if(busqueda){
+    vs=vs.filter(v=>{
+      const cli=DB.clientes.find(c=>c.id===v.clienteId)||{};
+      const inversores=listaInversoresVenta(v).map(x=>x.nombre).join(' ');
+      const texto=[cli.nombre,v.producto,v.responsable,v.revendedor,inversores,dispDate(v.fecha)].join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      return texto.includes(busqueda);
+    });
+  }
   // aplicar filtro de tipo
   if(tipoVentas==='producto') vs=vs.filter(v=>!esPrestamo(v));
   else if(tipoVentas==='prestamo') vs=vs.filter(v=>esPrestamo(v));
@@ -4306,7 +4548,7 @@ function renderVentas(){
   if(vistaVentas==='planilla'){
     cont.innerHTML=resumen+`<div class="planilla-hint">← deslizá la tabla para ver todas las columnas →</div>
     <div class="planilla-wrap"><table class="planilla">
-      <thead><tr><th>Nombre</th><th>${tipoVentas==='prestamo'?'Concepto':'Producto'}</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th></tr></thead>
+      <thead><tr><th>Nombre</th><th>${tipoVentas==='prestamo'?'Concepto':'Producto'}</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Inversionista</th><th>Revendedor</th><th>Acciones</th></tr></thead>
       <tbody>${vs.map(v=>{
         const cli=DB.clientes.find(c=>c.id===v.clienteId)||{nombre:'?'};
         return `<tr onclick="detalleVenta('${v.id}')" style="cursor:pointer;">
@@ -4317,6 +4559,10 @@ function renderVentas(){
           <td>${dispDate(v.fecha)}</td>
           <td style="color:var(--orange);font-weight:700;">${v.inversionista||'—'}</td>
           <td>${v.revendedor||'—'}</td>
+          <td style="white-space:nowrap;">
+            <button class="btn btn-ghost btn-sm" title="Editar venta" onclick="event.stopPropagation();formEditarVenta('${v.id}')">✏️ Editar</button>
+            <button class="btn btn-ghost btn-sm" title="Eliminar venta" style="color:var(--red);" onclick="event.stopPropagation();delVenta('${v.id}')">🗑️ Eliminar</button>
+          </td>
         </tr>`;
       }).join('')}</tbody>
     </table></div>`;
@@ -4330,7 +4576,13 @@ function renderVentas(){
     return `<div class="list-item" onclick="detalleVenta('${v.id}')">
       <div class="avatar" style="background:${pr?'var(--orange)':avatarColor(cli.nombre)}">${pr?'💰':initials(cli.nombre)}</div>
       <div class="li-info"><div class="li-name">${v.producto}</div><div class="li-meta">${cli.nombre} · ${v.cuotas>1?v.cuotas+' cuotas':'Contado'} · ${dispDate(v.fecha)}</div></div>
-      <div class="li-right"><div class="li-amt">$${fmt(v.precioVenta)}</div><div class="li-tag" style="color:var(--${e.cls==='green'?'green':e.cls==='red'?'red':'orange'});font-weight:700;">${e.label}</div></div></div>`;
+      <div class="li-right">
+        <div class="li-amt">$${fmt(v.precioVenta)}</div><div class="li-tag" style="color:var(--${e.cls==='green'?'green':e.cls==='red'?'red':'orange'});font-weight:700;">${e.label}</div>
+        <div style="display:flex;gap:5px;margin-top:6px;justify-content:flex-end;">
+          <button class="btn btn-ghost btn-sm" title="Editar" style="width:auto;padding:5px 8px;" onclick="event.stopPropagation();formEditarVenta('${v.id}')">✏️</button>
+          <button class="btn btn-ghost btn-sm" title="Eliminar" style="width:auto;padding:5px 8px;color:var(--red);" onclick="event.stopPropagation();delVenta('${v.id}')">🗑️</button>
+        </div>
+      </div></div>`;
   }).join('');
 }
 
@@ -4427,6 +4679,7 @@ function gestionarCuota(ventaId, num){
 // Registrar un abono (pago parcial o total) sobre una cuota
 async function registrarAbono(ventaId, num, todo){
   const v=DB.ventas.find(x=>x.id===ventaId); if(!v) return;
+  const pagadasAntes=Number(v.pagadas||0);
   const cuota=(ventaCuotas(v)||[]).find(c=>c.num===num); if(!cuota) return;
   let monto;
   if(todo){ monto=cuota.resta; }
@@ -4439,7 +4692,8 @@ async function registrarAbono(ventaId, num, todo){
   const abonoActual = Number(v.abonos[num]||0);
   let nuevoAbono = abonoActual + monto;
   // si el abono cubre (o supera) el monto de la cuota, se marca como pagada completa
-  if(nuevoAbono >= cuota.monto - 0.5){
+  const cuotaSaldada=nuevoAbono >= cuota.monto - 0.5;
+  if(cuotaSaldada){
     // marcar esta cuota como pagada: subimos v.pagadas si es la próxima en orden
     marcarCuotaPagadaHasta(v, num);
     delete v.abonos[num]; // ya no hace falta el parcial
@@ -4451,7 +4705,8 @@ async function registrarAbono(ventaId, num, todo){
   closeModal();
   try{
     const _r = await DB.upsertVenta(v);
-    if(_r && !_r.ok && _r.local!==false){ toast('⚠️ Quedó guardado en el celu, sube solo al volver la señal'); }
+    if(_r && _r.ok && cuotaSaldada) await DB.setPagadas(v,Math.max(pagadasAntes,num));
+    else if(_r && !_r.ok){ toast('⚠️ No se pudo confirmar el abono en la nube'); }
   }catch(e){ console.warn('upsertVenta:', e); }
   refrescarVistasPago();
 }
@@ -4465,11 +4720,12 @@ function marcarCuotaPagadaHasta(v, num){
 async function anularPagoCuota(ventaId, num){
   const v=DB.ventas.find(x=>x.id===ventaId); if(!v) return;
   if(v.abonos && v.abonos[num]) delete v.abonos[num];
-  if((v.pagadas||0) >= num){ v.pagadas = num-1; }
+  const nuevasPagadas=(v.pagadas||0)>=num ? num-1 : (v.pagadas||0);
   closeModal(); toast('Pago anulado');
   try{
     const _r = await DB.upsertVenta(v);
-    if(_r && !_r.ok && _r.local!==false){ toast('⚠️ Quedó guardado en el celu, sube solo al volver la señal'); }
+    if(_r && _r.ok) await DB.setPagadas(v,nuevasPagadas);
+    else if(_r && !_r.ok){ toast('⚠️ No se pudo confirmar el cambio en la nube'); }
   }catch(e){ console.warn('upsertVenta:', e); }
   refrescarVistasPago();
 }
@@ -4602,8 +4858,28 @@ function renderCobranzas(){
   });
   // PLANILLA PRINCIPAL: una fila por cuota, con casilla de pago estilo Excel.
   if(cobFiltro==='planilla'){
+    const q=((document.getElementById('cobBuscar')||{}).value||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const filtro=((document.getElementById('cobPlanFiltro')||{}).value||'pendientes');
+    const orden=((document.getElementById('cobPlanOrden')||{}).value||'fechaAsc');
+    rows=rows.filter(r=>{
+      const cli=DB.clientes.find(c=>c.id===r.v.clienteId)||{nombre:'?'};
+      const txt=(cli.nombre+' '+(r.v.producto||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      if(q&&!txt.includes(q)) return false;
+      if(filtro==='pendientes') return !r.c.pagada;
+      if(filtro==='proximos') return !r.c.pagada&&r.estado!=='atrasados';
+      if(filtro==='vencidos') return r.estado==='atrasados';
+      if(filtro==='pagados') return r.c.pagada;
+      return true;
+    });
+    const montoFila=r=>(r.c.resta!=null&&!r.c.pagada?r.c.resta:r.c.monto)||0;
     rows.sort((a,b)=>{
-      if(a.c.pagada!==b.c.pagada) return a.c.pagada?1:-1;
+      if(orden==='fechaDesc') return b.venc-a.venc;
+      if(orden==='nombre'){
+        const ca=DB.clientes.find(c=>c.id===a.v.clienteId)||{nombre:''}, cb=DB.clientes.find(c=>c.id===b.v.clienteId)||{nombre:''};
+        return ca.nombre.localeCompare(cb.nombre,'es');
+      }
+      if(orden==='montoDesc') return montoFila(b)-montoFila(a);
+      if(orden==='montoAsc') return montoFila(a)-montoFila(b);
       return a.venc-b.venc;
     });
     if(!rows.length){ cont.innerHTML=emptyState('📊','Sin cuotas','Las cuotas de las ventas aparecerán acá'); return; }
@@ -4615,8 +4891,8 @@ function renderCobranzas(){
       <div class="card"><div class="cob-resumen-lbl">Total vencido</div><div class="cob-resumen-val" style="color:var(--red);">$${fmt(totalVencido)}</div></div>
     </div>
     <div class="planilla-hint">← Deslizá la planilla para ver todas las columnas →</div>
-    <div class="planilla-wrap"><table class="planilla cob-planilla">
-      <thead><tr><th>Pagó</th><th>Cliente</th><th>Producto</th><th>N.º cuota</th><th>Monto</th><th>Fecha a abonar</th></tr></thead>
+    <div class="planilla-wrap cob-planilla-wrap"><table class="planilla cob-planilla">
+      <thead><tr><th>Pagó</th><th>Cliente</th><th>Producto</th><th>N.º cuota</th><th>Monto</th><th>Fecha a abonar</th><th>Acción</th></tr></thead>
       <tbody>${rows.map(r=>{
         const cli=DB.clientes.find(c=>c.id===r.v.clienteId)||{nombre:'?'};
         const clase=r.c.pagada?'cob-pagada':(r.estado==='atrasados'?'cob-vencida':'');
@@ -4628,6 +4904,7 @@ function renderCobranzas(){
           <td class="col-num">${r.c.num} de ${r.v.cuotas||1}</td>
           <td class="col-monto">$${fmt(monto)}</td>
           <td>${dispDate(r.c.vence)}</td>
+          <td><button class="btn btn-ghost btn-sm" style="white-space:nowrap;" onclick="event.stopPropagation();abrirAplazarCuota('${r.v.id}',${r.c.num})">⏰ Aplazar</button></td>
         </tr>`;
       }).join('')}</tbody>
     </table></div>`;
@@ -4660,7 +4937,7 @@ function renderCobranzas(){
           <input type="checkbox" id="${chkId}" class="chkAgenda" data-clave="${claveWa}" data-tel="${cli.telefono||''}" data-vid="${r.v.id}" checked style="width:20px;height:20px;margin-right:8px;flex-shrink:0;" onclick="event.stopPropagation();">
           <div class="avatar" style="background:${nombreColor(inv)};width:34px;height:34px;font-size:13px;" onclick="detalleVenta('${r.v.id}')">${initials(cli.nombre)}</div>
           <div class="li-info" onclick="detalleVenta('${r.v.id}')"><div class="li-name" style="font-size:14px;">${cli.nombre}</div><div class="li-meta">${r.v.producto} · ${dispDate(r.c.vence)}</div></div>
-          <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div></div></div>`;
+          <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div><div class="li-tag" style="color:var(--blue);font-weight:700;" onclick="event.stopPropagation();abrirAplazarCuota('${r.v.id}',${r.c.num})">⏰ Aplazar</div></div></div>`;
       }).join('');
       return `<div class="card" style="margin-bottom:14px;padding:12px;border-left:4px solid ${color};">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -4703,7 +4980,7 @@ function renderCobranzas(){
           <input type="checkbox" id="${chkId}" data-dia="${dia}" data-tel="${cli.telefono||''}" data-vid="${r.v.id}" checked style="width:20px;height:20px;margin-right:8px;flex-shrink:0;" onclick="event.stopPropagation();">
           <div class="avatar" style="background:${nombreColor(inv)};width:34px;height:34px;font-size:13px;" onclick="detalleVenta('${r.v.id}')">${initials(cli.nombre)}</div>
           <div class="li-info" onclick="detalleVenta('${r.v.id}')"><div class="li-name" style="font-size:14px;">${cli.nombre}</div><div class="li-meta">${r.v.producto} · ${dispDate(r.c.vence)}</div></div>
-          <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div></div></div>`;
+          <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div><div class="li-tag" style="color:var(--blue);font-weight:700;" onclick="event.stopPropagation();abrirAplazarCuota('${r.v.id}',${r.c.num})">⏰ Aplazar</div></div></div>`;
       }).join('');
       return `<div class="card" style="margin-bottom:14px;padding:12px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
@@ -4731,24 +5008,63 @@ function renderCobranzas(){
       <div class="li-info"><div class="li-name">${cli.nombre}</div><div class="li-meta">${r.v.producto} · Cuota ${r.c.num}/${r.v.cuotas} · ${dispDate(r.c.vence)}</div>
       <div style="margin-top:3px;"><span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;color:${nombreColor(inv)};background:${nombreColor(inv)}1a;padding:2px 8px;border-radius:8px;">💼 Cobra: ${inv}</span></div></div>
       <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div>
+      ${r.estado!=='pagadas'?`<div class="li-tag" style="color:var(--blue);font-weight:700;" onclick="event.stopPropagation();abrirAplazarCuota('${r.v.id}',${r.c.num})">⏰ Aplazar</div>`:''}
       ${r.estado!=='pagadas'&&cli.telefono?`<div class="li-tag" style="color:var(--green);font-weight:700;" onclick="event.stopPropagation();waCobranza('${r.v.id}')">📲 Recordar</div>`:''}</div></div>`;
   }).join('');
+}
+
+// Aplazar una cuota: cambia solamente la fecha de ESA cuota y se guarda en
+// Supabase dentro del JSON `abonos`, para que Angie y Maxi vean lo mismo.
+function abrirAplazarCuota(ventaId,num){
+  const v=DB.ventas.find(x=>String(x.id)===String(ventaId)); if(!v) return;
+  const c=(ventaCuotas(v)||[]).find(x=>Number(x.num)===Number(num)); if(!c) return;
+  const cli=DB.clientes.find(x=>x.id===v.clienteId)||{nombre:'Cliente'};
+  const sugerida=isoDate(addDays(parseD(c.vence),7));
+  openModal(`<div class="modal-title">⏰ Aplazar pago</div>
+    <div class="modal-sub">${cli.nombre} · ${v.producto||''} · Cuota ${num}/${v.cuotas||1}</div>
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;">
+      <div style="font-size:12px;color:var(--muted);">Fecha actual</div>
+      <div style="font-size:17px;font-weight:900;color:var(--blue);">${dispDate(c.vence)}</div>
+    </div>
+    <div class="field"><label>Nueva fecha de pago</label><input id="aplazar_fecha" type="date" min="${isoDate(today())}" value="${sugerida}"></div>
+    <button class="btn btn-orange" onclick="guardarAplazamiento('${v.id}',${num})">💾 Guardar nueva fecha</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>`);
+}
+async function guardarAplazamiento(ventaId,num){
+  const v=DB.ventas.find(x=>String(x.id)===String(ventaId)); if(!v) return;
+  const inp=document.getElementById('aplazar_fecha');
+  const fecha=inp&&inp.value; if(!fecha){ toast('Elegí la nueva fecha'); return; }
+  if(parseD(fecha)<today()){ toast('La nueva fecha no puede quedar en el pasado'); return; }
+  const previo=JSON.parse(JSON.stringify(v.abonos||{}));
+  v.abonos=v.abonos||{};
+  v.abonos.__fechasAplazadas=v.abonos.__fechasAplazadas||{};
+  v.abonos.__fechasAplazadas[num]=fecha;
+  const res=await DB.upsertVenta(v);
+  if(!res || !res.ok){
+    v.abonos=previo; DB.saveLocal();
+    toast('⚠️ No se pudo guardar la nueva fecha en la nube'); return;
+  }
+  avisarAplazamiento(v.id,num,fecha);
+  closeModal();
+  try{ actualizarPagoBadge(); }catch(e){}
+  try{ refrescarVistasPago(); }catch(e){}
+  toastOK('Pago aplazado al '+dispDate(fecha)+' ✅');
 }
 
 // Marca o desmarca una cuota sin abandonar la planilla de cobranzas.
 async function toggleCuotaPlanillaCobranza(ventaId,num,checkbox){
   const v=DB.ventas.find(x=>x.id===ventaId); if(!v) return;
   const antes=v.pagadas||0;
-  if(checkbox.checked){ v.pagadas=Math.max(antes,num); }
-  else if(num<=antes){ v.pagadas=Math.max(0,num-1); }
-  const res=await DB.upsertVenta(v);
+  const nuevas=checkbox.checked?Math.max(antes,num):(num<=antes?Math.max(0,num-1):antes);
+  const res=await DB.setPagadas(v,nuevas);
   if(res&&res.ok) toastOK(checkbox.checked?'Pago registrado':'Pago quitado');
-  else toast('⚠️ El cambio quedó guardado en el dispositivo');
+  else checkbox.checked=!checkbox.checked;
   renderCobranzas();
 }
 
-let finFiltro='mes';
+let finFiltro='mes', finEstado='todos';
 function segFin(f,el){ finFiltro=f; document.querySelectorAll('[data-fin]').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderFinanzas(); }
+function segFinEstado(f,el){ finEstado=f; document.querySelectorAll('[data-finestado]').forEach(x=>x.classList.remove('active')); el.classList.add('active'); renderFinanzas(); }
 function renderFinanzas(){
   const base=ventasAmbito();
   let vs=finFiltro==='mes'?base.filter(v=>mesActual(v.fecha)):base;
@@ -4767,6 +5083,24 @@ function renderFinanzas(){
   document.getElementById('finPend').textContent=fmt(pend);
   const tot=cobrado+pend;
   document.getElementById('finBar').style.width=(tot?(cobrado/tot*100):0)+'%';
+  const lista=document.getElementById('finLista'); if(!lista) return;
+  const q=((document.getElementById('finBuscar')||{}).value||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  let filas=[];
+  vs.forEach(v=>{
+    const cli=DB.clientes.find(c=>c.id===v.clienteId)||{nombre:'?'};
+    const texto=(cli.nombre+' '+(v.producto||'')).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    if(q&&!texto.includes(q)) return;
+    ventaCuotas(v).forEach(c=>{
+      const vencida=!c.pagada&&parseD(c.vence)<today();
+      if(finEstado==='vencidos'&&!vencida) return;
+      if(finEstado==='porcobrar'&&c.pagada) return;
+      if(finEstado==='pagados'&&!c.pagada) return;
+      filas.push({v,c,cli,vencida});
+    });
+  });
+  filas.sort((a,b)=>parseD(a.c.vence)-parseD(b.c.vence));
+  if(!filas.length){ lista.innerHTML=emptyState('🔍','Sin resultados','Probá con otro nombre o filtro'); return; }
+  lista.innerHTML=`<div class="planilla-wrap cob-planilla-wrap"><table class="planilla cob-planilla"><thead><tr><th>Estado</th><th>Cliente</th><th>Producto</th><th>Cuota</th><th>Monto</th><th>Fecha</th></tr></thead><tbody>${filas.slice(0,200).map(x=>`<tr class="${x.c.pagada?'cob-pagada':(x.vencida?'cob-vencida':'')}" onclick="detalleVenta('${x.v.id}')" style="cursor:pointer"><td>${x.c.pagada?'✅ Pagado':(x.vencida?'🔴 Vencido':'🟠 Pendiente')}</td><td><b>${x.cli.nombre}</b></td><td>${x.v.producto||'—'}</td><td>${x.c.num} de ${x.v.cuotas||1}</td><td class="col-monto">$${fmt(x.c.resta!=null&&!x.c.pagada?x.c.resta:x.c.monto)}</td><td>${dispDate(x.c.vence)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function finRow(l,val,c,plain){ return `<div style="display:flex;justify-content:space-between;padding:7px 0;font-size:13px;"><span style="color:var(--muted);">${l}</span><span style="font-weight:700;color:${c};">${plain?val:'$'+fmt(val)}</span></div>`; }
 /* Reporte mensual del negocio. El TOTAL es del negocio (visible). La ganancia por persona NO se muestra acá (privada). */
@@ -4803,7 +5137,7 @@ function tableroDatos(){
     }
     if(m===mesPasado){ factAnt+=venta; }
     // día de semana (todas las ventas, para detectar patrón)
-    const ds=new Date(v.fecha).getDay();
+    const ds=parseD(v.fecha).getDay();
     if(ds>=0&&ds<=6) diaSemana[ds]++;
   });
 
@@ -5020,7 +5354,7 @@ function auditoriaVendedorDatos(rangoDias){
 
   // Ventas por responsable
   DB.ventas.forEach(v=>{
-    const t = new Date(v.fecha).getTime();
+    const t = parseD(v.fecha).getTime();
     if(t < desde) return;
     const s = asegurar(v.responsable);
     s.ventas++;
@@ -5275,6 +5609,7 @@ function setModoFin(m){
 }
 let persSel=null;
 function renderPorPersona(){
+  // Armar una lista limpia: apodos, mayúsculas y sociedades quedan unificados.
   const set=new Set(['Maxi','Angie']);
   DB.clientes.forEach(c=>{ personasCanonicas(c.responsable).forEach(n=>set.add(n)); });
   DB.ventas.forEach(v=>{
@@ -5290,23 +5625,33 @@ function renderPorPersona(){
   const chips=document.getElementById('persChips');
   if(chips) chips.innerHTML=personas.map(p=>`<span class="chip ${p===persSel?'sel':''}" onclick="selPersona('${p.replace(/'/g,"\\'")}')" style="${p===persSel?`background:${nombreColor(p)};color:#fff;`:''}">${p}</span>`).join('');
   const cont=document.getElementById('persContent'); if(!cont) return;
-  // ganancia de esta persona COMO INVERSIONISTA (según su % en cada venta)
-  function ganaEnVenta(v, persona){
-    const gan=gananciaVenta(v);
-    const invs=listaInversoresVenta(v);
-    let g=0;
-    invs.forEach(inv=>{
-      const nombres=personasCanonicas(inv.nombre);
-      if(nombres.includes(persona)) g+=Math.round(gan*inv.pct/100/Math.max(1,nombres.length));
+  // Usa el mismo reparto central que el detalle de la venta. Así dos inversores
+  // ven la misma operación y cada uno recibe solamente su capital y su ganancia.
+  function datosPersonaEnVenta(v, persona){
+    const total={participa:false,puso:0,ganancia:0,recibe:0,cobros:[]};
+    repartoInversores(v).forEach(r=>{
+      const nombres=personasCanonicas(r.nombre); if(!nombres.includes(persona)) return;
+      const pos=nombres.indexOf(persona), cant=Math.max(1,nombres.length);
+      const parte=(m)=>pos===cant-1 ? m-Math.round(m/cant)*(cant-1) : Math.round(m/cant);
+      total.participa=true;
+      total.puso+=parte(r.puso||0);
+      total.ganancia+=parte(r.ganancia||0);
+      total.recibe+=parte(r.recibe||0);
+      (r.cobraPorCuota||[]).forEach((m,i)=>{ total.cobros[i]=(total.cobros[i]||0)+parte(m||0); });
     });
-    return g;
+    return total;
   }
-  const ventas=DB.ventas.filter(v=>ganaEnVenta(v,persSel)!==0);
+  const ventas=DB.ventas.filter(v=>datosPersonaEnVenta(v,persSel).participa);
   let totVenta=0, totGan=0, cobrado=0, porCobrar=0;
   ventas.forEach(v=>{
-    totVenta+=(v.precioVenta||0);
-    totGan+=ganaEnVenta(v,persSel);
-    ventaCuotas(v).forEach(c=>{ if(c.pagada) cobrado+=c.monto; else porCobrar+=c.monto; });
+    const d=datosPersonaEnVenta(v,persSel);
+    totVenta+=d.recibe;
+    totGan+=d.ganancia;
+    const n=Math.max(1,v.cuotas||1), pagadas=Math.min(n,v.pagadas||0);
+    const cobradoVenta=d.cobros.slice(0,pagadas).reduce((s,m)=>s+m,0);
+    const totalCobros=d.cobros.reduce((s,m)=>s+m,0);
+    cobrado+=cobradoVenta;
+    porCobrar+=Math.max(0,totalCobros-cobradoVenta);
   });
   let html=`<div class="calc-result" style="background:linear-gradient(135deg,${nombreColor(persSel)},${nombreColor(persSel)}cc);">
     <div class="cr-lbl">Ganancia de ${persSel}</div><div class="cr-big">$<span>${fmt(totGan)}</span></div>
@@ -5324,7 +5669,7 @@ function renderPorPersona(){
     return `<div class="list-item" onclick="detalleVenta('${v.id}')">
       <div class="avatar" style="background:${avatarColor(c.nombre)}">${initials(c.nombre)}</div>
       <div class="li-info"><div class="li-name">${v.producto}</div><div class="li-meta">${c.nombre} · ${dispDate(v.fecha)}</div></div>
-      <div class="li-right"><div class="li-amt" style="color:var(--green);">$${fmt(ganaEnVenta(v,persSel))}</div></div>
+      <div class="li-right"><div class="li-amt" style="color:var(--green);">$${fmt(datosPersonaEnVenta(v,persSel).ganancia)}</div></div>
     </div>`;
   }).join('');
   cont.innerHTML=html;
@@ -5394,15 +5739,7 @@ function renderPlanillaMes(){
     '<button onclick="planillaMesNav(1)" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:16px;font-weight:800;cursor:pointer;">▶</button>'+
   '</div>';
   html+='<div style="text-align:center;margin-bottom:8px;"><button onclick="abrirPlanillaAncho()" style="background:var(--orange);color:#fff;border:none;border-radius:10px;padding:9px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 2px 6px rgba(255,122,0,.3);">🔄 Ver a lo ancho (pantalla completa)</button></div>';
-  // 👤 ACCESO RÁPIDO: Mi planilla (la del usuario logueado) vs General (todos)
-  var _yo = (typeof usuarioActual==='function') ? usuarioActual() : '';
-  var _yoId = '';
-  if(_yo){ var _pMatch=personas.find(function(p){ return (p.nombre||'').toLowerCase()===(_yo||'').toLowerCase(); }); if(_pMatch) _yoId=_pMatch.id; }
-  html+='<div style="display:flex;gap:6px;margin-bottom:8px;">'+
-    (_yoId?'<button onclick="selPlanillaPersona(\''+_yoId+'\')" style="flex:1;background:'+(planillaPersonaSel===_yoId?'var(--blue)':'#eef4ff')+';color:'+(planillaPersonaSel===_yoId?'#fff':'var(--blue)')+';border:1.5px solid var(--blue);border-radius:9px;padding:9px;font-size:12.5px;font-weight:800;cursor:pointer;">👤 Mi planilla'+(_yo?' ('+_yo+')':'')+'</button>':'')+
-    '<button onclick="selPlanillaPersona(\'\')" style="flex:1;background:'+(!planillaPersonaSel?'var(--blue)':'#eef4ff')+';color:'+(!planillaPersonaSel?'#fff':'var(--blue)')+';border:1.5px solid var(--blue);border-radius:9px;padding:9px;font-size:12.5px;font-weight:800;cursor:pointer;">👥 General (todos)</button>'+
-  '</div>';
-  // 👤 SELECTOR POR PERSONA (para elegir a otro puntual)
+  // 👤 SELECTOR POR PERSONA
   html+='<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">'+
     '<select id="planillaPersona" onchange="selPlanillaPersona(this.value)" style="flex:1;padding:9px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:13px;font-weight:700;color:var(--blue);background:#fff;">'+
       '<option value="">👥 Todas las personas</option>'+
@@ -5572,11 +5909,8 @@ async function marcarCuotaPlanilla(ventaId){
   var tot=(v.cuotas||1), pag=(v.pagadas||0);
   if(pag>=tot){ toast('Ya está todo pagado ✅'); return; }
   if(!confirm('¿Registrar el pago de la cuota '+(pag+1)+' de '+tot+'?')) return;
-  v.pagadas=pag+1;
-  try{
-    const _r = await DB.upsertVenta(v);
-    if(_r && !_r.ok && _r.local!==false){ toast('⚠️ Quedó guardado en el celu, sube solo al volver la señal'); }
-  }catch(e){ console.warn('upsertVenta:', e); }
+  const _r=await DB.setPagadas(v,pag+1);
+  if(!_r || !_r.ok){ renderPlanillaMes(); return; }
   try{ if(typeof avisarInversoresCobro==='function') avisarInversoresCobro(v, v.pagadas); }catch(e){}
   try{ if(typeof AUDIT!=='undefined') AUDIT.registrar('cobró','venta','cuota '+v.pagadas+' de '+tot+' — '+(v.producto||'')); }catch(e){}
   toast('Pago registrado ✅');
@@ -6655,10 +6989,10 @@ function restaurarRetornos(){
 function waInversor(nombre){
   let invertido=0, ganancia=0, ventas=0;
   DB.ventas.forEach(v=>{
-    repartoInversores(v).forEach(r=>{
-      if(normPersona(r.nombre)!==normPersona(nombre)) return;
-      invertido+=r.puso||0; ganancia+=r.ganancia||0; ventas++;
-    });
+    const partes=repartoInversores(v).filter(r=>personasCanonicas(r.nombre).includes(nombrePersonaCanonico(nombre)));
+    if(!partes.length) return;
+    partes.forEach(r=>{ invertido+=r.puso||0; ganancia+=r.ganancia||0; });
+    ventas++;
   });
   const msg=`💼 *Resumen - AmarangoElectro*\n\nHola ${nombre.split(' ')[0]}, te paso tu resumen:\n\n📦 Operaciones: ${ventas}\n💵 Invertido: $${fmt(invertido)}\n💰 Ganancia: $${fmt(ganancia)}\n\n🐝 ¡Gracias por confiar en AmarangoElectro!`;
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
@@ -6967,18 +7301,18 @@ function calcInversionHTML(){
         <input id="ci_descPct" type="number" inputmode="decimal" value="10" min="0" max="90" oninput="calcInversion();renderTablaCuotas()" style="width:80px;">
       </div>
     </div>
-    <div class="field"><label>¿Hay revendedor?</label>
+    <div class="field"><label>¿Hay revendedor? <span style="color:var(--muted);font-weight:400;">— si hay, su 1ra comisión se suma a la inversión</span></label>
       <div class="chips" style="display:flex;gap:6px;">
-        <div class="chip sel" id="ci_revNo" onclick="ciSetRev(false)">No</div>
-        <div class="chip" id="ci_revSi" onclick="ciSetRev(true)">Sí</div>
+        <div class="chip" id="ci_revNo" onclick="ciSetRev(false)">No</div>
+        <div class="chip sel" id="ci_revSi" onclick="ciSetRev(true)">Sí</div>
       </div>
     </div>
-    <div class="field" id="ci_comBox" style="display:none;"><label>Comisión revendedor ($) <span style="color:var(--muted);font-weight:400;">— auto, editable</span></label><input id="ci_comision" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('comision');calcInversion()"></div>
+    <div class="field" id="ci_comBox"><label>Comisión TOTAL revendedor ($) <span style="color:var(--muted);font-weight:400;">— auto, editable</span></label><input id="ci_comision" type="number" inputmode="numeric" placeholder="0" oninput="ciManual('comision');calcInversion()"></div>
     <div class="field"><label>Cantidad de inversionistas</label><input id="ci_inv" type="number" inputmode="numeric" value="1" oninput="calcInversion()"></div>
     <div id="ci_planTabla"></div>
     <div id="ci_out"></div>`;
 }
-let ciCuotas=1, ciHayRev=false, ciManualFlags={costo:false,cuota:false,comision:false};
+let ciCuotas=1, ciHayRev=true, ciManualFlags={costo:false,cuota:false,comision:false};
 function ciManual(campo){ ciManualFlags[campo]=true; }
 function ciSelPlan(n){
   ciCuotas=n;
@@ -7097,11 +7431,13 @@ function renderTablaCuotas(){
               const envioQ=+document.getElementById('ci_envio').value||0;
               const invQ=Math.max(1,+document.getElementById('ci_inv').value||1);
               if(!costoQ) return `<div style="font-size:12px;color:var(--muted);">Cargá el costo arriba para ver el capital.</div>`;
-              return `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Entrega = 1ra cuota MENSUAL completa. Capital = costo − entrega + envío.</div>`+
+              const comTotalQ=ciHayRev?(+document.getElementById('ci_comision').value||0):0;
+              return `<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Capital = costo + 1ra parte de comisión + envío − 1ra cuota.</div>`+
               opciones.filter(n=>n<=6).map(n=>{
                 const plan=planCuotas(venta,n);
                 const cuotaMes=plan[0];               // 1ra cuota mensual completa
-                const cap=costoQ-cuotaMes+envioQ;     // capital con esa entrega
+                const com1Q=primeraParteComisionParaInversion(comTotalQ,n);
+                const cap=costoQ+com1Q-cuotaMes+envioQ; // capital real a cubrir
                 const porInv=Math.round(cap/invQ);
                 return `<div class="calc-line"><span class="cl-lbl">${n} cuotas <span style="color:var(--muted);font-size:11px;">(entrega $${fmt(cuotaMes)})</span></span><span class="cl-val" style="color:var(--orange);font-weight:800;">$${fmt(cap)}${invQ>1?` <span style="font-size:11px;color:var(--muted);">($${fmt(porInv)} c/u)</span>`:''}</span></div>`;
               }).join('');
@@ -7133,7 +7469,7 @@ function calcInversion(){
   if(!venta){ out.innerHTML=''; return; }
   // capital a invertir = costo + 1ra parte de comisión + envío - 1ra cuota del cliente
   // (solo se adelanta la 1ra parte de la comisión; el resto se paga cuando entran las cuotas)
-  const comision1ra = primeraParteComision(comision, ciCuotas);
+  const comision1ra = primeraParteComisionParaInversion(comision, ciCuotas);
   const capital=capitalFaltanteInversion(costo, cuota, comision1ra, envio);
   const porInv=Math.round(capital/inv);
   // descuento al contado (siempre se muestra el precio rebajado del contado, sin importar el plan)
@@ -7171,9 +7507,9 @@ function calcInversion(){
       ${ciCuotas>1?`<div class="calc-line"><span class="cl-lbl">Total que paga el cliente (${ciCuotas} cuotas)</span><span class="cl-val" style="color:var(--blue);">$${fmt(totalPagado)}</span></div>`:''}
       <div class="sec-title" style="margin-top:10px;font-size:12px;">🧮 Cómo se arma el capital</div>
       <div class="calc-line"><span class="cl-lbl">Costo del producto</span><span class="cl-val">$${fmt(costo)}</span></div>
-      ${cuota>0?`<div class="calc-line"><span class="cl-lbl">1ra cuota del cliente</span><span class="cl-val" style="color:var(--green);">$${fmt(cuota)}</span></div>`:''}
-      ${comision1ra>0?`<div class="calc-line"><span class="cl-lbl">− Comisión pagada con la 1ra cuota</span><span class="cl-val" style="color:var(--orange);">−$${fmt(comision1ra)}</span></div>`:''}
-      ${envio>0?`<div class="calc-line"><span class="cl-lbl">− Envío pagado con la 1ra cuota</span><span class="cl-val" style="color:var(--orange);">−$${fmt(envio)}</span></div>`:''}
+      ${comision1ra>0?`<div class="calc-line"><span class="cl-lbl">+ Comisión (1ra parte)</span><span class="cl-val" style="color:var(--orange);">+$${fmt(comision1ra)}</span></div>`:''}
+      ${envio>0?`<div class="calc-line"><span class="cl-lbl">+ Envío</span><span class="cl-val" style="color:var(--orange);">+$${fmt(envio)}</span></div>`:''}
+      ${cuota>0?`<div class="calc-line"><span class="cl-lbl">− 1ra cuota del cliente</span><span class="cl-val" style="color:var(--green);">−$${fmt(cuota)}</span></div>`:''}
       <div class="calc-line" style="border-top:1px solid var(--line);margin-top:4px;padding-top:8px;"><span class="cl-lbl"><b>Capital a invertir</b></span><span class="cl-val"><b style="color:var(--orange);">$${fmt(capital)}</b></span></div>
       <div class="calc-line" style="margin-top:8px;"><span class="cl-lbl"><b>Ganancia total</b></span><span class="cl-val" style="color:var(--green);"><b>$${fmt(gan)}</b></span></div>
     </div>
@@ -7696,7 +8032,7 @@ function setInvNombre(i,val){ ventaInversores[i].nombre=val; recalcInv(); }
 function setInvPct(i,val){ ventaInversores[i].pct=+val||0; recalcInv(); }
 function dividirInversores50(){
   if(ventaInversores.length>2){ toast('Para usar 50/50 dejá solamente dos inversores'); return; }
-  while(ventaInversores.length<2) ventaInversores.push({nombre:'', pct:50, tipo:'amarango'});
+  while(ventaInversores.length<2) ventaInversores.push({nombre:'',pct:50,tipo:'amarango'});
   ventaInversores[0].pct=50;
   ventaInversores[1].pct=50;
   renderInversoresForm();
@@ -7738,13 +8074,14 @@ function recalcInv(){
   const tv=totalVentaItems();
   const tieneRev=document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const comision = tieneRev ? Math.round(tv*((ventaCuotasSel>1)?0.15:0.10)) : 0;
-  const comision1ra = primeraParteComision(comision, ventaCuotasSel);  // solo lo que se adelanta
+  const comision1ra = primeraParteComisionParaInversion(comision, ventaCuotasSel);  // capital: parte exacta
   // 1ra cuota del cliente (la entrega)
   let primeraCuota=0;
   if(ventaTipo!=='prestamo' && ventaCuotasSel>1){
     const plan=planCuotas(tv, ventaCuotasSel);
     primeraCuota=plan[0]||0;
   }
+  if(ventaMontoCuotaManual>0) primeraCuota=ventaMontoCuotaManual;
   const capitalTotal = capitalFaltanteInversion(costo, primeraCuota, comision1ra, envio);
   let html='';
   ventaInversores.forEach(inv=>{
@@ -7766,7 +8103,7 @@ function recalcInv(){
   if(ventaInversores.length && capitalTotal>0){
     html+=`<div class="card" style="padding:8px 12px;margin-bottom:6px;background:#f0f6ff;font-size:11px;">
       <div style="font-weight:700;color:var(--blue);margin-bottom:4px;">🧮 Capital total: $${fmt(capitalTotal)}</div>
-      <div style="color:var(--muted);">Costo $${fmt(costo)} − (1ra cuota $${fmt(primeraCuota)}${comision1ra>0?` − comisión $${fmt(comision1ra)}`:''}${envio>0?` − envío $${fmt(envio)}`:''})</div>
+      <div style="color:var(--muted);">Costo $${fmt(costo)}${comision1ra>0?` + comisión (1ra parte) $${fmt(comision1ra)}`:''}${envio>0?` + envío $${fmt(envio)}`:''}${primeraCuota>0?` − 1ra cuota $${fmt(primeraCuota)}`:''}</div>
     </div>`;
   }
   // aviso de cuánto falta para 100%
@@ -7874,15 +8211,18 @@ async function saveVenta(){
   if(!invsValidos.length && respVenta && respVenta.trim()){
     invsValidos=[{nombre:respVenta.trim(), pct:100}];
   }
-  const _pctTotalNueva=invsValidos.reduce((s,x)=>s+(+x.pct||0),0);
-  if(Math.abs(_pctTotalNueva-100)>0.001){ toast('Los porcentajes de inversores deben sumar exactamente 100%'); return; }
+  let totalPctInversores=invsValidos.reduce((s,x)=>s+(Number(x.pct)||0),0);
+  if(Math.abs(totalPctInversores-100)>0.01){
+    toast(`Los inversionistas deben sumar 100%. Ahora suman ${fmt(totalPctInversores)}%`);
+    return;
+  }
   // === CAPITAL INVERTIDO (fórmula coherente con la calculadora): costo + comisión + envío − 1ra cuota ===
   const _costoVenta = ventaTipo==='prestamo' ? (+document.getElementById('p_monto')?.value||0) : itemsVenta.reduce((s,it)=>s+((it.costo||0)*(it.cantidad||1)),0);
   const _envioVenta = +document.getElementById('v_envio')?.value||0;
   const _tvVenta = totalVentaItems();
   const _tieneRevVenta = document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const _comisionVenta = _tieneRevVenta ? Math.round(_tvVenta*((ventaCuotasSel>1)?0.15:0.10)) : 0;
-  const _comision1raVenta = primeraParteComision(_comisionVenta, ventaCuotasSel);
+  const _comision1raVenta = primeraParteComisionParaInversion(_comisionVenta, ventaCuotasSel);
   let _primeraCuotaVenta = 0;
   if(ventaTipo!=='prestamo' && ventaCuotasSel>1){ _primeraCuotaVenta = planCuotas(_tvVenta, ventaCuotasSel)[0]||0; }
   const _sumaPctVenta = invsValidos.reduce((s,x)=>s+(x.pct||0),0);
@@ -7954,7 +8294,7 @@ async function recalcularVentasCliente(id){
     const n=v.cuotas||1;
     // comisión total (15% cuotas / 10% contado) si hay revendedor
     const comisionTotal = (v.revendedor||'').trim() ? Math.round(venta*((n>1)?0.15:0.10)) : 0;
-    const comision1ra = primeraParteComision(comisionTotal, n);
+    const comision1ra = primeraParteComisionParaInversion(comisionTotal, n);
     // 1ra cuota del cliente
     let primeraCuota=0;
     if(n>1){ primeraCuota = (v.montoCuota>0?v.montoCuota:planCuotas(venta,n)[0])||0; }
@@ -8066,12 +8406,13 @@ function detalleCliente(id){
     ${!vs.length?'<div class="empty-x" style="color:var(--muted);margin-bottom:10px;">Sin compras todavía</div>':
       vistaCliente==='planilla'?
       `<div class="planilla-hint">← deslizá para ver más →</div><div class="planilla-wrap"><table class="planilla">
-        <thead><tr><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Inversionista</th><th>Revendedor</th></tr></thead>
+        <thead><tr><th>Producto</th><th>Cuotas</th><th>Monto</th><th>Fecha</th><th>Estado</th><th>Inversionista</th><th>Revendedor</th><th>Acciones</th></tr></thead>
         <tbody>${vs.map(v=>{const e=estadoVenta(v);return `<tr onclick="detalleVenta('${v.id}')" style="cursor:pointer;">
           <td><b>${v.producto}</b></td><td class="col-num">${v.cuotas>1?'de '+v.cuotas:'Contado'}</td>
           <td class="col-monto">$${fmt(v.precioVenta)}</td><td>${dispDate(v.fecha)}</td>
           <td style="color:var(--${e.cls==='green'?'green':e.cls==='red'?'red':'orange'});font-weight:700;">${e.label}</td>
-          <td style="color:var(--orange);">${v.inversionista||'—'}</td><td>${v.revendedor||'—'}</td></tr>`;}).join('')}</tbody>
+          <td style="color:var(--orange);">${v.inversionista||'—'}</td><td>${v.revendedor||'—'}</td>
+          <td style="white-space:nowrap;"><button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();formEditarVenta('${v.id}')">✏️ Editar</button><button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="event.stopPropagation();delVenta('${v.id}')">🗑️ Eliminar</button></td></tr>`;}).join('')}</tbody>
       </table></div>`:
       vs.map(v=>{
         const e=estadoVenta(v);
@@ -8084,6 +8425,10 @@ function detalleCliente(id){
           <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:13px;">
             <span style="color:var(--muted);">${v.cuotas>1?v.cuotas+' cuotas':'Contado'} · ${dispDate(v.fecha)}</span>
             <span style="font-weight:800;color:var(--orange);">$${fmt(v.precioVenta)}</span>
+          </div>
+          <div style="display:flex;gap:6px;margin-top:9px;">
+            <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();formEditarVenta('${v.id}')">✏️ Editar</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="event.stopPropagation();delVenta('${v.id}')">🗑️ Eliminar</button>
           </div>
         </div>`;
       }).join('')}
@@ -8193,7 +8538,9 @@ function repartoInversores(v){
   const _envio=v.envio||0;
   const _n=v.cuotas||1;
   const _comTotal=(v.revendedor||'').trim() ? Math.round((v.precioVenta||0)*((_n>1)?0.15:0.10)) : 0;
-  const _com1ra=primeraParteComision(_comTotal, _n);
+  // Para saber cuánto capital falta poner se usa la parte exacta de comisión.
+  // La liquidación/comisión del revendedor NO se modifica.
+  const _com1ra=primeraParteComisionParaInversion(_comTotal, _n);
   let _primeraCuota=0;
   if(v.tipo!=='prestamo' && _n>1){ _primeraCuota=(v.montoCuota>0?v.montoCuota:planCuotas(v.precioVenta||0,_n)[0])||0; }
   const costo=capitalFaltanteInversion(_costo, _primeraCuota, _com1ra, _envio);
@@ -8220,7 +8567,7 @@ function repartoInversores(v){
   const _cuotaCliente = (v.tipo!=='prestamo' && _n>0)
     ? ((v.montoCuota>0?v.montoCuota:(planCuotas(v.precioVenta||0,_n)[0]))||Math.round((v.precioVenta||0)/_n))
     : Math.round((v.precioVenta||0)/_n);
-  return Object.entries(mapa).map(([nombre,pct])=>{
+  const resultado=Object.entries(mapa).map(([nombre,pct])=>{
     const puso = Math.round(costo*pct/100);
     let ganancia;
     if(esInvitado(nombre)){
@@ -8237,6 +8584,29 @@ function repartoInversores(v){
       recibePorCuota: Math.round(recibe / (_n>0?_n:1))
     };
   });
+  // Lo que se entrega en cada cobro se calcula sobre el dinero que realmente
+  // queda de esa cuota DESPUÉS de pagar la parte de comisión. No modifica el
+  // cálculo de la comisión: solamente reparte el remanente entre inversores.
+  const cuotasVenta=ventaCuotas(v);
+  const comisionPorCuota=reparteComisionEnCuotas(v);
+  const sumaPct=resultado.reduce((s,r)=>s+(Number(r.pct)||0),0)||100;
+  resultado.forEach(r=>{ r.cobraPorCuota=[]; });
+  cuotasVenta.forEach((c,i)=>{
+    const restante=Math.max(0,(Number(c.monto)||0)-(Number(comisionPorCuota[i])||0));
+    let asignado=0;
+    resultado.forEach((r,j)=>{
+      const monto=(j===resultado.length-1)
+        ? restante-asignado
+        : Math.round(restante*(Number(r.pct)||0)/sumaPct);
+      r.cobraPorCuota.push(Math.max(0,monto));
+      asignado+=monto;
+    });
+  });
+  resultado.forEach(r=>{
+    r.totalSegunCuotas=r.cobraPorCuota.reduce((s,m)=>s+m,0);
+    r.recibePorCuota=r.cobraPorCuota[0]||0;
+  });
+  return resultado;
 }
 /* ============ SOLICITUD DE INVERSIÓN ============ */
 // muestra los inversores de una venta para elegir a quién mandarle la solicitud
@@ -8333,10 +8703,10 @@ function bloquePagosTercerosHTML(v){
   // INVERSIONISTA
   if(hayInv){
     reparto.forEach((r,idx)=>{
-      const recibePorCuota = r.recibePorCuota||Math.round(r.recibe/nCuotas);
-      const debeAcum = recibePorCuota*cuotasCobradas;     // lo que le corresponde por lo cobrado hasta ahora
+      const cobros=r.cobraPorCuota||Array(nCuotas).fill(r.recibePorCuota||Math.round(r.recibe/nCuotas));
+      const debeAcum = cobros.slice(0,cuotasCobradas).reduce((s,m)=>s+m,0); // remanente real de las cuotas cobradas
       const yaPagado = (v.pagoInv && v.pagoInv[r.nombre]) ? v.pagoInv[r.nombre] : 0; // cuántas cuotas ya le pagué
-      const pagadoMonto = recibePorCuota*yaPagado;
+      const pagadoMonto = cobros.slice(0,yaPagado).reduce((s,m)=>s+m,0);
       const pendiente = debeAcum - pagadoMonto;
       const col = nombreColor(r.nombre);
       html += `<div style="border-bottom:1px solid var(--border);padding:9px 0;">
@@ -8439,12 +8809,12 @@ function detalleVenta(id){
               <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:3px;">
                 <span>💰 Puso $${fmt(r.puso)}</span>
                 <span>📈 Gana $${fmt(r.ganancia)}</span>
-                <span>↩️ $${fmt(r.recibePorCuota||Math.round(r.recibe/v.cuotas))}/cuota</span>
+                <span>↩️ según el restante de cada cuota</span>
               </div>
               <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:auto;padding:6px 12px;font-size:12px;" onclick="solicitudInversion('${v.id}','${r.nombre.replace(/'/g,"\\'")}')">📨 Solicitar inversión a ${r.nombre}</button>
             </div>`).join('')}
-          <div style="font-size:11px;color:var(--muted);margin-top:8px;">Por cada cuota cobrada, repartís así:</div>
-          ${reparto.map(r=>`<div class="calc-line" style="font-size:12px;"><span class="cl-lbl" style="color:${nombreColor(r.nombre)};">${r.nombre}</span><span class="cl-val">$${fmt(r.recibePorCuota||Math.round(r.recibe/v.cuotas))}/cuota</span></div>`).join('')}
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;">Por cada cuota cobrada, primero se descuenta la comisión y el restante se reparte:</div>
+          ${cuotas.map((c,i)=>`<div style="border-top:1px solid var(--border);padding:6px 0;font-size:11px;"><b>Cuota ${i+1}</b> · restante $${fmt(Math.max(0,c.monto-(repCom[i]||0)))}<br>${reparto.map(r=>`<span style="color:${nombreColor(r.nombre)};font-weight:700;margin-right:10px;">${r.nombre}: $${fmt((r.cobraPorCuota||[])[i]||0)}</span>`).join('')}</div>`).join('')}
         </div>`;
     }
   }
@@ -8470,15 +8840,14 @@ function detalleVenta(id){
 }
 async function cobrarCuota(id){
   const v=DB.ventas.find(x=>x.id===id);
-  v.pagadas=(v.pagadas||0)+1;
-  // UI al instante (optimista): redibujo primero, guardo después
-  detalleVenta(id);
-  // avisar a los inversionistas cuánto les corresponde de esta cuota
-  avisarInversoresCobro(v, v.pagadas);
-  const res = await DB.upsertVenta(v);
-  if(res && res.ok){ toastOK('Pago registrado ✅'); }
-  else if(res && res.local===false){ /* memoria llena: cartel ya salió */ }
-  else { toast('⚠️ No se pudo guardar en la nube, quedó en el celu'); }
+  if(!v) return;
+  const nuevo=(v.pagadas||0)+1;
+  const res = await DB.setPagadas(v,nuevo);
+  if(res && res.ok){
+    avisarInversoresCobro(v, v.pagadas);
+    toastOK('Pago registrado y verificado en la nube ✅');
+    detalleVenta(id);
+  }
 }
 // registra un aviso para cada inversionista con cuánto le toca de la cuota cobrada
 function avisarInversoresCobro(v, numCuota){
@@ -8488,7 +8857,7 @@ function avisarInversoresCobro(v, numCuota){
     const cli=DB.clientes.find(c=>c.id===v.clienteId);
     const nomCli=cli?cli.nombre:'un cliente';
     reparto.forEach(r=>{
-      const porCuota = r.recibePorCuota||Math.round(r.recibe/(v.cuotas||1));
+      const porCuota = (r.cobraPorCuota||[])[numCuota-1]||0;
       AUDIT.registrar('cobró', 'inversion',
         `la cuota ${numCuota} de <b>${nomCli}</b> (${v.producto}). A <b>${r.nombre}</b> le corresponden <b>$${fmt(porCuota)}</b> de esa cuota.`);
     });
@@ -8581,7 +8950,7 @@ function verRecibo(id, tipo, cuotaNum){
   openModal(`${reciboHTML(v,cli,tipo,cuotaNum)}
     <div style="margin-top:16px;">
       <button class="btn btn-blue" onclick="descargarReciboPDF()">📥 Descargar PDF</button>
-      <button class="btn btn-ghost btn-sm" style="margin-top:8px;" onclick="toast('Hacé captura de pantalla 📸 y mandala por WhatsApp')">📸 Captar y enviar</button>
+      <button class="btn btn-orange" style="margin-top:8px;" onclick="compartirReciboPDF()">📤 Compartir PDF</button>
     </div>`);
 }
 /* 📄 RECIBO EN PDF — genera un PDF de verdad (antes bajaba un PNG por error) */
@@ -8592,78 +8961,93 @@ function cargarScript(src){
     document.body.appendChild(s);
   });
 }
+async function prepararLibreriasPDF(){
+  if(typeof html2canvas==='undefined'){
+    await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  }
+  if(!window.jspdf && typeof jsPDF==='undefined'){
+    await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }
+  const JsPDF=(window.jspdf&&window.jspdf.jsPDF)||window.jsPDF;
+  if(!JsPDF) throw new Error('No se pudo cargar jsPDF');
+}
+function nombreArchivoRecibo(){
+  const fecha=new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
+  return 'recibo_amarango_'+fecha+'.pdf';
+}
 async function descargarReciboPDF(){
   const el=document.getElementById('reciboPrint');
   if(!el){ toast('No se encontró el recibo'); return; }
   toast('📄 Generando PDF...');
-  // 📐 quitar límites de alto/scroll mientras se captura, para que salga entero
-  const _padre = el.parentElement;
-  const _est = { maxH: _padre?_padre.style.maxHeight:'', ovf: _padre?_padre.style.overflow:'' };
-  if(_padre){ _padre.style.maxHeight='none'; _padre.style.overflow='visible'; }
-  const _elEst = { maxH: el.style.maxHeight, ovf: el.style.overflow };
-  el.style.maxHeight='none'; el.style.overflow='visible';
   try{
-    if(typeof html2canvas==='undefined'){
-      await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
-    }
-    if(!window.jspdf && typeof jsPDF==='undefined'){
-      await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    }
-    await generarPDF(el);
-    // restaurar como estaba
-    if(_padre){ _padre.style.maxHeight=_est.maxH; _padre.style.overflow=_est.ovf; }
-    el.style.maxHeight=_elEst.maxH; el.style.overflow=_elEst.ovf;
+    await prepararLibreriasPDF();
+    const pdf=await generarPDF(el);
+    pdf.save(nombreArchivoRecibo());
+    toast('✅ PDF completo descargado');
   }catch(e){
-    if(_padre){ _padre.style.maxHeight=_est.maxH; _padre.style.overflow=_est.ovf; }
-    el.style.maxHeight=_elEst.maxH; el.style.overflow=_elEst.ovf;
     console.warn('PDF:', e);
-    toast('⚠️ Sin internet no se puede armar el PDF. Probá con captura 📸');
+    toast('⚠️ No se pudo generar el PDF. Revisá internet e intentá otra vez.');
+  }
+}
+async function compartirReciboPDF(){
+  const el=document.getElementById('reciboPrint');
+  if(!el){ toast('No se encontró el recibo'); return; }
+  toast('📄 Preparando PDF para compartir...');
+  try{
+    await prepararLibreriasPDF();
+    const pdf=await generarPDF(el);
+    const nombre=nombreArchivoRecibo();
+    const archivo=new File([pdf.output('blob')], nombre, {type:'application/pdf'});
+    if(navigator.share && (!navigator.canShare || navigator.canShare({files:[archivo]}))){
+      await navigator.share({title:'Plan de pagos AmarangoElectro', text:'Te enviamos tu plan de pagos.', files:[archivo]});
+      toast('✅ PDF compartido');
+    }else{
+      pdf.save(nombre);
+      toast('📥 PDF descargado. Ahora adjuntalo en WhatsApp.');
+    }
+  }catch(e){
+    if(e && e.name==='AbortError') return;
+    console.warn('Compartir PDF:',e);
+    toast('⚠️ No se pudo compartir. Probá con Descargar PDF.');
   }
 }
 async function generarPDF(el){
-  // 📐 Capturar el recibo COMPLETO, no solo lo que se ve en pantalla.
-  //    Antes el modal tenía scroll y el PDF salía cortado.
-  const canvas = await html2canvas(el, {
+  // Se clona fuera del modal para que el scroll de la pantalla nunca corte el recibo.
+  const copia=el.cloneNode(true);
+  copia.removeAttribute('id');
+  copia.style.cssText+=';position:fixed;left:-10000px;top:0;width:420px;max-width:none;max-height:none;overflow:visible;margin:0;border-radius:0;';
+  document.body.appendChild(copia);
+  await Promise.all(Array.from(copia.querySelectorAll('img')).map(img=>img.complete?Promise.resolve():new Promise(ok=>{img.onload=ok;img.onerror=ok;})));
+  const canvas = await html2canvas(copia, {
     scale: 2,
     backgroundColor: '#fff',
     scrollX: 0,
     scrollY: 0,
-    windowWidth: el.scrollWidth,
-    windowHeight: el.scrollHeight,
-    width: el.scrollWidth,
-    height: el.scrollHeight,
+    windowWidth: 420,
+    windowHeight: copia.scrollHeight,
+    width: 420,
+    height: copia.scrollHeight,
     useCORS: true
   });
-  const img = canvas.toDataURL('image/jpeg', 0.95);
+  copia.remove();
   const JsPDF = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-  if(!JsPDF){
-    // respaldo: si no cargó jsPDF, al menos baja la imagen
-    const a=document.createElement('a');
-    a.href=canvas.toDataURL('image/png'); a.download='recibo_amarango.png'; a.click();
-    toast('✅ Recibo descargado (imagen)');
-    return;
-  }
-  // A4 vertical, la imagen se ajusta al ancho respetando la proporción
+  if(!JsPDF) throw new Error('jsPDF no disponible');
   const pdf = new JsPDF({orientation:'p', unit:'mm', format:'a4'});
   const anchoPag = 210, altoPag = 297, margen = 10;
   const anchoImg = anchoPag - margen*2;
-  const altoImg = (canvas.height * anchoImg) / canvas.width;
-  if(altoImg <= altoPag - margen*2){
-    pdf.addImage(img, 'JPEG', margen, margen, anchoImg, altoImg);
-  } else {
-    // si es muy largo, lo parte en varias páginas
-    let restante = altoImg, y = margen, pagina = 0;
-    while(restante > 0){
-      if(pagina>0) pdf.addPage();
-      pdf.addImage(img, 'JPEG', margen, y - (pagina * (altoPag - margen*2)), anchoImg, altoImg);
-      restante -= (altoPag - margen*2);
-      pagina++;
-      if(pagina>10) break;
-    }
+  const altoUtil=altoPag-margen*2;
+  const altoCorte=Math.floor(canvas.width*altoUtil/anchoImg);
+  let y=0, pagina=0;
+  while(y<canvas.height){
+    const alto=Math.min(altoCorte,canvas.height-y);
+    const trozo=document.createElement('canvas');
+    trozo.width=canvas.width; trozo.height=alto;
+    trozo.getContext('2d').drawImage(canvas,0,y,canvas.width,alto,0,0,canvas.width,alto);
+    if(pagina>0) pdf.addPage();
+    pdf.addImage(trozo.toDataURL('image/jpeg',0.95),'JPEG',margen,margen,anchoImg,alto*anchoImg/canvas.width);
+    y+=alto; pagina++;
   }
-  const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g,'-');
-  pdf.save('recibo_amarango_'+fecha+'.pdf');
-  toast('✅ PDF descargado');
+  return pdf;
 }
 async function archivarVenta(id){
   const v=DB.ventas.find(x=>x.id===id); if(!v)return;
@@ -8677,16 +9061,11 @@ async function toggleCuota(id, num){
   const pagadas=v.pagadas||0;
   // Si la cuota tocada ya estaba pagada -> desmarca desde ahí (quedan pagadas las anteriores)
   // Si no estaba pagada -> marca esta y todas las anteriores como pagadas
-  if(num<=pagadas){ v.pagadas=num-1; }
-  else { v.pagadas=num; }
-  if(v.pagadas<0) v.pagadas=0;
-  if(v.pagadas>v.cuotas) v.pagadas=v.cuotas;
-  // UI al instante (optimista): redibujo primero, guardo después
-  detalleVenta(id);
-  const res = await DB.upsertVenta(v);
+  let nuevas=num<=pagadas?num-1:num;
+  nuevas=Math.max(0,Math.min(v.cuotas||1,nuevas));
+  const res = await DB.setPagadas(v,nuevas);
   if(res && res.ok){ toastOK(num<=pagadas?'Pago quitado ✅':'Pago registrado ✅'); }
-  else if(res && res.local===false){ /* memoria llena: el cartel ya salió solo */ }
-  else { toast('⚠️ No se pudo guardar en la nube, quedó en el celu'); }
+  detalleVenta(id);
 }
 async function delVenta(id){
   const v=DB.ventas.find(x=>x.id===id); if(!v)return;
@@ -8704,8 +9083,15 @@ async function delVenta(id){
   PAPELERA.agregar('venta', v);
   ultimoBorrado = {tipo:'venta', dato:v};
   DB.ventas=DB.ventas.filter(x=>x.id!==id);
-  await DB.delVenta(id);
-  closeModal(); toastUndo('Venta movida a papelera'); render();
+  const borrado=await DB.delVenta(id);
+  if(!borrado || !borrado.ok){
+    DB.ventas.push(v); DB.saveLocal();
+    PAPELERA.items=PAPELERA.items.filter(x=>String(x.dato&&x.dato.id)!==String(id)); PAPELERA.save();
+    ultimoBorrado=null;
+    alert('⚠️ Supabase no confirmó la eliminación.\n\nLa venta NO se borró. Reintentá con conexión para evitar que reaparezca después.');
+    render(); return;
+  }
+  closeModal(); toastUndo('Venta eliminada y confirmada en la nube'); render();
 }
 
 /* ============ DESHACER + RESTAURAR ============ */
@@ -9256,6 +9642,7 @@ function formEditarVenta(id){
   const opts=DB.clientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(c=>`<option value="${c.id}" ${v.clienteId===c.id?'selected':''}>${c.nombre}</option>`).join('');
   const resps=['Maxi','Angela','Sabry','Guido'];
   openModal(`<div class="modal-title">Editar venta</div><div class="modal-sub">Modificá los datos de la venta</div>
+    <button class="btn btn-orange" style="margin-bottom:12px;flex-shrink:0;" onclick="guardarEdicionVenta('${id}')">💾 Guardar cambios</button>
     <div class="field"><label>Cliente *</label><select id="v_cli" onchange="renderPlan()">${opts}</select></div>
     <div class="sec-title" style="margin-top:4px;">Productos</div>
     <div id="itemsBox"></div>
@@ -9279,7 +9666,9 @@ function formEditarVenta(id){
     <div id="planPreview"></div>
     <div id="planEnviar"></div>
     <div class="alert" style="margin-top:4px;"><span class="alert-ico">ℹ️</span><div><div class="alert-x">Pagadas registradas: ${v.pagadas||0}/${v.cuotas||1}. Si cambiás el plan, revisá los pagos.</div></div></div>
-    <button class="btn btn-orange" onclick="guardarEdicionVenta('${id}')">💾 Guardar cambios</button>`);
+    <div style="position:sticky;bottom:-14px;z-index:20;background:#fff;padding:10px 0 calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--border);box-shadow:0 -8px 18px rgba(11,45,107,.10);">
+      <button class="btn btn-orange" onclick="guardarEdicionVenta('${id}')">💾 Guardar cambios</button>
+    </div>`);
   renderItems();
   renderInversoresForm();
   // 💳 poder cambiar el plan de cuotas al editar
@@ -9323,8 +9712,11 @@ async function guardarEdicionVenta(id){
   if(!invsValidos.length && v.responsable && v.responsable.trim()){
     invsValidos=[{nombre:v.responsable.trim(), pct:100}];
   }
-  const _pctTotalEdicion=invsValidos.reduce((s,x)=>s+(+x.pct||0),0);
-  if(Math.abs(_pctTotalEdicion-100)>0.001){ toast('Los porcentajes de inversores deben sumar exactamente 100%'); return; }
+  let totalPctInversores=invsValidos.reduce((s,x)=>s+(Number(x.pct)||0),0);
+  if(Math.abs(totalPctInversores-100)>0.01){
+    toast(`Los inversionistas deben sumar 100%. Ahora suman ${fmt(totalPctInversores)}%`);
+    return;
+  }
   v.inversores=invsValidos.map(x=>({nombre:x.nombre.trim(), pct:x.pct, tipo:x.tipo||'amarango'}));
   v.inversionista=(invsValidos[0]?invsValidos[0].nombre.trim():'');
   v.inversionista2=(invsValidos[1]?invsValidos[1].nombre.trim():'');
@@ -9334,7 +9726,7 @@ async function guardarEdicionVenta(id){
   const _tvE=totalVentaItems();
   const _tieneRevE=document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const _comE=_tieneRevE ? Math.round(_tvE*((ventaCuotasSel>1)?0.15:0.10)) : 0;
-  const _com1raE=primeraParteComision(_comE, ventaCuotasSel);
+  const _com1raE=primeraParteComisionParaInversion(_comE, ventaCuotasSel);
   let _pcE=0; if(v.tipo!=='prestamo' && ventaCuotasSel>1){ _pcE=planCuotas(_tvE, ventaCuotasSel)[0]||0; }
   if(ventaMontoCuotaManual>0) _pcE=ventaMontoCuotaManual;
   const _capE=capitalFaltanteInversion(v.precioCosto, _pcE, _com1raE, v.envio);
@@ -9345,13 +9737,17 @@ async function guardarEdicionVenta(id){
   v.cuotas=ventaCuotasSel;
   v.montoCuota=ventaMontoCuotaManual||0;
   if((v.pagadas||0)>v.cuotas) v.pagadas=v.cuotas;
-  await DB.upsertVenta(v);
+  const resultadoGuardado=await DB.upsertVenta(v);
   // auditoría: registrar si no es "propiedad propia" del que edita
   if(!esPropiedadPropia(v)){
     const cli=DB.clientes.find(c=>c.id===v.clienteId);
     AUDIT.registrar('editó', 'venta', `la venta "${v.producto}" de ${cli?cli.nombre:'?'}`);
   }
-  closeModal(); toast('✅ Venta actualizada'); render();
+  closeModal();
+  if(resultadoGuardado&&resultadoGuardado.ok) toast('✅ Cambios guardados en la nube');
+  else if(resultadoGuardado&&resultadoGuardado.local===false) toast('⚠️ No se pudo guardar: liberá espacio en el dispositivo');
+  else toast('✅ Cambios guardados en este dispositivo · sincronización pendiente');
+  render();
 }
 function waLink(tel,msg){ const t=tel.replace(/\D/g,''); const full=t.startsWith('54')?t:'54'+t; return `https://wa.me/${full}?text=${encodeURIComponent(msg)}`; }
 function waCliente(id){ const c=DB.clientes.find(x=>x.id===id); window.open(waLink(c.telefono,`¡Hola ${c.nombre.split(' ')[0]}! 👋 Te escribimos de *AmarangoElectro* 🐝`),'_blank'); }
@@ -10122,11 +10518,14 @@ async function startApp(){
   // Con nube activa jamás metemos demo: evita pisar tus clientes reales por un parpadeo de carga.
   if(!CLOUD && !DB.clientes.length && !DB.ventas.length){ seedDemo(); await DB.load(); }
   render();
+  iniciarSyncPagos();       // Angie/Maxi: compartir cambios de cuotas entre las dos apps
   autoBackupGuardar();      // red de seguridad: copia automática al abrir la app (silenciosa)
   // Los avisos ya NO se abren solos al arrancar (interrumpían). Siguen disponibles
   // en sus íconos (🔔 avisos, campana de pagos, tareas). Solo se actualizan los contadores.
   iniciarPresencia();
   pedirPermisoNotif();
+  // Dar tiempo a que el usuario acepte el permiso y avisar vencimientos del día.
+  setTimeout(()=>{ try{ revisarVencimientosParaNotificar(); }catch(e){} },3500);
   actualizarTareaBadge();   // mostrar puntito si hay tareas pendientes (sin popup)
   try{ actualizarCalBadge(); }catch(e){}  // badge de cobros/eventos de hoy en el calendario
   iniciarRecordatorioHorario();  // recordatorio cada hora si hay tareas
@@ -10138,6 +10537,7 @@ async function startApp(){
     await DB.recargarMensajes();
     if(typeof actualizarBadge==='function') actualizarBadge();
     if(typeof revisarYNotificar==='function') revisarYNotificar();
+    if(typeof revisarVencimientosParaNotificar==='function') revisarVencimientosParaNotificar();
     try{ await AUDIT.recargar(); actualizarAvisoBadge(); }catch(e){}
   }, 20000);
 }
@@ -10737,7 +11137,7 @@ const APP_NOMBRE = "AmarangoElectro";
 /* ═══════ 🔄 AUTO-ACTUALIZADOR ═══════
    Revisa si hay una versión nueva del CRM y avisa para recargar.
    Así nadie tiene que borrar caché nunca más. */
-const CRM_VERSION = '2026-07-22-a';   // ← cambiar en cada actualización
+const CRM_VERSION = '2026-08-07-v17-mails';   // ← cambiar en cada actualización
 
 async function forzarActualizarCRM(){
   try{ toast('🔄 Actualizando…'); }catch(e){}
@@ -10804,10 +11204,10 @@ function activarNotificaciones(){
 }
 
 // Muestra una notificación del navegador
-function notificar(titulo, cuerpo){
+function notificar(titulo, cuerpo, tag){
   try{
     if(!('Notification' in window) || Notification.permission!=='granted') return;
-    const opciones = { body: cuerpo||'', tag:'ae-msg', renotify:true, vibrate:[200,100,200] };
+    const opciones = { body: cuerpo||'', tag:tag||'ae-msg', renotify:true, vibrate:[200,100,200] };
     const icon = (typeof LOGO_AE==='string' && LOGO_AE && LOGO_AE.length<300000) ? LOGO_AE : '';
     if(icon){ opciones.icon=icon; opciones.badge=icon; }
     if(navigator.serviceWorker && navigator.serviceWorker.ready){
@@ -10849,6 +11249,27 @@ function revisarYNotificar(){
       _ultimoNotificado = Math.max(_ultimoNotificado, ...nuevos.map(m=>m.ts));
     }
   }catch(e){ console.warn('revisarNotif', e); }
+}
+
+// Aviso del sistema para cobranzas. Se muestra una sola vez por día en cada
+// dispositivo y resume vencidas / hoy / próximas 48 h. No hace consultas extra:
+// usa las ventas que el CRM ya tiene cargadas.
+function revisarVencimientosParaNotificar(){
+  try{
+    if(!('Notification' in window) || Notification.permission!=='granted') return;
+    const d=cuotasPorVencer();
+    const urgentes=d.vencidas.length+d.hoy.length+d.prontas.length;
+    if(!urgentes) return;
+    const dia=isoDate(today());
+    const clave='ae_notif_cobranzas_'+dia;
+    if(localStorage.getItem(clave)==='1') return;
+    const partes=[];
+    if(d.vencidas.length) partes.push(d.vencidas.length+' vencida'+(d.vencidas.length>1?'s':''));
+    if(d.hoy.length) partes.push(d.hoy.length+' para hoy');
+    if(d.prontas.length) partes.push(d.prontas.length+' en las próximas 48 h');
+    notificar('📅 Cobranzas Amarango',partes.join(' · '),'ae-cobranzas-'+dia);
+    localStorage.setItem(clave,'1');
+  }catch(e){ console.warn('notif cobranzas',e); }
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
