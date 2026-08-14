@@ -1885,6 +1885,20 @@ function primeraParteComision(comTotal, n){
   const base=Math.floor(comTotal/partes/100)*100;  // 1ra parte redondeada a $100
   return base>0 ? base : comTotal;
 }
+/* Capital que realmente falta aportar.
+   La 1ra cuota primero paga la 1ra parte de la comisión y, si se cargó, el envío.
+   El resto de esa cuota baja el costo del producto. */
+function capitalFaltanteInversion(costo, primeraCuota, comisionPrimeraParte, envio){
+  costo=+costo||0; primeraCuota=+primeraCuota||0;
+  comisionPrimeraParte=+comisionPrimeraParte||0; envio=+envio||0;
+  const aportePrimeraCuota=Math.max(0, primeraCuota-comisionPrimeraParte-envio);
+  return Math.max(0, costo-aportePrimeraCuota);
+}
+function primeraCuotaVenta(v){
+  if(!v || v.tipo==='prestamo' || (v.cuotas||1)<=1) return 0;
+  if((+v.montoCuota||0)>0) return +v.montoCuota;
+  return planCuotas(+v.precioVenta||0, v.cuotas||1)[0]||0;
+}
 function partesComision(v){
   const com=comisionRevendedor(v);
   if(com<=0) return 0;
@@ -3418,7 +3432,7 @@ function amaraResponder(txt){
 
   // CÓMO USAR INVERSORES / REPARTO
   if(tiene('inversor','inversores','reparto','dividir ganancia','repartir','quien puso','socios','quien invirtio') || (preguntaComo && tiene('inversor','reparto','socio'))){
-    amaraBot(`🤝 <b>Inversores y reparto — fácil:</b><br><br>1️⃣ Cuando cargás una venta, podés poner quién <b>invirtió</b> y su <b>%</b><br>2️⃣ El sistema reparte solo: cuánto <b>puso</b> cada uno y cuánto <b>gana</b><br>3️⃣ Para ver el resumen general: <b>Finanzas → 💼 Inversores</b><br><br>💡 El "puso" usa tu fórmula real: costo + 1ra parte comisión + envío − 1ra cuota.`);
+    amaraBot(`🤝 <b>Inversores y reparto — fácil:</b><br><br>1️⃣ Cuando cargás una venta, podés poner quién <b>invirtió</b> y su <b>%</b><br>2️⃣ El sistema reparte solo: cuánto <b>puso</b> cada uno y cuánto <b>gana</b><br>3️⃣ Para ver el resumen general: <b>Finanzas → 💼 Inversores</b><br><br>💡 Fórmula real: del costo se descuenta lo que queda de la 1ra cuota después de pagar la 1ra parte de comisión y el envío cargado.`);
     amaraAccion('💼 Llevame a Inversores', ()=>{ window._finAbrirSeccion=true; go('finanzas'); setTimeout(()=>{ if(typeof setModoFin==='function') setModoFin('inv'); },250); });
     return;
   }
@@ -3854,16 +3868,14 @@ function renderCaja(){
   // plata de inversores que está en la calle (lo que les debés devolver: su capital + su 50% de ganancia aún no cobrada)
   let invEnCalle=0;
   DB.ventas.forEach(v=>{
-    const nom=(v.inversionista||'').trim(); if(!nom) return;
     const cuotas=ventaCuotas(v); const totalVenta=cuotas.reduce((s,c)=>s+c.monto,0);
     const pagado=cuotas.filter(c=>c.pagada).reduce((s,c)=>s+c.monto,0);
     const pendiente=totalVenta-pagado;
     if(pendiente<=0) return;
     // proporción de la venta que aún no se cobró
     const prop = totalVenta>0 ? pendiente/totalVenta : 0;
-    const ganVenta=gananciaVenta(v);
-    const parteInv = (v.montoInvertido||0) + Math.round(ganVenta*0.5); // capital + su 50%
-    invEnCalle += Math.round(parteInv*prop);
+    const reparto=repartoInversores(v);
+    invEnCalle += reparto.reduce((s,r)=>s+Math.round((r.recibe||0)*prop),0);
   });
   const tuyoEnCalle = Math.max(0, enCalle - invEnCalle);
   const filas=[
@@ -6643,10 +6655,10 @@ function restaurarRetornos(){
 function waInversor(nombre){
   let invertido=0, ganancia=0, ventas=0;
   DB.ventas.forEach(v=>{
-    let nom=(v.inversionista||'').trim(); if(!nom) nom='Maxi';
-    if(nom!==nombre) return;
-    const ganVenta=gananciaVenta(v);
-    invertido+=(v.montoInvertido||0); ganancia+=ganVenta; ventas++;
+    repartoInversores(v).forEach(r=>{
+      if(normPersona(r.nombre)!==normPersona(nombre)) return;
+      invertido+=r.puso||0; ganancia+=r.ganancia||0; ventas++;
+    });
   });
   const msg=`💼 *Resumen - AmarangoElectro*\n\nHola ${nombre.split(' ')[0]}, te paso tu resumen:\n\n📦 Operaciones: ${ventas}\n💵 Invertido: $${fmt(invertido)}\n💰 Ganancia: $${fmt(ganancia)}\n\n🐝 ¡Gracias por confiar en AmarangoElectro!`;
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
@@ -7122,7 +7134,7 @@ function calcInversion(){
   // capital a invertir = costo + 1ra parte de comisión + envío - 1ra cuota del cliente
   // (solo se adelanta la 1ra parte de la comisión; el resto se paga cuando entran las cuotas)
   const comision1ra = primeraParteComision(comision, ciCuotas);
-  const capital=costo+comision1ra+envio-cuota;
+  const capital=capitalFaltanteInversion(costo, cuota, comision1ra, envio);
   const porInv=Math.round(capital/inv);
   // descuento al contado (siempre se muestra el precio rebajado del contado, sin importar el plan)
   const descOn=document.getElementById('ci_descOn')&&document.getElementById('ci_descOn').checked;
@@ -7159,9 +7171,9 @@ function calcInversion(){
       ${ciCuotas>1?`<div class="calc-line"><span class="cl-lbl">Total que paga el cliente (${ciCuotas} cuotas)</span><span class="cl-val" style="color:var(--blue);">$${fmt(totalPagado)}</span></div>`:''}
       <div class="sec-title" style="margin-top:10px;font-size:12px;">🧮 Cómo se arma el capital</div>
       <div class="calc-line"><span class="cl-lbl">Costo del producto</span><span class="cl-val">$${fmt(costo)}</span></div>
-      ${comision1ra>0?`<div class="calc-line"><span class="cl-lbl">+ Comisión (1ra parte)</span><span class="cl-val" style="color:var(--orange);">+$${fmt(comision1ra)}</span></div>`:''}
-      ${envio>0?`<div class="calc-line"><span class="cl-lbl">+ Envío</span><span class="cl-val" style="color:var(--orange);">+$${fmt(envio)}</span></div>`:''}
-      ${cuota>0?`<div class="calc-line"><span class="cl-lbl">− 1ra cuota del cliente</span><span class="cl-val" style="color:var(--green);">−$${fmt(cuota)}</span></div>`:''}
+      ${cuota>0?`<div class="calc-line"><span class="cl-lbl">1ra cuota del cliente</span><span class="cl-val" style="color:var(--green);">$${fmt(cuota)}</span></div>`:''}
+      ${comision1ra>0?`<div class="calc-line"><span class="cl-lbl">− Comisión pagada con la 1ra cuota</span><span class="cl-val" style="color:var(--orange);">−$${fmt(comision1ra)}</span></div>`:''}
+      ${envio>0?`<div class="calc-line"><span class="cl-lbl">− Envío pagado con la 1ra cuota</span><span class="cl-val" style="color:var(--orange);">−$${fmt(envio)}</span></div>`:''}
       <div class="calc-line" style="border-top:1px solid var(--line);margin-top:4px;padding-top:8px;"><span class="cl-lbl"><b>Capital a invertir</b></span><span class="cl-val"><b style="color:var(--orange);">$${fmt(capital)}</b></span></div>
       <div class="calc-line" style="margin-top:8px;"><span class="cl-lbl"><b>Ganancia total</b></span><span class="cl-val" style="color:var(--green);"><b>$${fmt(gan)}</b></span></div>
     </div>
@@ -7682,6 +7694,14 @@ function setInvTipo(i,val){ ventaInversores[i].tipo=val; recalcInv(); renderInve
 function quitarInversor(i){ ventaInversores.splice(i,1); renderInversoresForm(); }
 function setInvNombre(i,val){ ventaInversores[i].nombre=val; recalcInv(); }
 function setInvPct(i,val){ ventaInversores[i].pct=+val||0; recalcInv(); }
+function dividirInversores50(){
+  if(ventaInversores.length>2){ toast('Para usar 50/50 dejá solamente dos inversores'); return; }
+  while(ventaInversores.length<2) ventaInversores.push({nombre:'', pct:50, tipo:'amarango'});
+  ventaInversores[0].pct=50;
+  ventaInversores[1].pct=50;
+  renderInversoresForm();
+  toast('✅ División preparada: 50% y 50%');
+}
 function renderInversoresForm(){
   const cont=document.getElementById('invContainer'); if(!cont) return;
   cont.innerHTML=ventaInversores.map((inv,i)=>{
@@ -7703,6 +7723,9 @@ function renderInversoresForm(){
         : '🐝 Gana su parte de la <b>ganancia real</b> del negocio (Maxi/Ángela).'}</div>
     </div>`;
   }).join('');
+  if(ventaInversores.length<=2){
+    cont.innerHTML+=`<button type="button" class="btn btn-ghost btn-sm" style="width:100%;color:var(--blue);margin-bottom:8px;" onclick="dividirInversores50()">⚖️ Dividir 50% y 50%</button>`;
+  }
   recalcInv();
 }
 function recalcInv(){
@@ -7722,7 +7745,7 @@ function recalcInv(){
     const plan=planCuotas(tv, ventaCuotasSel);
     primeraCuota=plan[0]||0;
   }
-  const capitalTotal = Math.max(0, costo + comision1ra + envio - primeraCuota);
+  const capitalTotal = capitalFaltanteInversion(costo, primeraCuota, comision1ra, envio);
   let html='';
   ventaInversores.forEach(inv=>{
     if(inv.nombre.trim() && inv.pct>0){
@@ -7743,7 +7766,7 @@ function recalcInv(){
   if(ventaInversores.length && capitalTotal>0){
     html+=`<div class="card" style="padding:8px 12px;margin-bottom:6px;background:#f0f6ff;font-size:11px;">
       <div style="font-weight:700;color:var(--blue);margin-bottom:4px;">🧮 Capital total: $${fmt(capitalTotal)}</div>
-      <div style="color:var(--muted);">Costo $${fmt(costo)}${comision1ra>0?` + comisión (1ra parte) $${fmt(comision1ra)}`:''}${envio>0?` + envío $${fmt(envio)}`:''}${primeraCuota>0?` − 1ra cuota $${fmt(primeraCuota)}`:''}</div>
+      <div style="color:var(--muted);">Costo $${fmt(costo)} − (1ra cuota $${fmt(primeraCuota)}${comision1ra>0?` − comisión $${fmt(comision1ra)}`:''}${envio>0?` − envío $${fmt(envio)}`:''})</div>
     </div>`;
   }
   // aviso de cuánto falta para 100%
@@ -7851,6 +7874,8 @@ async function saveVenta(){
   if(!invsValidos.length && respVenta && respVenta.trim()){
     invsValidos=[{nombre:respVenta.trim(), pct:100}];
   }
+  const _pctTotalNueva=invsValidos.reduce((s,x)=>s+(+x.pct||0),0);
+  if(Math.abs(_pctTotalNueva-100)>0.001){ toast('Los porcentajes de inversores deben sumar exactamente 100%'); return; }
   // === CAPITAL INVERTIDO (fórmula coherente con la calculadora): costo + comisión + envío − 1ra cuota ===
   const _costoVenta = ventaTipo==='prestamo' ? (+document.getElementById('p_monto')?.value||0) : itemsVenta.reduce((s,it)=>s+((it.costo||0)*(it.cantidad||1)),0);
   const _envioVenta = +document.getElementById('v_envio')?.value||0;
@@ -7861,7 +7886,8 @@ async function saveVenta(){
   let _primeraCuotaVenta = 0;
   if(ventaTipo!=='prestamo' && ventaCuotasSel>1){ _primeraCuotaVenta = planCuotas(_tvVenta, ventaCuotasSel)[0]||0; }
   const _sumaPctVenta = invsValidos.reduce((s,x)=>s+(x.pct||0),0);
-  const _capitalTotalVenta = Math.max(0, _costoVenta + _comision1raVenta + _envioVenta - _primeraCuotaVenta);
+  if(ventaMontoCuotaManual>0) _primeraCuotaVenta=ventaMontoCuotaManual;
+  const _capitalTotalVenta = capitalFaltanteInversion(_costoVenta, _primeraCuotaVenta, _comision1raVenta, _envioVenta);
   const _montoInvertidoVenta = Math.round(_capitalTotalVenta * _sumaPctVenta/100);
 
   const base={ id:'v'+Date.now(), clienteId, tipo:ventaTipo,
@@ -7933,7 +7959,7 @@ async function recalcularVentasCliente(id){
     let primeraCuota=0;
     if(n>1){ primeraCuota = (v.montoCuota>0?v.montoCuota:planCuotas(venta,n)[0])||0; }
     // capital = costo + 1ra parte comisión + envío − 1ra cuota
-    const capital=Math.max(0, costo + comision1ra + envio - primeraCuota);
+    const capital=capitalFaltanteInversion(costo, primeraCuota, comision1ra, envio);
     // monto invertido según el % de inversores
     const sumaPct=(v.inversores&&v.inversores.length)?v.inversores.reduce((s,x)=>s+(x.pct||0),0):100;
     v.montoInvertido=Math.round(capital*sumaPct/100);
@@ -8170,7 +8196,7 @@ function repartoInversores(v){
   const _com1ra=primeraParteComision(_comTotal, _n);
   let _primeraCuota=0;
   if(v.tipo!=='prestamo' && _n>1){ _primeraCuota=(v.montoCuota>0?v.montoCuota:planCuotas(v.precioVenta||0,_n)[0])||0; }
-  const costo=Math.max(0, _costo + _com1ra + _envio - _primeraCuota);
+  const costo=capitalFaltanteInversion(_costo, _primeraCuota, _com1ra, _envio);
   let invs=listaInversoresVenta(v);
   // expandir "Amarango" = Angela 50 + Maxi 50 de su parte
   let expand=[];
@@ -9297,6 +9323,8 @@ async function guardarEdicionVenta(id){
   if(!invsValidos.length && v.responsable && v.responsable.trim()){
     invsValidos=[{nombre:v.responsable.trim(), pct:100}];
   }
+  const _pctTotalEdicion=invsValidos.reduce((s,x)=>s+(+x.pct||0),0);
+  if(Math.abs(_pctTotalEdicion-100)>0.001){ toast('Los porcentajes de inversores deben sumar exactamente 100%'); return; }
   v.inversores=invsValidos.map(x=>({nombre:x.nombre.trim(), pct:x.pct, tipo:x.tipo||'amarango'}));
   v.inversionista=(invsValidos[0]?invsValidos[0].nombre.trim():'');
   v.inversionista2=(invsValidos[1]?invsValidos[1].nombre.trim():'');
@@ -9308,7 +9336,8 @@ async function guardarEdicionVenta(id){
   const _comE=_tieneRevE ? Math.round(_tvE*((ventaCuotasSel>1)?0.15:0.10)) : 0;
   const _com1raE=primeraParteComision(_comE, ventaCuotasSel);
   let _pcE=0; if(v.tipo!=='prestamo' && ventaCuotasSel>1){ _pcE=planCuotas(_tvE, ventaCuotasSel)[0]||0; }
-  const _capE=Math.max(0, v.precioCosto + _com1raE + v.envio - _pcE);
+  if(ventaMontoCuotaManual>0) _pcE=ventaMontoCuotaManual;
+  const _capE=capitalFaltanteInversion(v.precioCosto, _pcE, _com1raE, v.envio);
   const _sumaPctE=invsValidos.reduce((s,x)=>s+(x.pct||0),0);
   v.montoInvertido=Math.round(_capE*_sumaPctE/100);
   v.revendedor=document.getElementById('v_revend').value.trim();
