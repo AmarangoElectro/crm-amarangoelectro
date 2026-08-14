@@ -8592,6 +8592,12 @@ function repartoInversores(v){
   const sumaPct=resultado.reduce((s,r)=>s+(Number(r.pct)||0),0)||100;
   resultado.forEach(r=>{ r.cobraPorCuota=[]; });
   cuotasVenta.forEach((c,i)=>{
+    // La 1ra cuota no se reparte: cubre comisión, envío (si corresponde)
+    // y reduce el costo. El reparto entre inversores comienza en la cuota 2.
+    if(i===0){
+      resultado.forEach(r=>r.cobraPorCuota.push(0));
+      return;
+    }
     const restante=Math.max(0,(Number(c.monto)||0)-(Number(comisionPorCuota[i])||0));
     let asignado=0;
     resultado.forEach((r,j)=>{
@@ -8715,10 +8721,10 @@ function bloquePagosTercerosHTML(v){
           <span style="font-size:12px;color:${pendiente>0?'var(--red)':'var(--green)'};font-weight:800;">${pendiente>0?'Le debés $'+fmt(pendiente):'✅ Al día'}</span>
         </div>
         <div style="display:flex;gap:6px;margin-top:7px;flex-wrap:wrap;">
-          ${Array.from({length:cuotasCobradas},(_,i)=>{
-            const num=i+1; const pag=num<=yaPagado;
+          ${Array.from({length:Math.max(0,cuotasCobradas-1)},(_,i)=>{
+            const num=i+2; const pag=num<=yaPagado;
             return `<button class="pago-chip ${pag?'pag':''}" onclick="togglePagoInv('${v.id}','${r.nombre.replace(/'/g,"\\'")}',${num})">C${num} ${pag?'✅':'⬜'}</button>`;
-          }).join('') || '<span style="font-size:11px;color:var(--muted);">Todavía no cobraste ninguna cuota</span>'}
+          }).join('') || '<span style="font-size:11px;color:var(--muted);">El reparto comienza cuando cobrás la cuota 2</span>'}
         </div>
       </div>`;
     });
@@ -8813,8 +8819,8 @@ function detalleVenta(id){
               </div>
               <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:auto;padding:6px 12px;font-size:12px;" onclick="solicitudInversion('${v.id}','${r.nombre.replace(/'/g,"\\'")}')">📨 Solicitar inversión a ${r.nombre}</button>
             </div>`).join('')}
-          <div style="font-size:11px;color:var(--muted);margin-top:8px;">Por cada cuota cobrada, primero se descuenta la comisión y el restante se reparte:</div>
-          ${cuotas.map((c,i)=>`<div style="border-top:1px solid var(--border);padding:6px 0;font-size:11px;"><b>Cuota ${i+1}</b> · restante $${fmt(Math.max(0,c.monto-(repCom[i]||0)))}<br>${reparto.map(r=>`<span style="color:${nombreColor(r.nombre)};font-weight:700;margin-right:10px;">${r.nombre}: $${fmt((r.cobraPorCuota||[])[i]||0)}</span>`).join('')}</div>`).join('')}
+          <div style="font-size:11px;color:var(--muted);margin-top:8px;">La cuota 1 cubre comisión, envío y parte del costo. Desde la cuota 2, se descuenta la comisión pendiente y el restante se reparte:</div>
+          ${cuotas.map((c,i)=>`<div style="border-top:1px solid var(--border);padding:6px 0;font-size:11px;"><b>Cuota ${i+1}</b>${i===0?' · destinada a comisión, envío y costo':` · restante $${fmt(Math.max(0,c.monto-(repCom[i]||0)))}`}<br>${i===0?'<span style="color:var(--muted);font-weight:700;">Sin reparto entre inversores</span>':reparto.map(r=>`<span style="color:${nombreColor(r.nombre)};font-weight:700;margin-right:10px;">${r.nombre}: $${fmt((r.cobraPorCuota||[])[i]||0)}</span>`).join('')}</div>`).join('')}
         </div>`;
     }
   }
@@ -8852,6 +8858,7 @@ async function cobrarCuota(id){
 // registra un aviso para cada inversionista con cuánto le toca de la cuota cobrada
 function avisarInversoresCobro(v, numCuota){
   try{
+    if(numCuota<=1) return; // la primera cuota no se reparte entre inversores
     const reparto = (typeof repartoInversores==='function') ? repartoInversores(v) : [];
     if(!reparto || !reparto.length || (v.cuotas||1)<=1) return;
     const cli=DB.clientes.find(c=>c.id===v.clienteId);
