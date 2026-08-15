@@ -4377,7 +4377,7 @@ function renderClientes(){
       <div class="cli-franja" style="background:${colorFranja};position:relative;padding-right:44px;" onclick="detalleCliente('${c.id}')">
         <span class="cli-franja-nom">${c.nombre} ${vip?vip.ico:''}</span>
         <span class="cli-franja-alerta">${alertaTxt}</span>
-        <button class="cli-x-borrar" onclick="delCliente('${c.id}');event.stopPropagation();" title="Eliminar cliente" aria-label="Eliminar cliente">✕</button>
+        <button class="cli-x-borrar" onclick="prepararEliminarCliente('${c.id}');event.stopPropagation();" title="Eliminar cliente" aria-label="Eliminar cliente">✕</button>
       </div>
       <div class="cli-body" onclick="detalleCliente('${c.id}')">
         <div class="cli-body-prod">📦 ${prodVenc}${nv>1?` <span style="color:var(--muted);">+${nv-1} más</span>`:''}</div>
@@ -8435,7 +8435,7 @@ function detalleCliente(id){
     <div id="resumenMensualCli"></div>
     <button class="btn btn-orange" style="margin-top:4px;" onclick="formVenta('${id}')">➕ Agregar producto / venta</button>
     <button class="btn btn-ghost btn-sm" style="margin-top:12px;color:var(--blue);" onclick="recalcularVentasCliente('${id}')">🔄 Recalcular ganancias de este cliente</button>
-    <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--red);" onclick="delCliente('${id}')">🗑️ Eliminar cliente</button>`);
+    <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--red);" onclick="prepararEliminarCliente('${id}')">🗑️ Eliminar cliente</button>`);
   pintarResumenMensualCliente(id);
 }
 /* Calcula y muestra cuánto tiene que pagar el cliente ESTE MES (suma de cuotas que vencen en el mes en curso) */
@@ -8480,8 +8480,76 @@ function pintarResumenMensualCliente(id){
       <div class="calc-line" style="margin-top:6px;"><span class="cl-lbl" style="font-size:12px;color:var(--muted);">Deuda total (todas las cuotas)</span><span class="cl-val" style="font-size:13px;color:var(--muted);">$${fmt(deudaTotal)}</span></div>
     </div>`;
 }
+function claveClienteDuplicado(c){
+  const nombre=(c&&c.nombre||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const dni=(c&&c.dni||'').toString().replace(/\D/g,'');
+  const tel=(c&&c.telefono||'').toString().replace(/\D/g,'');
+  return {nombre,dni,tel};
+}
+function candidatosDuplicadosCliente(id){
+  const origen=DB.clientes.find(c=>c.id===id); if(!origen) return [];
+  const k=claveClienteDuplicado(origen);
+  return DB.clientes.filter(c=>{
+    if(c.id===id) return false;
+    const x=claveClienteDuplicado(c);
+    return (k.nombre&&x.nombre===k.nombre) || (k.dni&&x.dni===k.dni) || (k.tel&&x.tel===k.tel);
+  });
+}
+function prepararEliminarCliente(id){
+  const c=DB.clientes.find(x=>x.id===id); if(!c) return;
+  if(!puedeEditarCliente(c)){ toast(`🔒 Solo ${c.responsable||'el responsable'} o un admin puede borrar`); return; }
+  const duplicados=candidatosDuplicadosCliente(id);
+  if(!duplicados.length){ delCliente(id); return; }
+  const ventas=DB.ventas.filter(v=>v.clienteId===id).length;
+  openModal(`<div class="modal-title">👥 Cliente repetido</div>
+    <div class="modal-sub">Elegí cuál registro querés conservar</div>
+    <div class="card" style="padding:12px 14px;margin-bottom:12px;background:#fff8f0;">
+      <div style="font-weight:800;color:var(--orange);">Se eliminará: ${c.nombre}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;">Sus ${ventas} venta(s) se trasladarán al cliente que elijas. No se pierde ninguna cuota ni pago.</div>
+    </div>
+    ${duplicados.map(d=>`<button class="btn btn-ghost" style="margin-bottom:8px;text-align:left;" onclick="fusionarClienteDuplicado('${id}','${d.id}')">
+      <b>Conservar ${d.nombre}</b><br><span style="font-size:11px;color:var(--muted);">DNI ${d.dni||'—'} · Tel. ${d.telefono||'—'} · ${DB.ventas.filter(v=>v.clienteId===d.id).length} venta(s)</span>
+    </button>`).join('')}
+    <button class="btn btn-ghost btn-sm" style="margin-top:6px;color:var(--red);" onclick="delCliente('${id}')">Eliminar también sus ventas</button>`);
+}
+async function fusionarClienteDuplicado(origenId,destinoId){
+  const origen=DB.clientes.find(c=>c.id===origenId), destino=DB.clientes.find(c=>c.id===destinoId);
+  if(!origen||!destino) return;
+  const ventas=DB.ventas.filter(v=>v.clienteId===origenId);
+  if(!confirm(`¿Conservar "${destino.nombre}" y eliminar el duplicado "${origen.nombre}"?\n\nSe trasladarán ${ventas.length} venta(s), con todas sus cuotas y pagos.`)) return;
+  const campos=['dni','telefono','telefono2','localidad','direccion','responsable','revendedor','inversionista','observaciones','pagoAuto'];
+  campos.forEach(k=>{ if(!destino[k]&&origen[k]) destino[k]=origen[k]; });
+  if(Array.isArray(origen.comprobantes)&&origen.comprobantes.length){
+    const actuales=Array.isArray(destino.comprobantes)?destino.comprobantes:[];
+    const ids=new Set(actuales.map(x=>x.id));
+    destino.comprobantes=actuales.concat(origen.comprobantes.filter(x=>!ids.has(x.id)));
+  }
+  const guardadoDestino=await DB.upsertCliente(destino);
+  if(!guardadoDestino||!guardadoDestino.ok){ avisoNoGuardado('No se pudo actualizar el cliente que querés conservar. No se eliminó nada.'); return; }
+  for(const v of ventas){
+    const anterior=v.clienteId; v.clienteId=destinoId;
+    const res=await DB.upsertVenta(v);
+    if(!res||!res.ok){ v.clienteId=anterior; avisoNoGuardado('No se pudieron trasladar todas las ventas. No se eliminó el cliente repetido.'); return; }
+  }
+  let borradoOK=true;
+  if(CLOUD&&sb){
+    try{
+      const r=await sb.from('clientes').delete().eq('id',origenId).select('id');
+      if(r.error) borradoOK=false;
+      const ver=await sb.from('clientes').select('id').eq('id',origenId).limit(1);
+      if(ver.data&&ver.data.length) borradoOK=false;
+    }catch(e){ borradoOK=false; }
+  }
+  if(!borradoOK){ avisoNoGuardado('Las ventas se trasladaron, pero no se pudo borrar el cliente repetido de la nube. Reintentá cuando haya conexión.'); return; }
+  PAPELERA.agregar('cliente', origen, []);
+  DB.clientes=DB.clientes.filter(c=>c.id!==origenId);
+  DB.saveLocal();
+  AUDIT.registrar('fusionó', 'cliente', `el duplicado "${origen.nombre}" con "${destino.nombre}" y trasladó ${ventas.length} venta(s)`);
+  closeModal(); toastOK('Cliente repetido eliminado · ventas conservadas'); render();
+}
 async function delCliente(id){
   const c=DB.clientes.find(x=>x.id===id); if(!c)return;
+  if(!puedeEditarCliente(c)){ toast(`🔒 Solo ${c.responsable||'el responsable'} o un admin puede borrar`); return; }
   const ventasCli=DB.ventas.filter(v=>v.clienteId===id);
   if(!confirm(`¿Eliminar a "${c.nombre}"${ventasCli.length?` y sus ${ventasCli.length} venta(s)`:''}?\n\nVa a la papelera, podés recuperarlo dentro de los 30 días.`))return;
   // guardar en papelera (cliente + sus ventas)
