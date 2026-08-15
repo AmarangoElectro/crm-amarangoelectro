@@ -2094,7 +2094,8 @@ function comisionRevendedor(v){
 function primeraParteComision(comTotal, n){
   if(comTotal<=0) return 0;
   let partes;
-  if(n<=1) partes=1;
+  if(comTotal<5000) partes=1;     // comisión chica: se paga completa con la 1ra cuota
+  else if(n<=1) partes=1;
   else if(n===2) partes=2;
   else partes=(Math.floor(comTotal/3) < 10000) ? 2 : 3;
   const base=Math.floor(comTotal/partes/100)*100;  // 1ra parte redondeada a $100
@@ -2106,7 +2107,8 @@ function primeraParteComision(comTotal, n){
 function primeraParteComisionParaInversion(comTotal,n){
   if(comTotal<=0) return 0;
   let partes;
-  if(n<=1) partes=1;
+  if(comTotal<5000) partes=1;
+  else if(n<=1) partes=1;
   else if(n===2) partes=2;
   else partes=(Math.floor(comTotal/3)<10000)?2:3;
   return Math.round(comTotal/Math.max(1,partes));
@@ -2123,6 +2125,7 @@ function partesComision(v){
   const com=comisionRevendedor(v);
   if(com<=0) return 0;
   const n=v.cuotas||1;
+  if(com<5000) return 1;          // se paga completa en la primera cuota
   if(n<=1) return 1;              // contado: 1 pago
   if(n===2) return 2;            // 2 cuotas: 2 partes
   // 4 o 6 cuotas: 3 partes, salvo que cada parte quede por debajo de $10.000 → entonces 2
@@ -7237,7 +7240,8 @@ function calcComisiones(){
   const comCuotas=Math.round(venta*0.15);
   function reparte(com,n){
     let partes;
-    if(n<=1) partes=1;
+    if(com<5000) partes=1;
+    else if(n<=1) partes=1;
     else if(n===2) partes=2;
     else partes=(Math.floor(com/3)<10000)?2:3;
     const base=Math.floor(com/partes/100)*100;
@@ -7528,7 +7532,8 @@ function reparteComisionEnCuotasMonto(com, n){
   const arr=Array(n).fill(0);
   if(com<=0) return arr;
   let partes;
-  if(n<=1) partes=1;
+  if(com<5000) partes=1;
+  else if(n<=1) partes=1;
   else if(n===2) partes=2;
   else partes=(Math.floor(com/3) < 10000) ? 2 : 3;  // 4 o 6 cuotas: 3 partes salvo que c/u quede <$10.000
   partes=Math.min(partes,n);
@@ -8707,21 +8712,24 @@ function armarMensajeInversion(v, nombreInv){
   const r=reparto.find(x=>normPersona(x.nombre)===normPersona(nombreInv));
   if(!r) return '';
   const cuotas=v.cuotas||1;
-  const porCuota=Math.round(r.recibe/cuotas);
-  const retornoPct = Math.round((r.ganancia/(r.puso||1))*100);
-  const dias = cuotas>1 ? cuotas*30 : 30;
+  const planCliente=ventaCuotas(v);
+  const cobros=(r.cobraPorCuota||[]).map((m,i)=>({num:i+1,monto:+m||0,vence:planCliente[i]&&planCliente[i].vence})).filter(x=>x.num>=2&&x.monto>0);
   // nº de operación corto y estable (para que se sienta profesional)
   const nroOp = (v.id||'').toString().replace(/[^0-9]/g,'').slice(-4) || Math.floor(Math.random()*9000+1000);
   let msg=`🐝 *AmarangoElectro — Capital Compartido*\n\n`;
   msg+=`Hola ${nombreInv}! Te comparto una operación para participar:\n\n`;
   msg+=`🧾 *Operación #${nroOp}*\n`;
   msg+=`👤 *Cliente:* ${cli.nombre}${cli.localidad? ' · '+cli.localidad : ''}\n`;
-  msg+=`\n💵 *Capital requerido:* $${fmt(r.puso)}\n`;
-  msg+=`📈 *Rendimiento pactado:* ${retornoPct}%\n`;
-  msg+=`✅ *Recuperás en total:* $${fmt(r.recibe)}\n`;
-  msg+=`📅 *Plazo estimado:* ${dias} días (${cuotas} cuota${cuotas>1?'s':''} de $${fmt(porCuota)})\n`;
-  msg+=`\n🛡️ *Tu rendimiento está garantizado por Amarango.* Si el cliente se atrasa o no paga, te devolvemos igual. Nosotros ponemos el producto, el trabajo y asumimos el riesgo.\n`;
-  msg+=`\n¿Participás? 🤝`;
+  msg+=`\n💰 *Para participar aportás:* $${fmt(r.puso)}\n`;
+  msg+=`📈 *Tu ganancia:* $${fmt(r.ganancia)}\n`;
+  msg+=`✅ *Total que vas a recibir:* $${fmt(r.recibe)}\n`;
+  if(cobros.length){
+    msg+=`\n📅 *¿Cómo recibís el dinero?*\n`;
+    msg+=`La primera cuota del cliente se usa para concretar la compra. Tus pagos comienzan desde la segunda cuota:\n`;
+    cobros.forEach((x,i)=>{ msg+=`• Pago ${i+1}: $${fmt(x.monto)}${x.vence?' — estimado '+dispDate(x.vence):''}\n`; });
+  }
+  msg+=`\n🛡️ *Respaldo AmarangoElectro:* recibís el capital aportado más la ganancia indicada. Si el cliente se demora, Amarango se hace responsable del pago acordado.\n`;
+  msg+=`\n¿Querés participar de esta operación? 🤝`;
   return msg;
 }
 function solicitudInversion(ventaId, nombreInv){
