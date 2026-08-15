@@ -2089,12 +2089,11 @@ function comisionRevendedor(v){
   return Math.round(contado*(esFinanciado?0.15:0.10));
 }
 /* En cuántas partes se reparte el pago de la comisión al revendedor */
-/* Cantidad de pagos de comisión. Si la primera cuota alcanza para cubrir la
-   comisión completa, se paga toda ahí y no se descuenta nada desde la cuota 2. */
+/* Cantidad de pagos de comisión.
+   Menos de $5.000: 1 pago. Desde $5.000: respeta las partes del plan. */
 function cantidadPartesComision(comTotal,n,primeraCuota){
   if(comTotal<=0) return 0;
   if(comTotal<5000) return 1;
-  if((+primeraCuota||0)>=comTotal) return 1;
   if(n<=1) return 1;
   if(n===2) return 2;
   return (Math.floor(comTotal/3)<10000)?2:3;
@@ -2103,7 +2102,7 @@ function cantidadPartesComision(comTotal,n,primeraCuota){
 function primeraParteComision(comTotal, n, primeraCuota){
   if(comTotal<=0) return 0;
   const partes=cantidadPartesComision(comTotal,n,primeraCuota);
-  const base=Math.floor(comTotal/partes/100)*100;  // 1ra parte redondeada a $100
+  const base=Math.round(comTotal/partes);
   return base>0 ? base : comTotal;
 }
 /* Para calcular CAPITAL A INVERTIR usamos la parte exacta de comisión, sin
@@ -2136,7 +2135,7 @@ function reparteComisionEnCuotas(v){
   const arr=Array(n).fill(0);
   if(com<=0) return arr;
   const partes=Math.min(partesComision(v), n);
-  const base=Math.floor(com/partes/100)*100; // redondeo a $100 hacia abajo
+  const base=Math.round(com/partes);
   let acum=0;
   for(let i=0;i<partes;i++){
     if(i===partes-1) arr[i]=com-acum;  // última parte ajusta el resto
@@ -7237,7 +7236,7 @@ function calcComisiones(){
   const comCuotas=Math.round(venta*0.15);
   function reparte(com,n,primeraCuota){
     const partes=cantidadPartesComision(com,n,primeraCuota);
-    const base=Math.floor(com/partes/100)*100;
+    const base=Math.round(com/partes);
     const arr=[]; let acum=0;
     for(let i=0;i<partes;i++){ if(i===partes-1) arr.push(com-acum); else { arr.push(base); acum+=base; } }
     return arr;
@@ -7527,7 +7526,7 @@ function reparteComisionEnCuotasMonto(com, n, primeraCuota){
   if(com<=0) return arr;
   let partes=cantidadPartesComision(com,n,primeraCuota);
   partes=Math.min(partes,n);
-  const base=Math.floor(com/partes/100)*100;
+  const base=Math.round(com/partes);
   let acum=0;
   for(let i=0;i<partes;i++){ if(i===partes-1) arr[i]=com-acum; else { arr[i]=base; acum+=base; } }
   return arr;
@@ -8798,11 +8797,11 @@ function bloquePagosTercerosHTML(v){
   // REVENDEDOR
   if(hayRev){
     const partes = (typeof partesComision==='function') ? partesComision(v) : nCuotas;
-    const comPorParte = Math.round(com/partes);
+    const comPorCuota = reparteComisionEnCuotas(v);
     // cuántas partes corresponden según lo cobrado
     const partesCorresp = Math.min(cuotasCobradas, partes);
     const yaPagadoRev = v.pagoRev||0;
-    const pendienteRev = comPorParte*(partesCorresp - yaPagadoRev);
+    const pendienteRev = comPorCuota.slice(Math.min(yaPagadoRev,partesCorresp),partesCorresp).reduce((s,m)=>s+(+m||0),0);
     html += `<div style="padding:9px 0;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-weight:800;color:#00695c;">🤝 ${v.revendedor}</span>
