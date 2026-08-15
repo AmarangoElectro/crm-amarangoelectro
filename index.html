@@ -2089,28 +2089,29 @@ function comisionRevendedor(v){
   return Math.round(contado*(esFinanciado?0.15:0.10));
 }
 /* En cuántas partes se reparte el pago de la comisión al revendedor */
-/* Primera parte de la comisión (lo que se adelanta al revendedor con la 1ra cuota).
-   Recibe la comisión total y la cantidad de cuotas; aplica la regla de 2 o 3 partes. */
-function primeraParteComision(comTotal, n){
+/* Cantidad de pagos de comisión. Si la primera cuota alcanza para cubrir la
+   comisión completa, se paga toda ahí y no se descuenta nada desde la cuota 2. */
+function cantidadPartesComision(comTotal,n,primeraCuota){
   if(comTotal<=0) return 0;
-  let partes;
-  if(comTotal<5000) partes=1;     // comisión chica: se paga completa con la 1ra cuota
-  else if(n<=1) partes=1;
-  else if(n===2) partes=2;
-  else partes=(Math.floor(comTotal/3) < 10000) ? 2 : 3;
+  if(comTotal<5000) return 1;
+  if((+primeraCuota||0)>=comTotal) return 1;
+  if(n<=1) return 1;
+  if(n===2) return 2;
+  return (Math.floor(comTotal/3)<10000)?2:3;
+}
+/* Primera parte de la comisión (lo que se paga con la 1ra cuota). */
+function primeraParteComision(comTotal, n, primeraCuota){
+  if(comTotal<=0) return 0;
+  const partes=cantidadPartesComision(comTotal,n,primeraCuota);
   const base=Math.floor(comTotal/partes/100)*100;  // 1ra parte redondeada a $100
   return base>0 ? base : comTotal;
 }
 /* Para calcular CAPITAL A INVERTIR usamos la parte exacta de comisión, sin
    cambiar cómo se liquida/redondea la comisión del revendedor en el CRM.
    Ej.: $97.125 / 3 = $32.375 exactos para cubrir con la 1ra cuota. */
-function primeraParteComisionParaInversion(comTotal,n){
+function primeraParteComisionParaInversion(comTotal,n,primeraCuota){
   if(comTotal<=0) return 0;
-  let partes;
-  if(comTotal<5000) partes=1;
-  else if(n<=1) partes=1;
-  else if(n===2) partes=2;
-  else partes=(Math.floor(comTotal/3)<10000)?2:3;
+  const partes=cantidadPartesComision(comTotal,n,primeraCuota);
   return Math.round(comTotal/Math.max(1,partes));
 }
 /* La primera cuota paga primero la primera parte de comisión y el envío
@@ -2125,12 +2126,8 @@ function partesComision(v){
   const com=comisionRevendedor(v);
   if(com<=0) return 0;
   const n=v.cuotas||1;
-  if(com<5000) return 1;          // se paga completa en la primera cuota
-  if(n<=1) return 1;              // contado: 1 pago
-  if(n===2) return 2;            // 2 cuotas: 2 partes
-  // 4 o 6 cuotas: 3 partes, salvo que cada parte quede por debajo de $10.000 → entonces 2
-  if(Math.floor(com/3) < 10000) return 2;
-  return 3;
+  const primera=(ventaCuotas(v)[0]&&ventaCuotas(v)[0].monto)||0;
+  return cantidadPartesComision(com,n,primera);
 }
 /* Reparto de la comisión por cuota: array con cuánto se descuenta en cada cuota */
 function reparteComisionEnCuotas(v){
@@ -7238,12 +7235,8 @@ function calcComisiones(){
   // sistema AmarangoElectro: contado 10% (1 pago) / cuotas 15% repartido en partes
   const comContado=Math.round(venta*0.10);
   const comCuotas=Math.round(venta*0.15);
-  function reparte(com,n){
-    let partes;
-    if(com<5000) partes=1;
-    else if(n<=1) partes=1;
-    else if(n===2) partes=2;
-    else partes=(Math.floor(com/3)<10000)?2:3;
+  function reparte(com,n,primeraCuota){
+    const partes=cantidadPartesComision(com,n,primeraCuota);
     const base=Math.floor(com/partes/100)*100;
     const arr=[]; let acum=0;
     for(let i=0;i<partes;i++){ if(i===partes-1) arr.push(com-acum); else { arr.push(base); acum+=base; } }
@@ -7251,7 +7244,8 @@ function calcComisiones(){
   }
   let ejemplos=`<div class="calc-line"><span class="cl-lbl"><b>Contado</b> · 10%</span><span class="cl-val" style="color:var(--orange);">$${fmt(comContado)} <span style="font-size:11px;color:var(--muted);">(1 pago)</span></span></div>`;
   [2,3,4,5,6].forEach(n=>{
-    const partes=reparte(comCuotas,n);
+    const primeraCuota=(planCuotas(venta,n)[0]||0);
+    const partes=reparte(comCuotas,n,primeraCuota);
     const detalle=partes.map(p=>'$'+fmt(p)).join(' + ');
     ejemplos+=`<div class="calc-line"><span class="cl-lbl"><b>${n} cuotas</b> · 15%</span><span class="cl-val" style="font-size:12px;">${partes.length} pago(s): <span style="color:var(--orange);">${detalle}</span></span></div>`;
   });
@@ -7440,7 +7434,7 @@ function renderTablaCuotas(){
               opciones.filter(n=>n<=6).map(n=>{
                 const plan=planCuotas(venta,n);
                 const cuotaMes=plan[0];               // 1ra cuota mensual completa
-                const com1Q=primeraParteComisionParaInversion(comTotalQ,n);
+                const com1Q=primeraParteComisionParaInversion(comTotalQ,n,cuotaMes);
                 const cap=costoQ+com1Q-cuotaMes+envioQ; // capital real a cubrir
                 const porInv=Math.round(cap/invQ);
                 return `<div class="calc-line"><span class="cl-lbl">${n} cuotas <span style="color:var(--muted);font-size:11px;">(entrega $${fmt(cuotaMes)})</span></span><span class="cl-val" style="color:var(--orange);font-weight:800;">$${fmt(cap)}${invQ>1?` <span style="font-size:11px;color:var(--muted);">($${fmt(porInv)} c/u)</span>`:''}</span></div>`;
@@ -7473,7 +7467,7 @@ function calcInversion(){
   if(!venta){ out.innerHTML=''; return; }
   // capital a invertir = costo + 1ra parte de comisión + envío - 1ra cuota del cliente
   // (solo se adelanta la 1ra parte de la comisión; el resto se paga cuando entran las cuotas)
-  const comision1ra = primeraParteComisionParaInversion(comision, ciCuotas);
+  const comision1ra = primeraParteComisionParaInversion(comision, ciCuotas, cuota);
   const capital=capitalFaltanteInversion(costo, cuota, comision1ra, envio);
   const porInv=Math.round(capital/inv);
   // descuento al contado (siempre se muestra el precio rebajado del contado, sin importar el plan)
@@ -7496,7 +7490,7 @@ function calcInversion(){
   if(comision>0 && ciCuotas>1){
     const vTemp={revendedor:'x', precioCosto:costo, cuotas:ciCuotas};
     // forzar la comisión que el usuario ve (puede haberla editado)
-    const repCom=reparteComisionEnCuotasMonto(comision, ciCuotas);
+    const repCom=reparteComisionEnCuotasMonto(comision, ciCuotas, cuota);
     flujo=`<div class="sec-title" style="margin-top:14px;">🤝 Flujo por cuota (con comisión)</div><div class="card">`+
       Array.from({length:ciCuotas}).map((_,i)=>{
         const desc=repCom[i]||0;
@@ -7528,14 +7522,10 @@ function calcInversion(){
     <button class="btn btn-green" style="margin-top:12px;" onclick="invitarInversor(${porInv},${ganPorInv},{costo:${costo},envio:${envio},cuota:${cuota},plan:'${ciCuotas<=1?'Contado':ciCuotas+' cuotas'}'})">📲 Invitar a un inversionista</button>`;
 }
 /* reparto de un monto de comisión en N cuotas, según la regla de partes */
-function reparteComisionEnCuotasMonto(com, n){
+function reparteComisionEnCuotasMonto(com, n, primeraCuota){
   const arr=Array(n).fill(0);
   if(com<=0) return arr;
-  let partes;
-  if(com<5000) partes=1;
-  else if(n<=1) partes=1;
-  else if(n===2) partes=2;
-  else partes=(Math.floor(com/3) < 10000) ? 2 : 3;  // 4 o 6 cuotas: 3 partes salvo que c/u quede <$10.000
+  let partes=cantidadPartesComision(com,n,primeraCuota);
   partes=Math.min(partes,n);
   const base=Math.floor(com/partes/100)*100;
   let acum=0;
@@ -8079,7 +8069,6 @@ function recalcInv(){
   const tv=totalVentaItems();
   const tieneRev=document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const comision = tieneRev ? Math.round(tv*((ventaCuotasSel>1)?0.15:0.10)) : 0;
-  const comision1ra = primeraParteComisionParaInversion(comision, ventaCuotasSel);  // capital: parte exacta
   // 1ra cuota del cliente (la entrega)
   let primeraCuota=0;
   if(ventaTipo!=='prestamo' && ventaCuotasSel>1){
@@ -8087,6 +8076,7 @@ function recalcInv(){
     primeraCuota=plan[0]||0;
   }
   if(ventaMontoCuotaManual>0) primeraCuota=ventaMontoCuotaManual;
+  const comision1ra = primeraParteComisionParaInversion(comision, ventaCuotasSel, primeraCuota);  // capital: parte exacta
   const capitalTotal = capitalFaltanteInversion(costo, primeraCuota, comision1ra, envio);
   let html='';
   ventaInversores.forEach(inv=>{
@@ -8227,11 +8217,11 @@ async function saveVenta(){
   const _tvVenta = totalVentaItems();
   const _tieneRevVenta = document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const _comisionVenta = _tieneRevVenta ? Math.round(_tvVenta*((ventaCuotasSel>1)?0.15:0.10)) : 0;
-  const _comision1raVenta = primeraParteComisionParaInversion(_comisionVenta, ventaCuotasSel);
   let _primeraCuotaVenta = 0;
   if(ventaTipo!=='prestamo' && ventaCuotasSel>1){ _primeraCuotaVenta = planCuotas(_tvVenta, ventaCuotasSel)[0]||0; }
-  const _sumaPctVenta = invsValidos.reduce((s,x)=>s+(x.pct||0),0);
   if(ventaMontoCuotaManual>0) _primeraCuotaVenta=ventaMontoCuotaManual;
+  const _comision1raVenta = primeraParteComisionParaInversion(_comisionVenta, ventaCuotasSel, _primeraCuotaVenta);
+  const _sumaPctVenta = invsValidos.reduce((s,x)=>s+(x.pct||0),0);
   const _capitalTotalVenta = capitalFaltanteInversion(_costoVenta, _primeraCuotaVenta, _comision1raVenta, _envioVenta);
   const _montoInvertidoVenta = Math.round(_capitalTotalVenta * _sumaPctVenta/100);
 
@@ -8299,10 +8289,10 @@ async function recalcularVentasCliente(id){
     const n=v.cuotas||1;
     // comisión total (15% cuotas / 10% contado) si hay revendedor
     const comisionTotal = (v.revendedor||'').trim() ? Math.round(venta*((n>1)?0.15:0.10)) : 0;
-    const comision1ra = primeraParteComisionParaInversion(comisionTotal, n);
     // 1ra cuota del cliente
     let primeraCuota=0;
     if(n>1){ primeraCuota = (v.montoCuota>0?v.montoCuota:planCuotas(venta,n)[0])||0; }
+    const comision1ra = primeraParteComisionParaInversion(comisionTotal, n, primeraCuota);
     // capital = costo + 1ra parte comisión + envío − 1ra cuota
     const capital=capitalFaltanteInversion(costo, primeraCuota, comision1ra, envio);
     // monto invertido según el % de inversores
@@ -8613,9 +8603,9 @@ function repartoInversores(v){
   const _comTotal=(v.revendedor||'').trim() ? Math.round((v.precioVenta||0)*((_n>1)?0.15:0.10)) : 0;
   // Para saber cuánto capital falta poner se usa la parte exacta de comisión.
   // La liquidación/comisión del revendedor NO se modifica.
-  const _com1ra=primeraParteComisionParaInversion(_comTotal, _n);
   let _primeraCuota=0;
   if(v.tipo!=='prestamo' && _n>1){ _primeraCuota=(v.montoCuota>0?v.montoCuota:planCuotas(v.precioVenta||0,_n)[0])||0; }
+  const _com1ra=primeraParteComisionParaInversion(_comTotal, _n, _primeraCuota);
   const costo=capitalFaltanteInversion(_costo, _primeraCuota, _com1ra, _envio);
   let invs=listaInversoresVenta(v);
   // expandir "Amarango" = Angela 50 + Maxi 50 de su parte
@@ -9809,9 +9799,9 @@ async function guardarEdicionVenta(id){
   const _tvE=totalVentaItems();
   const _tieneRevE=document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const _comE=_tieneRevE ? Math.round(_tvE*((ventaCuotasSel>1)?0.15:0.10)) : 0;
-  const _com1raE=primeraParteComisionParaInversion(_comE, ventaCuotasSel);
   let _pcE=0; if(v.tipo!=='prestamo' && ventaCuotasSel>1){ _pcE=planCuotas(_tvE, ventaCuotasSel)[0]||0; }
   if(ventaMontoCuotaManual>0) _pcE=ventaMontoCuotaManual;
+  const _com1raE=primeraParteComisionParaInversion(_comE, ventaCuotasSel, _pcE);
   const _capE=capitalFaltanteInversion(v.precioCosto, _pcE, _com1raE, v.envio);
   const _sumaPctE=invsValidos.reduce((s,x)=>s+(x.pct||0),0);
   v.montoInvertido=Math.round(_capE*_sumaPctE/100);
