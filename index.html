@@ -5607,6 +5607,25 @@ function setModoFin(m){
   if(m==='respuestas') renderRespuestas();
 }
 let persSel=null;
+// Devuelve la participación REAL de una persona en una venta. Usa el reparto
+// central: porcentajes de inversión, primera cuota sin reparto y comisión por cuota.
+// También unifica nombres antiguos como Angela/Angie y sociedades escritas juntas.
+function datosInversorEnVenta(v, persona){
+  const personaCanon=nombrePersonaCanonico(persona);
+  const total={participa:false,puso:0,ganancia:0,recibe:0,cobros:[]};
+  repartoInversores(v).forEach(r=>{
+    const nombres=personasCanonicas(r.nombre); if(!nombres.includes(personaCanon)) return;
+    const pos=nombres.indexOf(personaCanon), cant=Math.max(1,nombres.length);
+    const parte=(m)=>pos===cant-1 ? m-Math.round(m/cant)*(cant-1) : Math.round(m/cant);
+    total.participa=true;
+    total.puso+=parte(r.puso||0);
+    total.ganancia+=parte(r.ganancia||0);
+    total.recibe+=parte(r.recibe||0);
+    (r.cobraPorCuota||[]).forEach((m,i)=>{ total.cobros[i]=(total.cobros[i]||0)+parte(m||0); });
+  });
+  total.totalSegunCuotas=total.cobros.reduce((s,m)=>s+(Number(m)||0),0);
+  return total;
+}
 function renderPorPersona(){
   // Armar una lista limpia: apodos, mayúsculas y sociedades quedan unificados.
   const set=new Set(['Maxi','Angie']);
@@ -5624,41 +5643,31 @@ function renderPorPersona(){
   const chips=document.getElementById('persChips');
   if(chips) chips.innerHTML=personas.map(p=>`<span class="chip ${p===persSel?'sel':''}" onclick="selPersona('${p.replace(/'/g,"\\'")}')" style="${p===persSel?`background:${nombreColor(p)};color:#fff;`:''}">${p}</span>`).join('');
   const cont=document.getElementById('persContent'); if(!cont) return;
-  // Usa el mismo reparto central que el detalle de la venta. Así dos inversores
-  // ven la misma operación y cada uno recibe solamente su capital y su ganancia.
-  function datosPersonaEnVenta(v, persona){
-    const total={participa:false,puso:0,ganancia:0,recibe:0,cobros:[]};
-    repartoInversores(v).forEach(r=>{
-      const nombres=personasCanonicas(r.nombre); if(!nombres.includes(persona)) return;
-      const pos=nombres.indexOf(persona), cant=Math.max(1,nombres.length);
-      const parte=(m)=>pos===cant-1 ? m-Math.round(m/cant)*(cant-1) : Math.round(m/cant);
-      total.participa=true;
-      total.puso+=parte(r.puso||0);
-      total.ganancia+=parte(r.ganancia||0);
-      total.recibe+=parte(r.recibe||0);
-      (r.cobraPorCuota||[]).forEach((m,i)=>{ total.cobros[i]=(total.cobros[i]||0)+parte(m||0); });
-    });
-    return total;
-  }
-  const ventas=DB.ventas.filter(v=>datosPersonaEnVenta(v,persSel).participa);
-  let totVenta=0, totGan=0, cobrado=0, porCobrar=0;
+  const ventas=DB.ventas.filter(v=>datosInversorEnVenta(v,persSel).participa);
+  let totVenta=0, totGan=0, totPuso=0, cobrado=0, porCobrar=0;
   ventas.forEach(v=>{
-    const d=datosPersonaEnVenta(v,persSel);
-    totVenta+=d.recibe;
+    const d=datosInversorEnVenta(v,persSel);
+    totVenta+=d.totalSegunCuotas;
     totGan+=d.ganancia;
-    const n=Math.max(1,v.cuotas||1), pagadas=Math.min(n,v.pagadas||0);
-    const cobradoVenta=d.cobros.slice(0,pagadas).reduce((s,m)=>s+m,0);
-    const totalCobros=d.cobros.reduce((s,m)=>s+m,0);
-    cobrado+=cobradoVenta;
-    porCobrar+=Math.max(0,totalCobros-cobradoVenta);
+    totPuso+=d.puso;
+    ventaCuotas(v).forEach((c,i)=>{
+      const retorno=+d.cobros[i]||0, montoCliente=+c.monto||0;
+      const restaCliente=c.pagada?0:Math.max(0,c.resta!=null?+c.resta||0:montoCliente);
+      const proporcionPendiente=montoCliente>0?Math.min(1,restaCliente/montoCliente):(c.pagada?0:1);
+      const pendiente=c.pagada?0:Math.round(retorno*proporcionPendiente);
+      cobrado+=Math.max(0,retorno-pendiente);
+      porCobrar+=pendiente;
+    });
   });
   let html=`<div class="calc-result" style="background:linear-gradient(135deg,${nombreColor(persSel)},${nombreColor(persSel)}cc);">
     <div class="cr-lbl">Ganancia de ${persSel}</div><div class="cr-big">$<span>${fmt(totGan)}</span></div>
     <div style="font-size:12px;color:rgba(255,255,255,.8);margin-top:6px;">${ventas.length} operación(es) donde invirtió</div></div>`;
   html+=`<div class="card" style="padding:12px 14px;margin-bottom:14px;">
-    <div class="calc-line"><span class="cl-lbl">💰 Su ganancia</span><span class="cl-val" style="color:var(--green);">$${fmt(totGan)}</span></div>
-    <div class="calc-line"><span class="cl-lbl">✅ Cobrado</span><span class="cl-val" style="color:var(--green);">$${fmt(cobrado)}</span></div>
-    <div class="calc-line"><span class="cl-lbl">⏳ Por cobrar</span><span class="cl-val" style="color:var(--orange);">$${fmt(porCobrar)}</span></div>
+    <div class="calc-line"><span class="cl-lbl">💼 Capital aportado</span><span class="cl-val" style="color:var(--blue);">$${fmt(totPuso)}</span></div>
+    <div class="calc-line"><span class="cl-lbl">💰 Ganancia total</span><span class="cl-val" style="color:var(--green);">$${fmt(totGan)}</span></div>
+    <div class="calc-line"><span class="cl-lbl">🤝 Total asignado por cuotas</span><span class="cl-val" style="color:var(--blue);">$${fmt(totVenta)}</span></div>
+    <div class="calc-line"><span class="cl-lbl">✅ Ya recibido (capital + ganancia)</span><span class="cl-val" style="color:var(--green);">$${fmt(cobrado)}</span></div>
+    <div class="calc-line"><span class="cl-lbl">⏳ Pendiente (capital + ganancia)</span><span class="cl-val" style="color:var(--orange);">$${fmt(porCobrar)}</span></div>
   </div>`;
   // lista de operaciones donde invirtió
   html+=`<div class="sec-title">Operaciones de ${persSel} (${ventas.length})</div>`;
@@ -5668,7 +5677,7 @@ function renderPorPersona(){
     return `<div class="list-item" onclick="detalleVenta('${v.id}')">
       <div class="avatar" style="background:${avatarColor(c.nombre)}">${initials(c.nombre)}</div>
       <div class="li-info"><div class="li-name">${v.producto}</div><div class="li-meta">${c.nombre} · ${dispDate(v.fecha)}</div></div>
-      <div class="li-right"><div class="li-amt" style="color:var(--green);">$${fmt(datosPersonaEnVenta(v,persSel).ganancia)}</div></div>
+      <div class="li-right"><div class="li-amt" style="color:var(--green);">$${fmt(datosInversorEnVenta(v,persSel).ganancia)}</div></div>
     </div>`;
   }).join('');
   cont.innerHTML=html;
@@ -6817,17 +6826,34 @@ function copiarTexto(txt, btn){
   }
 }
 
+let panelVistaPersona='general';
+function cambiarVistaPanel(persona){
+  panelVistaPersona=persona||'general';
+  renderPanel();
+}
 function renderPanel(){
   const cont=document.getElementById('panelContent'); if(!cont) return;
-  const V=DB.ventas;
-  if(!V.length){ cont.innerHTML=emptyState('📊','Sin datos aún','Registrá ventas para ver tus números'); return; }
+  const todasLasVentas=DB.ventas;
+  if(!todasLasVentas.length){ cont.innerHTML=emptyState('📊','Sin datos aún','Registrá ventas para ver tus números'); return; }
+
+  const claveMesPanel=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+  const nombreMesPanel=d=>d.toLocaleDateString('es-AR',{month:'long',year:'numeric'});
+  // General mira el negocio completo. Las vistas individuales miran el reparto
+  // de inversionistas y nunca el responsable comercial de la venta.
+  const V=panelVistaPersona==='general'
+    ? todasLasVentas
+    : todasLasVentas.filter(v=>datosInversorEnVenta(v,panelVistaPersona).participa);
+  const tituloVistaPanel=panelVistaPersona==='general'?'Todo el negocio':panelVistaPersona;
+  const vistaGeneral=panelVistaPersona==='general';
 
   // === Tendencia: ventas y ganancia por mes (últimos 6) ===
   const meses=[]; const hoy=today();
   for(let i=5;i>=0;i--){ const d=new Date(hoy.getFullYear(),hoy.getMonth()-i,1); meses.push({y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleDateString('es-AR',{month:'short'})}); }
   const datosMes=meses.map(mm=>{
     const vs=V.filter(v=>{ const d=parseD(v.fecha); return d.getFullYear()===mm.y&&d.getMonth()===mm.m; });
-    return { label:mm.label, fact:vs.reduce((s,v)=>s+(v.precioVenta||0),0), gan:vs.reduce((s,v)=>s+gananciaVenta(v),0), n:vs.length };
+    const fact=vs.reduce((s,v)=>s+(vistaGeneral?totalPagadoVenta(v):datosInversorEnVenta(v,panelVistaPersona).totalSegunCuotas),0);
+    const gan=vs.reduce((s,v)=>s+(vistaGeneral?gananciaVenta(v):datosInversorEnVenta(v,panelVistaPersona).ganancia),0);
+    return { label:mm.label, fact, gan, n:vs.length };
   });
   const maxFact=Math.max(...datosMes.map(d=>d.fact),1);
   // mini gráfico de barras
@@ -6861,30 +6887,90 @@ function renderPanel(){
 
   // === Salud de cobranzas ===
   let porCobrar=0, vencido=0, cobrado=0;
-  V.forEach(v=>{ ventaCuotas(v).forEach(c=>{
-    if(c.pagada){ cobrado+=c.monto; }
-    else { porCobrar+=c.monto; if(parseD(c.vence)<hoy) vencido+=c.monto; }
+  V.forEach(v=>{ const di=vistaGeneral?null:datosInversorEnVenta(v,panelVistaPersona); ventaCuotas(v).forEach((c,i)=>{
+    const monto=vistaGeneral?(+c.monto||0):(+di.cobros[i]||0);
+    const montoCliente=+c.monto||0;
+    const restaCliente=c.pagada?0:Math.max(0,c.resta!=null?+c.resta||0:montoCliente);
+    const proporcionPendiente=montoCliente>0?Math.min(1,restaCliente/montoCliente):(c.pagada?0:1);
+    const pendiente=c.pagada?0:Math.round(monto*proporcionPendiente);
+    cobrado+=Math.max(0,monto-pendiente);
+    porCobrar+=pendiente;
+    if(pendiente>0 && parseD(c.vence)<hoy) vencido+=pendiente;
   }); });
   const totalCartera=cobrado+porCobrar;
   const pctCobrado = totalCartera>0?Math.round((cobrado/totalCartera)*100):0;
 
   // === Ticket promedio ===
-  const ticket=Math.round(V.reduce((s,v)=>s+(v.precioVenta||0),0)/V.length);
+  const ticket=V.length?Math.round(V.reduce((s,v)=>s+(vistaGeneral?totalPagadoVenta(v):datosInversorEnVenta(v,panelVistaPersona).totalSegunCuotas),0)/V.length):0;
+
+  // === Calendario de cobranzas: mes actual + próximos 5 meses ===
+  // Se arma desde las cuotas de TODAS las ventas, incluidas las ya cargadas.
+  const mesesCobro=[];
+  for(let i=0;i<6;i++){
+    const d=new Date(hoy.getFullYear(),hoy.getMonth()+i,1);
+    mesesCobro.push({fecha:d,clave:claveMesPanel(d),nombre:nombreMesPanel(d),programado:0,cobrado:0,pendiente:0,cuotas:0});
+  }
+  const mapaCobro=Object.fromEntries(mesesCobro.map(m=>[m.clave,m]));
+  V.forEach(v=>{
+    const datosInv=vistaGeneral?null:datosInversorEnVenta(v,panelVistaPersona);
+    ventaCuotas(v).forEach((c,i)=>{
+      const d=parseD(c.vence), mes=mapaCobro[claveMesPanel(d)];
+      if(!mes) return;
+      const monto=vistaGeneral?(+c.monto||0):(+datosInv.cobros[i]||0);
+      if(!vistaGeneral && monto<=0) return; // primera cuota: no hay reparto al inversor
+      const montoCliente=+c.monto||0;
+      const restaCliente=c.pagada?0:Math.max(0,c.resta!=null?+c.resta||0:montoCliente);
+      const proporcionPendiente=montoCliente>0?Math.min(1,restaCliente/montoCliente):(c.pagada?0:1);
+      const pendienteCuota=c.pagada?0:Math.round(monto*proporcionPendiente);
+      const cobradoCuota=Math.max(0,monto-pendienteCuota);
+      mes.programado+=monto; mes.cobrado+=cobradoCuota; mes.pendiente+=pendienteCuota; mes.cuotas++;
+    });
+  });
+
+  const filasFacturado=datosMes.map(d=>`<div style="padding:12px 0;border-bottom:1px solid var(--bor)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">
+      <div><b style="color:var(--az);text-transform:capitalize">${d.label}</b><div style="font-size:.67rem;color:var(--muted)">${d.n} venta${d.n!==1?'s':''}</div></div>
+      <b style="font-size:1rem;color:var(--orange)">$${fmt(d.fact)}</b>
+    </div>
+  </div>`).join('');
+
+  const filasCobro=mesesCobro.map((m,i)=>`<div style="padding:13px 0;${i<mesesCobro.length-1?'border-bottom:1px solid var(--bor)':''}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">
+      <div><b style="color:var(--az);text-transform:capitalize">${m.nombre}</b><div style="font-size:.67rem;color:var(--muted)">${m.cuotas} cuota${m.cuotas!==1?'s':''} programada${m.cuotas!==1?'s':''}</div></div>
+      <div style="text-align:right"><div style="font-size:.62rem;color:var(--muted);font-weight:700">TOTAL DEL MES</div><b style="font-size:1rem;color:var(--az)">$${fmt(m.programado)}</b></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px">
+      <div style="background:#ECFDF3;border-radius:9px;padding:8px"><div style="font-size:.64rem;color:#0a7a3f;font-weight:800">✅ Ya cobrado</div><b style="font-size:.82rem;color:#0a7a3f">$${fmt(m.cobrado)}</b></div>
+      <div style="background:#FFF4E8;border-radius:9px;padding:8px"><div style="font-size:.64rem;color:#C65D00;font-weight:800">🟠 Falta cobrar</div><b style="font-size:.82rem;color:#C65D00">$${fmt(m.pendiente)}</b></div>
+    </div>
+  </div>`).join('');
 
   cont.innerHTML=`
+    <div class="seg" style="margin-bottom:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+      <button class="seg-btn ${panelVistaPersona==='general'?'active':''}" onclick="cambiarVistaPanel('general')">🏢 General</button>
+      <button class="seg-btn ${panelVistaPersona==='Angela'?'active':''}" onclick="cambiarVistaPanel('Angela')">👤 Angela</button>
+      <button class="seg-btn ${panelVistaPersona==='Maxi'?'active':''}" onclick="cambiarVistaPanel('Maxi')">👤 Maxi</button>
+    </div>
     <div class="panel-hero">
-      <div class="panel-hero-lbl">Tu negocio este mes</div>
+      <div class="panel-hero-lbl">${tituloVistaPanel} · ${vistaGeneral?'facturado':'retorno generado'} este mes</div>
       <div class="panel-hero-big">$${fmt(mesAct)}</div>
       <div class="panel-hero-crec" style="color:${crecColor};">${crecTxt}</div>
     </div>
 
-    <div class="sec-title">📈 Facturación · últimos 6 meses</div>
+    <div class="sec-title">📈 ${vistaGeneral?'Facturación':'Retorno por inversiones'} · últimos 6 meses</div>
     <div class="card" style="padding:14px 12px;">
       <div style="display:flex;align-items:flex-end;gap:6px;height:100px;">${barras}</div>
     </div>
 
+    <div class="sec-title">🧾 ${vistaGeneral?'Detalle facturado':'Retorno generado'} por mes</div>
+    <div class="card" style="padding:2px 14px 4px;">${filasFacturado}</div>
+
+    <div class="sec-title">📅 ${vistaGeneral?'Cuánto hay que cobrar':'Cuánto le corresponde recibir a '+tituloVistaPanel} mes a mes</div>
+    <div style="font-size:.72rem;color:var(--muted);margin:-5px 2px 9px">${vistaGeneral?'Cuotas completas que pagan los clientes.':'Primera cuota sin reparto; desde la segunda, comisión descontada y porcentaje de inversión aplicado.'}</div>
+    <div class="card" style="padding:2px 14px 4px;">${filasCobro}</div>
+
     <div class="panel-kpis">
-      <div class="panel-kpi"><div class="pk-ico">🎟️</div><div class="pk-val">$${fmt(ticket)}</div><div class="pk-lbl">Ticket promedio</div></div>
+      <div class="panel-kpi"><div class="pk-ico">🎟️</div><div class="pk-val">$${fmt(ticket)}</div><div class="pk-lbl">${vistaGeneral?'Ticket':'Retorno'} promedio</div></div>
       <div class="panel-kpi"><div class="pk-ico">💰</div><div class="pk-val">${pctCobrado}%</div><div class="pk-lbl">Cartera cobrada</div></div>
     </div>
     ${vencido>0?`<div class="alert red" style="margin-bottom:14px;"><span class="alert-ico">⚠️</span><div><div class="alert-t">$${fmt(vencido)} vencido sin cobrar</div><div class="alert-x">Revisá Cobranzas para recuperarlo</div></div></div>`:''}
