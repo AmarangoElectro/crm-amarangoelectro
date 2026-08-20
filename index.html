@@ -6911,6 +6911,7 @@ function renderPanel(){
     mesesCobro.push({fecha:d,clave:claveMesPanel(d),nombre:nombreMesPanel(d),programado:0,cobrado:0,pendiente:0,cuotas:0});
   }
   const mapaCobro=Object.fromEntries(mesesCobro.map(m=>[m.clave,m]));
+  const inicioMesActual=new Date(hoy.getFullYear(),hoy.getMonth(),1);
   V.forEach(v=>{
     const datosInv=vistaGeneral?null:datosInversorEnVenta(v,panelVistaPersona);
     ventaCuotas(v).forEach((c,i)=>{
@@ -6919,9 +6920,12 @@ function renderPanel(){
       const monto=vistaGeneral?(+c.monto||0):(+datosInv.cobros[i]||0);
       if(!vistaGeneral && monto<=0) return; // primera cuota: no hay reparto al inversor
       const montoCliente=+c.monto||0;
+      const esMesFuturo=mes.fecha>inicioMesActual;
       const restaCliente=c.pagada?0:Math.max(0,c.resta!=null?+c.resta||0:montoCliente);
       const proporcionPendiente=montoCliente>0?Math.min(1,restaCliente/montoCliente):(c.pagada?0:1);
-      const pendienteCuota=c.pagada?0:Math.round(monto*proporcionPendiente);
+      // El contador histórico "pagadas" puede marcar posiciones futuras por
+      // error. En meses posteriores al actual todo queda pendiente.
+      const pendienteCuota=esMesFuturo?monto:(c.pagada?0:Math.round(monto*proporcionPendiente));
       const cobradoCuota=Math.max(0,monto-pendienteCuota);
       mes.programado+=monto; mes.cobrado+=cobradoCuota; mes.pendiente+=pendienteCuota; mes.cuotas++;
     });
