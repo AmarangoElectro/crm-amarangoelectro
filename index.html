@@ -14,6 +14,7 @@
 <link rel="icon" href="icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>if(!window.supabase){document.write('<script src="https://unpkg.com/@supabase/supabase-js@2"><\/script>')}</script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -1340,10 +1341,28 @@ async function sincronizarPagosDesdeNube(){
   if(!CLOUD || !sb || _syncPagosEnCurso || document.hidden) return;
   _syncPagosEnCurso=true;
   try{
-    const {data,error}=await sb.from('ventas').select('id,pagadas,abonos');
+    const [{data,error},{data:clientesRemotos,error:errorClientes}]=await Promise.all([
+      sb.from('ventas').select('*').limit(100000),
+      sb.from('clientes').select('*').limit(100000)
+    ]);
     if(error || !data) return;
     let cambio=false;
+    if(!errorClientes && Array.isArray(clientesRemotos)){
+      clientesRemotos.forEach(remoto=>{
+        const i=DB.clientes.findIndex(c=>String(c.id)===String(remoto.id));
+        if(i<0){ DB.clientes.push(remoto); cambio=true; }
+        else if(JSON.stringify(DB.clientes[i])!==JSON.stringify(remoto)){
+          DB.clientes[i]=remoto; cambio=true;
+        }
+      });
+    }
     const porId=new Map(data.map(r=>[String(r.id),r]));
+    // Incorporar ventas nuevas creadas desde el otro teléfono. Antes este
+    // sincronizador sólo actualizaba pagos de ventas que ya existían localmente.
+    data.forEach(remoto=>{
+      const i=DB.ventas.findIndex(v=>String(v.id)===String(remoto.id));
+      if(i<0){ DB.ventas.push(remoto); cambio=true; }
+    });
     DB.ventas.forEach(v=>{
       if(!porId.has(String(v.id))) return;
       const remoto=porId.get(String(v.id));
@@ -1356,7 +1375,8 @@ async function sincronizarPagosDesdeNube(){
     // Si una venta ya no está en Supabase, el otro dispositivo la eliminó.
     // La nube es la autoridad compartida: no conservar una copia local huérfana.
     const largoAntes=DB.ventas.length;
-    DB.ventas=DB.ventas.filter(v=>porId.has(String(v.id)));
+    const ventasNuevasPendientes=new Set(PENDIENTES.load().filter(p=>p.tabla==='ventas_nuevas'&&p.dato).map(p=>String(p.dato.id)));
+    DB.ventas=DB.ventas.filter(v=>porId.has(String(v.id))||ventasNuevasPendientes.has(String(v.id)));
     if(DB.ventas.length!==largoAntes) cambio=true;
     if(cambio){
       DB.saveLocal();
@@ -1384,6 +1404,9 @@ function iniciarSyncPagos(){
     if(document.visibilityState==='visible') sincronizarPagosDesdeNube();
   });
   window.addEventListener('focus',sincronizarPagosDesdeNube);
+  // Revisión periódica: Supabase Realtime puede demorarse o estar bloqueado por
+  // algunas redes móviles. La consulta REST mantiene iguales ambos teléfonos.
+  setInterval(sincronizarPagosDesdeNube,15000);
 }
 function initCloud(){
   if(SUPABASE_URL && SUPABASE_KEY && window.supabase){
@@ -1391,7 +1414,7 @@ function initCloud(){
     catch(e){ CLOUD = false; }
   }
   const b=document.getElementById('cloudBadge');
-  if(CLOUD){ b.textContent='☁️ En la nube'; b.classList.add('show'); }
+  if(CLOUD){ b.textContent='☁️ Conectando…'; b.classList.add('show'); verificarConexionNube(); }
   else { b.textContent='⚠️ Local'; b.classList.add('show','off'); }
   // ☁️ traer los PIN de la nube para que sean iguales en todos los dispositivos
   if(CLOUD){
@@ -1402,6 +1425,20 @@ function initCloud(){
         if(ls && !ls.classList.contains('hide') && typeof renderLoginPersonas==='function') renderLoginPersonas();
       }catch(e){}
     });
+  }
+}
+
+async function verificarConexionNube(){
+  const b=document.getElementById('cloudBadge');
+  if(!b || !CLOUD || !sb) return false;
+  try{
+    const {error}=await sb.from('ventas').select('id').limit(1);
+    if(error) throw error;
+    b.textContent='☁️ En la nube'; b.classList.add('show'); b.classList.remove('off');
+    return true;
+  }catch(e){
+    b.textContent='⚠️ Sin sincronizar'; b.classList.add('show','off');
+    return false;
   }
 }
 
@@ -1519,6 +1556,11 @@ async function procesarPendientes(){
   const a=PENDIENTES.load(); if(!a.length) return;
   const quedan=[];
   for(const p of a){
+    if(p.tabla==='ventas_nuevas'){
+      const r=await subirNube('ventas',p.dato,{incluirPagadas:true});
+      if(!r.ok) quedan.push(p);
+      continue;
+    }
     // Las ventas viejas completas NO se reintentan: desde dos dispositivos una
     // copia atrasada podría deshacer una cobranza más nueva. Los cobros se
     // confirman directamente contra Supabase con setPagadas().
@@ -1540,7 +1582,7 @@ function fusionar(nube, local, tabla){
   nube = Array.isArray(nube)?nube:[];
   local = Array.isArray(local)?local:[];
   const porId = new Map();
-  const idsPendientes=new Set((tabla==='ventas'?[]:PENDIENTES.load().filter(p=>p.tabla===tabla&&p.dato)).map(p=>String(p.dato.id)));
+  const idsPendientes=new Set(PENDIENTES.load().filter(p=>p.dato && (p.tabla===tabla || (tabla==='ventas'&&p.tabla==='ventas_nuevas'))).map(p=>String(p.dato.id)));
   // primero la nube (versión oficial)
   nube.forEach(r=>{ if(r&&r.id!=null) porId.set(r.id, r); });
   // después lo local: lo que NO esté en la nube, se conserva y se marca para subir
@@ -1670,15 +1712,19 @@ const DB = {
     if(!r.ok){ PENDIENTES.agregar('clientes', c); console.warn('upsertCliente:', r.msg); }
     return r; // devuelvo el resultado para poder avisar bien arriba
   },
-  async upsertVenta(v){
+  async upsertVenta(v,opciones){
     const okLocal = this.saveLocal(); // primero el celu: nunca se pierde nada
     if(!okLocal){ return {ok:false, local:false, msg:'No se pudo guardar en el teléfono (memoria llena)'}; }
     const r=await subirNube('ventas', v);
     // No encolamos ventas completas: un snapshot viejo de otro dispositivo
     // podría volver después y pisar pagos recientes. Si falla, se informa y se
     // debe reintentar con conexión.
-    if(!r.ok){ PENDIENTES.quitar('ventas',v.id); console.warn('upsertVenta:', r.msg); }
-    else PENDIENTES.quitar('ventas',v.id);
+    if(!r.ok){
+      PENDIENTES.quitar('ventas',v.id);
+      if(opciones&&opciones.nueva) PENDIENTES.agregar('ventas_nuevas',v);
+      console.warn('upsertVenta:', r.msg);
+    }
+    else { PENDIENTES.quitar('ventas',v.id); PENDIENTES.quitar('ventas_nuevas',v.id); }
     return r;
   },
   // Los cobros son datos sensibles: primero se escriben SOLO en Supabase y
@@ -7666,6 +7712,7 @@ async function saveCliente(id){
   if(!nombre){ toast('Poné un nombre'); return; }
   const data={ nombre, dni:document.getElementById('f_dni').value.trim(), telefono:document.getElementById('f_tel').value.trim(), telefono2:document.getElementById('f_tel2').value.trim(), localidad:document.getElementById('f_loc').value.trim(), direccion:document.getElementById('f_dir').value.trim(), responsable:(document.getElementById('f_resp')?document.getElementById('f_resp').value:'Maxi'), revendedor:document.getElementById('f_revend').value.trim(), inversionista:document.getElementById('f_inver').value.trim(), observaciones:document.getElementById('f_obs').value.trim(), pagoAuto:(document.getElementById('f_pagoauto')?document.getElementById('f_pagoauto').value:'') };
   let rec;
+  let nombreProductoVenta='';
   if(id){ rec=DB.clientes.find(x=>x.id===id); Object.assign(rec,data); AUDIT.registrar('editó', 'cliente', `el cliente "${nombre}"`); }
   else { 
     const maxNum=DB.clientes.reduce((m,c)=>Math.max(m,c.num||0),0);
@@ -8338,6 +8385,7 @@ async function saveVenta(){
     const items=itemsVenta.filter(it=>it.producto.trim()&&(it.venta||0)>0);
     if(!items.length){ toast('Cargá al menos un producto con precio'); return; }
     const producto=items.map(it=>{ const c=it.cantidad||1; return (c>1?c+'× ':'')+it.producto.trim(); }).join(' + ');
+    nombreProductoVenta=producto;
     const precioCosto=items.reduce((s,it)=>s+((it.costo||0)*(it.cantidad||1)),0);
     const precioVenta=precioFinal();
     const mayorista=(items.find(it=>it.mayorista)||{}).mayorista||'';
@@ -8347,14 +8395,14 @@ async function saveVenta(){
   // si se marcó "ya está paga", marcar todas las cuotas como pagadas
   const yaPagada = document.getElementById('v_pagado') && document.getElementById('v_pagado').checked;
   if(yaPagada){ rec.pagadas = rec.cuotas || 1; }
-  const resV = await DB.upsertVenta(rec);
+  const resV = await DB.upsertVenta(rec,{nueva:true});
   closeModal(); render();
   if(resV && resV.ok){
     toastOK(ventaTipo==='prestamo'?'Préstamo registrado':(yaPagada?'Venta registrada y paga':'Venta registrada'));
   } else if(resV && resV.local===false){
     /* memoria llena: el cartel rojo ya salió solo */
   } else {
-    avisoNoGuardado('La venta de «'+(producto||'este cliente')+'» no se pudo confirmar en la nube.');
+    avisoNoGuardado('La venta de «'+(nombreProductoVenta||'este cliente')+'» quedó pendiente de sincronizar. No está confirmada para el otro teléfono todavía; el CRM volverá a intentar automáticamente cuando recupere conexión.');
   }
   setTimeout(()=>detalleCliente(clienteId), 250);
 }
