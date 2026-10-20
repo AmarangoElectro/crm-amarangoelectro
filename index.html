@@ -1732,7 +1732,7 @@ const DB = {
   // No se encolan snapshots completos que otro dispositivo pueda pisar después.
   async setPagadas(v,nuevo){
     if(!v) return {ok:false,msg:'venta inexistente'};
-    nuevo=Math.max(0,Math.min(Number(v.cuotas||1),Number(nuevo||0)));
+    nuevo=Math.max(0,Math.min(cantidadPagosVenta(v),Number(nuevo||0)));
     if(!CLOUD || !sb){
       toast('⚠️ Sin conexión: el pago NO se marcó. Reintentá cuando vuelva internet.');
       return {ok:false,msg:'sin conexión'};
@@ -2177,7 +2177,7 @@ function partesComision(v){
 /* Reparto de la comisión por cuota: array con cuánto se descuenta en cada cuota */
 function reparteComisionEnCuotas(v){
   const com=comisionRevendedor(v);
-  const n=v.cuotas||1;
+  const n=cantidadPagosVenta(v);
   const arr=Array(n).fill(0);
   if(com<=0) return arr;
   const partes=Math.min(partesComision(v), n);
@@ -2903,10 +2903,20 @@ function cuotasVencidas(){
 }
 
 function ventaCuotas(v){
-  const n = v.cuotas||1;
-  const montos = (v.montoCuota>0) ? Array(n).fill(v.montoCuota) : planCuotas(v.precioVenta, n);
+  const cuotasBase = v.cuotas||1;
+  const quinc = v.quincenal===true && v.quincenalDividido===true && cuotasBase>1;
+  const n = quinc ? cuotasBase*2 : cuotasBase;
+  let montos;
+  if(quinc){
+    // Igual que la calculadora: cada cuota mensual se divide en dos pagos
+    // quincenales y se redondea al múltiplo de $100.
+    const cuotaMensual=(v.montoCuota>0) ? v.montoCuota : (planCuotas(v.precioVenta,cuotasBase)[0]||0);
+    const pagoQuincenal=Math.round(cuotaMensual/2/100)*100;
+    montos=Array(n).fill(pagoQuincenal);
+  } else {
+    montos = (v.montoCuota>0) ? Array(n).fill(v.montoCuota) : planCuotas(v.precioVenta, n);
+  }
   const inicio = parseD(v.fecha);
-  const quinc = v.quincenal===true;  // si es quincenal, vence cada 15 días
   const out=[];
   for(let i=0;i<n;i++){
     let vence;
@@ -2925,6 +2935,10 @@ function ventaCuotas(v){
     out.push({ num:i+1, monto:monto, vence, pagada: pagadaFull, abono:abono, resta:resta, parcial: (!pagadaFull && abono>0) });
   }
   return out;
+}
+function cantidadPagosVenta(v){
+  const base=Number(v&&v.cuotas||1);
+  return (v&&v.quincenal===true&&v.quincenalDividido===true&&base>1)?base*2:base;
 }
 function proxVencimiento(v){ const cs=ventaCuotas(v).filter(c=>!c.pagada); return cs.length?cs[0]:null; }
 function estadoVenta(v){
@@ -4946,7 +4960,7 @@ function renderCobranzas(){
           <td><input class="cob-check" type="checkbox" ${r.c.pagada?'checked':''} onchange="toggleCuotaPlanillaCobranza('${r.v.id}',${r.c.num},this)"></td>
           <td onclick="detalleVenta('${r.v.id}')" style="cursor:pointer;font-weight:800;">${cli.nombre}</td>
           <td onclick="detalleVenta('${r.v.id}')" style="cursor:pointer;">${r.v.producto||'—'}</td>
-          <td class="col-num">${r.c.num} de ${r.v.cuotas||1}</td>
+          <td class="col-num">${r.c.num} de ${cantidadPagosVenta(r.v)}${r.v.quincenal===true?' · quincenal':''}</td>
           <td class="col-monto">$${fmt(monto)}</td>
           <td>${dispDate(r.c.vence)}</td>
           <td><button class="btn btn-ghost btn-sm" style="white-space:nowrap;" onclick="event.stopPropagation();abrirAplazarCuota('${r.v.id}',${r.c.num})">⏰ Aplazar</button></td>
@@ -5050,7 +5064,7 @@ function renderCobranzas(){
     const inv=(r.v.inversionista||'').trim()||'Maxi'; // quién cobra esta cuota
     return `<div class="list-item" onclick="detalleVenta('${r.v.id}')">
       <div class="avatar" style="background:${nombreColor(inv)}">${initials(cli.nombre)}</div>
-      <div class="li-info"><div class="li-name">${cli.nombre}</div><div class="li-meta">${r.v.producto} · Cuota ${r.c.num}/${r.v.cuotas} · ${dispDate(r.c.vence)}</div>
+      <div class="li-info"><div class="li-name">${cli.nombre}</div><div class="li-meta">${r.v.producto} · ${r.v.quincenal===true?'Pago':'Cuota'} ${r.c.num}/${cantidadPagosVenta(r.v)} · ${dispDate(r.c.vence)}</div>
       <div style="margin-top:3px;"><span style="display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;color:${nombreColor(inv)};background:${nombreColor(inv)}1a;padding:2px 8px;border-radius:8px;">💼 Cobra: ${inv}</span></div></div>
       <div class="li-right"><div class="li-amt">$${fmt(r.c.monto)}</div>
       ${r.estado!=='pagadas'?`<div class="li-tag" style="color:var(--blue);font-weight:700;" onclick="event.stopPropagation();abrirAplazarCuota('${r.v.id}',${r.c.num})">⏰ Aplazar</div>`:''}
@@ -8122,7 +8136,8 @@ function recalcItems(){
   if(ventaCuotasSel>1 && ventaTipo!=='prestamo'){
     const venta=precioFinal();
     const cuotaVal = (ventaMontoCuotaManual>0) ? ventaMontoCuotaManual : planCuotas(venta,ventaCuotasSel)[0];
-    totalPagado = cuotaVal*ventaCuotasSel;
+    const esQuincenal=!!(document.getElementById('v_quincenal')&&document.getElementById('v_quincenal').checked);
+    totalPagado = esQuincenal ? Math.round(cuotaVal/2/100)*100*(ventaCuotasSel*2) : cuotaVal*ventaCuotasSel;
   }
   const ganancia = totalPagado - tc - env - comision;
   if(gEl){
@@ -8212,6 +8227,9 @@ function recalcInv(){
     primeraCuota=plan[0]||0;
   }
   if(ventaMontoCuotaManual>0) primeraCuota=ventaMontoCuotaManual;
+  if(document.getElementById('v_quincenal')&&document.getElementById('v_quincenal').checked&&primeraCuota>0){
+    primeraCuota=Math.round(primeraCuota/2/100)*100;
+  }
   const comision1ra = primeraParteComisionParaInversion(comision, ventaCuotasSel, primeraCuota);  // capital: parte exacta
   const capitalTotal = capitalFaltanteInversion(costo, primeraCuota, comision1ra, envio);
   let html='';
@@ -8271,10 +8289,16 @@ function renderPlan(){
     // si el usuario editó el monto a mano, usar ese
     const montoCuota = (ventaMontoCuotaManual>0) ? ventaMontoCuotaManual : m[0];
     const totalManual = montoCuota*ventaCuotasSel;
+    const esQuincenal=!!(document.getElementById('v_quincenal')&&document.getElementById('v_quincenal').checked);
+    const pagoQuincenal=Math.round(montoCuota/2/100)*100;
+    const cantidadMostrada=esQuincenal?ventaCuotasSel*2:ventaCuotasSel;
+    const montoMostrado=esQuincenal?pagoQuincenal:montoCuota;
+    const totalMostrado=montoMostrado*cantidadMostrada;
     cont.innerHTML=`<div style="background:#fff8f0;border-radius:11px;padding:10px 12px;margin-bottom:12px;font-size:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;color:var(--blue);"><span>${ventaCuotasSel} cuotas de</span>
-      <span style="display:flex;align-items:center;gap:4px;">$<input type="number" inputmode="numeric" value="${montoCuota}" onchange="setMontoCuotaManual(this.value)" style="width:90px;text-align:right;border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-weight:800;color:var(--orange);font-size:13px;"></span></div>
-      <div style="display:flex;justify-content:space-between;color:var(--muted);margin-top:6px;"><span>Total a pagar</span><span>$${fmt(totalManual)}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;color:var(--blue);"><span>${esQuincenal?cantidadMostrada+' pagos quincenales':ventaCuotasSel+' cuotas'} de</span>
+      <span style="display:flex;align-items:center;gap:4px;">$<input type="number" inputmode="numeric" value="${montoMostrado}" ${esQuincenal?'readonly title="Se calcula como la mitad de la cuota mensual"':`onchange="setMontoCuotaManual(this.value)"`} style="width:90px;text-align:right;border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-weight:800;color:var(--orange);font-size:13px;"></span></div>
+      <div style="display:flex;justify-content:space-between;color:var(--muted);margin-top:6px;"><span>Total a pagar</span><span>$${fmt(totalMostrado)}</span></div>
+      ${esQuincenal?`<div style="font-size:11px;color:var(--blue);margin-top:5px;">Equivale a ${ventaCuotasSel} cuotas mensuales, divididas en dos pagos cada 15 días.</div>`:''}
       ${ventaMontoCuotaManual>0?`<div style="margin-top:4px;"><span style="font-size:11px;color:var(--blue);cursor:pointer;" onclick="setMontoCuotaManual(0)">↺ Volver al monto sugerido</span></div>`:''}
     </div>`;
   } else { cont.innerHTML=''; }
@@ -8356,6 +8380,8 @@ async function saveVenta(){
   let _primeraCuotaVenta = 0;
   if(ventaTipo!=='prestamo' && ventaCuotasSel>1){ _primeraCuotaVenta = planCuotas(_tvVenta, ventaCuotasSel)[0]||0; }
   if(ventaMontoCuotaManual>0) _primeraCuotaVenta=ventaMontoCuotaManual;
+  const _esQuincenalVenta=!!(document.getElementById('v_quincenal')&&document.getElementById('v_quincenal').checked);
+  if(_esQuincenalVenta&&_primeraCuotaVenta>0) _primeraCuotaVenta=Math.round(_primeraCuotaVenta/2/100)*100;
   const _comision1raVenta = primeraParteComisionParaInversion(_comisionVenta, ventaCuotasSel, _primeraCuotaVenta);
   const _sumaPctVenta = invsValidos.reduce((s,x)=>s+(x.pct||0),0);
   const _capitalTotalVenta = capitalFaltanteInversion(_costoVenta, _primeraCuotaVenta, _comision1raVenta, _envioVenta);
@@ -8371,7 +8397,8 @@ async function saveVenta(){
     montoInvertido: _montoInvertidoVenta,
     revendedor:(document.getElementById('v_revend')?document.getElementById('v_revend').value.trim():''),
     fecha:document.getElementById('v_fecha').value, cuotas:ventaCuotasSel, pagadas:0,
-    quincenal:(document.getElementById('v_quincenal')?document.getElementById('v_quincenal').checked:false),
+    quincenal:_esQuincenalVenta,
+    quincenalDividido:_esQuincenalVenta,
     venceManual:(ventaTipo==='prestamo' && document.getElementById('p_vence')?document.getElementById('p_vence').value:''),
     montoCuota:ventaMontoCuotaManual||0,
     envio:+document.getElementById('v_envio').value||0 };
@@ -8394,7 +8421,7 @@ async function saveVenta(){
   DB.ventas.push(rec);
   // si se marcó "ya está paga", marcar todas las cuotas como pagadas
   const yaPagada = document.getElementById('v_pagado') && document.getElementById('v_pagado').checked;
-  if(yaPagada){ rec.pagadas = rec.cuotas || 1; }
+  if(yaPagada){ rec.pagadas = cantidadPagosVenta(rec); }
   const resV = await DB.upsertVenta(rec,{nueva:true});
   closeModal(); render();
   if(resV && resV.ok){
@@ -8428,7 +8455,7 @@ async function recalcularVentasCliente(id){
     const comisionTotal = (v.revendedor||'').trim() ? Math.round(venta*((n>1)?0.15:0.10)) : 0;
     // 1ra cuota del cliente
     let primeraCuota=0;
-    if(n>1){ primeraCuota = (v.montoCuota>0?v.montoCuota:planCuotas(venta,n)[0])||0; }
+    if(n>1){ const planReal=ventaCuotas(v); primeraCuota=(planReal[0]&&planReal[0].monto)||0; }
     const comision1ra = primeraParteComisionParaInversion(comisionTotal, n, primeraCuota);
     // capital = costo + 1ra parte comisión + envío − 1ra cuota
     const capital=capitalFaltanteInversion(costo, primeraCuota, comision1ra, envio);
@@ -8741,7 +8768,10 @@ function repartoInversores(v){
   // Para saber cuánto capital falta poner se usa la parte exacta de comisión.
   // La liquidación/comisión del revendedor NO se modifica.
   let _primeraCuota=0;
-  if(v.tipo!=='prestamo' && _n>1){ _primeraCuota=(v.montoCuota>0?v.montoCuota:planCuotas(v.precioVenta||0,_n)[0])||0; }
+  if(v.tipo!=='prestamo' && _n>1){
+    const _planReal=ventaCuotas(v);
+    _primeraCuota=(_planReal[0]&&_planReal[0].monto)||0;
+  }
   const _com1ra=primeraParteComisionParaInversion(_comTotal, _n, _primeraCuota);
   const costo=capitalFaltanteInversion(_costo, _primeraCuota, _com1ra, _envio);
   let invs=listaInversoresVenta(v);
@@ -8764,9 +8794,7 @@ function repartoInversores(v){
     return !(n==='maxi'||n==='max'||n==='maximiliano'||n==='angela'||n==='ángela'||n==='amarango');
   };
   const gananciaTotal=gananciaVenta(v);
-  const _cuotaCliente = (v.tipo!=='prestamo' && _n>0)
-    ? ((v.montoCuota>0?v.montoCuota:(planCuotas(v.precioVenta||0,_n)[0]))||Math.round((v.precioVenta||0)/_n))
-    : Math.round((v.precioVenta||0)/_n);
+  const _cuotaCliente = (ventaCuotas(v)[0]&&ventaCuotas(v)[0].monto)||Math.round((v.precioVenta||0)/Math.max(1,cantidadPagosVenta(v)));
   const resultado=Object.entries(mapa).map(([nombre,pct])=>{
     const puso = Math.round(costo*pct/100);
     let ganancia;
@@ -8895,7 +8923,7 @@ function copiarInv(ventaId, nombreInv){
 // Bloque para tildar los pagos que le hago al inversionista y al revendedor
 function bloquePagosTercerosHTML(v){
   const cuotasCobradas = v.pagadas||0;         // cuántas cuotas cobré del cliente
-  const nCuotas = v.cuotas||1;
+  const nCuotas = cantidadPagosVenta(v);
   let html='';
   // ¿hay inversionista con reparto?
   const reparto = (typeof repartoInversores==='function') ? repartoInversores(v) : [];
@@ -9008,7 +9036,7 @@ function detalleVenta(id){
     if(reparto.length){
       bloqueInv=`<div class="sec-title" style="margin-top:10px;">💼 Reparto por inversor</div>
         <div class="card" style="padding:10px 14px;">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">El cliente paga $${fmt(totalPagado)} en ${v.cuotas} cuotas. Cada inversor recupera su parte + gana su interés:</div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">El cliente paga $${fmt(totalPagado)} en ${v.quincenal===true?cantidadPagosVenta(v)+' pagos quincenales':v.cuotas+' cuotas'}. Cada inversor recupera su parte + gana su interés:</div>
           ${reparto.map(r=>`
             <div style="border-bottom:1px solid var(--border);padding:8px 0;">
               <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -9033,17 +9061,17 @@ function detalleVenta(id){
     <div class="info-grid">
       <div class="info-box"><div class="info-lbl">Precio venta</div><div class="info-val">$${fmt(v.precioVenta)}</div></div>
       <div class="info-box"><div class="info-lbl">Ganancia${com>0?' neta':''}</div><div class="info-val" style="color:var(--green);">$${fmt(gan)}</div></div>
-      <div class="info-box"><div class="info-lbl">Plan</div><div class="info-val">${v.cuotas>1?v.cuotas+' cuotas':'Contado'}</div></div>
+      <div class="info-box"><div class="info-lbl">Plan</div><div class="info-val">${v.cuotas>1?(v.quincenal===true?cantidadPagosVenta(v)+' pagos quincenales':v.cuotas+' cuotas'):'Contado'}</div></div>
       <div class="info-box"><div class="info-lbl">Estado</div><div class="info-val" style="color:var(--${e.cls==='green'?'green':e.cls==='red'?'red':'orange'});">${e.label}</div></div>
     </div>
     ${bloqueComision}
     ${bloqueInv}
     ${bloquePagosTerceros}
-    ${v.cuotas>1?`<div class="sec-title">Cuotas <span style="font-weight:400;text-transform:none;color:var(--muted);font-size:11px;">· tocá un círculo para marcar/quitar pago</span></div><div class="card" style="padding:6px 14px;">${cuotas.map(c=>`<div class="cuota-line ${c.pagada?'cuota-paid':''}" onclick="toggleCuota('${id}',${c.num})" style="cursor:pointer;"><div class="cuota-num">${c.pagada?'✓':c.num}</div><div class="cuota-info"><div class="cuota-amt">Cuota ${c.num} · $${fmt(c.monto)}</div><div class="cuota-date">Vence ${dispDate(c.vence)}</div></div><div class="cuota-check" style="font-size:20px;">${c.pagada?'🟢':(e.px&&e.px.num===c.num?'🟠':'⚪')}</div></div>`).join('')}</div>
-    ${(v.pagadas||0)<v.cuotas?`<button class="btn btn-green" onclick="cobrarCuota('${id}')">✅ Registrar pago cuota ${(v.pagadas||0)+1}</button>`:'<div class="alert green"><span class="alert-ico">✅</span><div><div class="alert-t">Venta saldada</div></div></div>'}`
+    ${v.cuotas>1?`<div class="sec-title">${v.quincenal===true?'Pagos quincenales':'Cuotas'} <span style="font-weight:400;text-transform:none;color:var(--muted);font-size:11px;">· tocá un círculo para marcar/quitar pago</span></div><div class="card" style="padding:6px 14px;">${cuotas.map(c=>`<div class="cuota-line ${c.pagada?'cuota-paid':''}" onclick="toggleCuota('${id}',${c.num})" style="cursor:pointer;"><div class="cuota-num">${c.pagada?'✓':c.num}</div><div class="cuota-info"><div class="cuota-amt">${v.quincenal===true?'Pago':'Cuota'} ${c.num} · $${fmt(c.monto)}</div><div class="cuota-date">Vence ${dispDate(c.vence)}</div></div><div class="cuota-check" style="font-size:20px;">${c.pagada?'🟢':(e.px&&e.px.num===c.num?'🟠':'⚪')}</div></div>`).join('')}</div>
+    ${(v.pagadas||0)<cantidadPagosVenta(v)?`<button class="btn btn-green" onclick="cobrarCuota('${id}')">✅ Registrar ${v.quincenal===true?'pago':'cuota'} ${(v.pagadas||0)+1}</button>`:'<div class="alert green"><span class="alert-ico">✅</span><div><div class="alert-t">Venta saldada</div></div></div>'}`
     :`${(v.pagadas||0)<1?`<button class="btn btn-green" onclick="cobrarCuota('${id}')">✅ Marcar como pagado</button>`:`<div class="alert green" onclick="toggleCuota('${id}',1)" style="cursor:pointer;"><span class="alert-ico">✅</span><div><div class="alert-t">Pagado</div><div class="alert-x">Tocá para marcar como impago</div></div></div>`}`}
     <div class="btn-row" style="margin-top:8px;">${cli.telefono?`<button class="btn btn-green btn-sm" onclick="waCobranza('${id}')">📲 Recordar pago</button>`:'<div></div>'}<button class="btn btn-ghost btn-sm" onclick="formEditarVenta('${id}')">✏️ Editar</button></div>
-    ${((v.pagadas||0)>=v.cuotas)?`<button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--blue);" onclick="archivarVenta('${id}')">${v.archivada?'📤 Desarchivar':'📥 Archivar (ya pagada)'}</button>`:''}
+    ${((v.pagadas||0)>=cantidadPagosVenta(v))?`<button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--blue);" onclick="archivarVenta('${id}')">${v.archivada?'📤 Desarchivar':'📥 Archivar (ya pagada)'}</button>`:''}
     <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--blue);" onclick="verRecibo('${id}')">🧾 Recibo de compra</button>
     <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--red);" onclick="delVenta('${id}')">🗑️ Eliminar venta</button>`);
 }
@@ -9272,7 +9300,7 @@ async function toggleCuota(id, num){
   // Si la cuota tocada ya estaba pagada -> desmarca desde ahí (quedan pagadas las anteriores)
   // Si no estaba pagada -> marca esta y todas las anteriores como pagadas
   let nuevas=num<=pagadas?num-1:num;
-  nuevas=Math.max(0,Math.min(v.cuotas||1,nuevas));
+  nuevas=Math.max(0,Math.min(cantidadPagosVenta(v),nuevas));
   const res = await DB.setPagadas(v,nuevas);
   if(res && res.ok){ toastOK(num<=pagadas?'Pago quitado ✅':'Pago registrado ✅'); }
   detalleVenta(id);
@@ -9873,9 +9901,16 @@ function formEditarVenta(id){
     <div class="field"><label>Revendedor <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="v_revend" value="${(v.revendedor||'').replace(/"/g,'&quot;')}" placeholder="Nombre"></div>
     <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="v_desc" style="width:auto;" onchange="recalcItems()"> Aplicar descuento 10% al total</label><div id="descPreview"></div></div>
     <div class="field"><label>Plan de pago</label><div id="cuotasChips">${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<span class="chip ${n===ventaCuotasSel?'sel':''}" data-c="${n}" onclick="selCuota(${n})">${n===1?'Contado':n+' cuotas'}</span>`).join('')}</div></div>
+    <div class="card" id="cajonQuincVentaBox" style="padding:10px 14px;margin-bottom:12px;display:${ventaCuotasSel>1?'block':'none'};">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+        <input type="checkbox" id="v_quincenal" ${v.quincenal===true?'checked':''} style="width:auto;" onchange="recalcItems()">
+        <span style="font-weight:800;color:var(--blue);">🗓️ Registrar como plan quincenal</span>
+      </label>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Cada cuota mensual se divide en 2 pagos y vence cada 15 días, igual que en la calculadora.</div>
+    </div>
     <div id="planPreview"></div>
     <div id="planEnviar"></div>
-    <div class="alert" style="margin-top:4px;"><span class="alert-ico">ℹ️</span><div><div class="alert-x">Pagadas registradas: ${v.pagadas||0}/${v.cuotas||1}. Si cambiás el plan, revisá los pagos.</div></div></div>
+    <div class="alert" style="margin-top:4px;"><span class="alert-ico">ℹ️</span><div><div class="alert-x">Pagos registrados: ${v.pagadas||0}/${cantidadPagosVenta(v)}. Si cambiás el plan, revisá los pagos.</div></div></div>
     <div style="position:sticky;bottom:-14px;z-index:20;background:#fff;padding:10px 0 calc(8px + env(safe-area-inset-bottom));border-top:1px solid var(--border);box-shadow:0 -8px 18px rgba(11,45,107,.10);">
       <button class="btn btn-orange" onclick="guardarEdicionVenta('${id}')">💾 Guardar cambios</button>
     </div>`);
@@ -9917,6 +9952,8 @@ async function guardarEdicionVenta(id){
   v.envio=+document.getElementById('v_envio').value||0;
   v.responsable=document.getElementById('v_resp').value;
   v.cuotas=ventaCuotasSel||1;   // 💳 guardar el plan elegido
+  v.quincenal=!!(document.getElementById('v_quincenal')&&document.getElementById('v_quincenal').checked&&ventaCuotasSel>1);
+  v.quincenalDividido=v.quincenal;
   let invsValidos=ventaInversores.filter(x=>x.nombre.trim() && x.pct>0);
   // si no hay inversores, el responsable es dueño al 100%
   if(!invsValidos.length && v.responsable && v.responsable.trim()){
@@ -9938,6 +9975,7 @@ async function guardarEdicionVenta(id){
   const _comE=_tieneRevE ? Math.round(_tvE*((ventaCuotasSel>1)?0.15:0.10)) : 0;
   let _pcE=0; if(v.tipo!=='prestamo' && ventaCuotasSel>1){ _pcE=planCuotas(_tvE, ventaCuotasSel)[0]||0; }
   if(ventaMontoCuotaManual>0) _pcE=ventaMontoCuotaManual;
+  if(v.quincenal&&_pcE>0) _pcE=Math.round(_pcE/2/100)*100;
   const _com1raE=primeraParteComisionParaInversion(_comE, ventaCuotasSel, _pcE);
   const _capE=capitalFaltanteInversion(v.precioCosto, _pcE, _com1raE, v.envio);
   const _sumaPctE=invsValidos.reduce((s,x)=>s+(x.pct||0),0);
@@ -9946,7 +9984,7 @@ async function guardarEdicionVenta(id){
   v.fecha=document.getElementById('v_fecha').value;
   v.cuotas=ventaCuotasSel;
   v.montoCuota=ventaMontoCuotaManual||0;
-  if((v.pagadas||0)>v.cuotas) v.pagadas=v.cuotas;
+  if((v.pagadas||0)>cantidadPagosVenta(v)) v.pagadas=cantidadPagosVenta(v);
   const resultadoGuardado=await DB.upsertVenta(v);
   // auditoría: registrar si no es "propiedad propia" del que edita
   if(!esPropiedadPropia(v)){
