@@ -5643,14 +5643,26 @@ function nombreMesClave(clave){
   const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const p=String(clave||'').split('-'); return p.length===2?(meses[Math.max(0,Number(p[1])-1)]+' '+p[0]):clave;
 }
+function nombreVendedorCanonico(nombre){
+  const limpio=String(nombre||'').trim().replace(/\s+/g,' ');
+  if(!limpio) return 'Sin revendedor';
+  const clave=limpio.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const alias={
+    'walter':'Walter','walter cardoso':'Walter','papa':'Walter',
+    'flor':'Flor','flor prima':'Flor',
+    'brenda':'Brenda','eri':'Eri','nicolas':'Nicolás'
+  };
+  if(alias[clave]) return alias[clave];
+  return limpio.toLowerCase().replace(/(^|[\s'-])([a-záéíóúñü])/g,(m,a,b)=>a+b.toUpperCase());
+}
 function vendedorDeVenta(v){
   const cli=DB.clientes.find(c=>c.id===v.clienteId);
-  return String((v.revendedor||'').trim() || (cli&&cli.revendedor||'').trim() || 'Sin revendedor');
+  return nombreVendedorCanonico((v.revendedor||'').trim() || (cli&&cli.revendedor||'').trim());
 }
 function listaVendedores(){
   const m=new Map();
   DB.ventas.forEach(v=>{ const n=vendedorDeVenta(v); if(n!=='Sin revendedor') m.set(normPersona(n),n); });
-  DB.clientes.forEach(c=>{ const n=String(c.revendedor||'').trim(); if(n) m.set(normPersona(n),n); });
+  DB.clientes.forEach(c=>{ const n=nombreVendedorCanonico(c.revendedor); if(n&&n!=='Sin revendedor') m.set(normPersona(n),n); });
   return [...m.values()].sort((a,b)=>a.localeCompare(b,'es'));
 }
 function coincideVendedor(v,nombre){ return nombre==='todos'||normPersona(vendedorDeVenta(v))===normPersona(nombre); }
