@@ -764,6 +764,7 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
       <button class="fin-menu-btn" onclick="abrirSeccionFin('finanzas')"><span class="fmb-ico">📊</span><span class="fmb-txt">Resumen<br><small>del negocio</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('persona')"><span class="fmb-ico">👤</span><span class="fmb-txt">Por persona<br><small>ventas de cada uno</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('planilla')"><span class="fmb-ico">📋</span><span class="fmb-txt">Planilla<br><small>tablero mes a mes</small></span></button>
+      <button class="fin-menu-btn" onclick="abrirSeccionFin('vendedores')"><span class="fmb-ico">🤝</span><span class="fmb-txt">Vendedores<br><small>seguimiento y cierres</small></span></button>
       <button class="fin-menu-btn" onclick="abrirSeccionFin('inv')"><span class="fmb-ico">💼</span><span class="fmb-txt">Inversores<br><small>reparto</small></span></button>
     </div>
     <div class="sec-title" style="margin-top:16px;">Más herramientas</div>
@@ -786,7 +787,7 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
     <button class="seg-btn" id="modoPersBtn" onclick="setModoFin('persona')">👤 Por persona</button>
     <button class="seg-btn" id="modoPlanillaBtn" onclick="setModoFin('planilla')">📋 Planilla</button>
     <button class="seg-btn" onclick="volverMenuFin()">••• Más</button>
-    <button id="modoCalcBtn" style="display:none"></button><button id="modoCatBtn" style="display:none"></button><button id="modoPlacaBtn" style="display:none"></button><button id="modoRespBtn" style="display:none"></button><button id="modoPanelBtn" style="display:none"></button>
+    <button id="modoCalcBtn" style="display:none"></button><button id="modoCatBtn" style="display:none"></button><button id="modoPlacaBtn" style="display:none"></button><button id="modoRespBtn" style="display:none"></button><button id="modoPanelBtn" style="display:none"></button><button id="modoVendBtn" style="display:none"></button>
   </div>
 
   <!-- BLOQUE FINANZAS -->
@@ -873,6 +874,9 @@ button:active, .cuota-check:active, .quick:active, .card[onclick]:active {
   <div id="bloquePlanilla" style="display:none;">
     <div class="seg" id="planillaMeses" style="margin-bottom:12px;flex-wrap:wrap;gap:5px;"></div>
     <div id="planillaContent"></div>
+  </div>
+  <div id="bloqueVendedores" style="display:none;">
+    <div id="vendedoresContent"></div>
   </div>
 </div>
 
@@ -1738,13 +1742,19 @@ const DB = {
       return {ok:false,msg:'sin conexión'};
     }
     try{
-      const {data,error}=await sb.from('ventas').update({pagadas:nuevo}).eq('id',v.id).select('id,pagadas');
+      const anterior=Number(v.pagadas||0);
+      v.abonos=v.abonos||{};
+      v.abonos.__fechasPago=v.abonos.__fechasPago||{};
+      if(nuevo>anterior){ for(let i=anterior+1;i<=nuevo;i++) if(!v.abonos.__fechasPago[i]) v.abonos.__fechasPago[i]=isoDate(today()); }
+      if(nuevo<anterior){ for(let i=nuevo+1;i<=anterior;i++) delete v.abonos.__fechasPago[i]; }
+      const {data,error}=await sb.from('ventas').update({pagadas:nuevo,abonos:v.abonos}).eq('id',v.id).select('id,pagadas,abonos');
       if(error || !data || !data.length){
         const msg=error?(error.message||String(error)):'Supabase no confirmó el cambio';
         alert('⚠️ El pago NO se guardó en la nube.\n\n'+msg+'\n\nNo se modificó la cuota.');
         return {ok:false,msg};
       }
       v.pagadas=Number(data[0].pagadas||0);
+      if(data[0].abonos) v.abonos=data[0].abonos;
       this.saveLocal();
       PENDIENTES.quitar('ventas',v.id); // evita que un snapshot viejo reviva este estado
       avisarCambioPago(v.id,v.pagadas);
@@ -2252,6 +2262,17 @@ function planCuotas(precio, n){
   else total = precio;
   const cuota = Math.round((total/n)/1000)*1000; // cuotas redondeadas a $1.000
   return Array(n).fill(cuota);
+}
+/* Promo 3 cuotas sin interés: conserva el total comercial del plan de 2 cuotas. */
+function planTresSinInteres(precio){
+  const totalPlan2=planCuotas(precio,2).reduce((s,x)=>s+(Number(x)||0),0);
+  const cuota=Math.round((totalPlan2/3)/1000)*1000;
+  return Array(3).fill(cuota);
+}
+function esTresSinInteres(v){ return !!(v&&(v.tresSinInteres===true||(v.abonos&&v.abonos.__tresSinInteres===true))); }
+function planSegunVenta(v){
+  const n=Number(v&&v.cuotas||1);
+  return (esTresSinInteres(v)&&n===3) ? planTresSinInteres(v.precioVenta||0) : planCuotas(v.precioVenta||0,n);
 }
 
 
@@ -2910,11 +2931,11 @@ function ventaCuotas(v){
   if(quinc){
     // Igual que la calculadora: cada cuota mensual se divide en dos pagos
     // quincenales y se redondea al múltiplo de $100.
-    const cuotaMensual=(v.montoCuota>0) ? v.montoCuota : (planCuotas(v.precioVenta,cuotasBase)[0]||0);
+    const cuotaMensual=(v.montoCuota>0) ? v.montoCuota : (planSegunVenta(v)[0]||0);
     const pagoQuincenal=Math.round(cuotaMensual/2/100)*100;
     montos=Array(n).fill(pagoQuincenal);
   } else {
-    montos = (v.montoCuota>0) ? Array(n).fill(v.montoCuota) : planCuotas(v.precioVenta, n);
+    montos = (v.montoCuota>0) ? Array(n).fill(v.montoCuota) : planSegunVenta(v);
   }
   const inicio = parseD(v.fecha);
   const out=[];
@@ -4748,8 +4769,11 @@ async function registrarAbono(ventaId, num, todo){
     if(!monto || monto<=0){ toast('Poné un monto válido'); return; }
   }
   v.abonos = v.abonos || {};
+  v.abonos.__historial=v.abonos.__historial||{};
+  v.abonos.__historial[num]=Array.isArray(v.abonos.__historial[num])?v.abonos.__historial[num]:[];
   const abonoActual = Number(v.abonos[num]||0);
   let nuevoAbono = abonoActual + monto;
+  v.abonos.__historial[num].push({monto:Math.min(monto,cuota.resta||monto),fecha:isoDate(today()),usuario:usuarioActual()||''});
   // si el abono cubre (o supera) el monto de la cuota, se marca como pagada completa
   const cuotaSaldada=nuevoAbono >= cuota.monto - 0.5;
   if(cuotaSaldada){
@@ -5610,6 +5634,136 @@ function compartirReporteMensual(fact,gan,cobrado,pend){
     `⏳ Falta cobrar: $${fmt(pend)}`;
   window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
 }
+
+/* ============ SEGUIMIENTO Y CIERRE POR VENDEDOR ============ */
+let vendedorSel='todos';
+let vendedorMes=isoDate(today()).slice(0,7);
+function mesClaveFecha(f){ return String(f||'').slice(0,7); }
+function nombreMesClave(clave){
+  const meses=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const p=String(clave||'').split('-'); return p.length===2?(meses[Math.max(0,Number(p[1])-1)]+' '+p[0]):clave;
+}
+function vendedorDeVenta(v){
+  const cli=DB.clientes.find(c=>c.id===v.clienteId);
+  return String((v.revendedor||'').trim() || (cli&&cli.revendedor||'').trim() || 'Sin revendedor');
+}
+function listaVendedores(){
+  const m=new Map();
+  DB.ventas.forEach(v=>{ const n=vendedorDeVenta(v); if(n!=='Sin revendedor') m.set(normPersona(n),n); });
+  DB.clientes.forEach(c=>{ const n=String(c.revendedor||'').trim(); if(n) m.set(normPersona(n),n); });
+  return [...m.values()].sort((a,b)=>a.localeCompare(b,'es'));
+}
+function coincideVendedor(v,nombre){ return nombre==='todos'||normPersona(vendedorDeVenta(v))===normPersona(nombre); }
+function fechaPagoCuota(v,c){
+  const fechas=v.abonos&&v.abonos.__fechasPago;
+  if(fechas&&fechas[c.num]) return fechas[c.num];
+  /* Ventas históricas no guardaban fecha real: se usa el vencimiento para poder reconstruir los cierres anteriores. */
+  return c.pagada?c.vence:'';
+}
+function comisionesCobradasVendedor(nombre,mes){
+  const filas=[];
+  DB.ventas.forEach(v=>{
+    if(!coincideVendedor(v,nombre)) return;
+    const partes=reparteComisionEnCuotas(v);
+    const cli=DB.clientes.find(c=>c.id===v.clienteId)||{nombre:'—'};
+    ventaCuotas(v).forEach(c=>{
+      const monto=Number(partes[c.num-1]||0), fecha=fechaPagoCuota(v,c);
+      if(monto>0&&c.pagada&&mesClaveFecha(fecha)===mes){
+        filas.push({v,c,cli,monto,fecha,vendedor:vendedorDeVenta(v)});
+      }
+    });
+  });
+  return filas.sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+}
+function cambiarFiltroVendedor(){
+  vendedorSel=(document.getElementById('vendFiltro')||{}).value||'todos';
+  vendedorMes=(document.getElementById('vendMes')||{}).value||vendedorMes;
+  renderVendedores();
+}
+function renderVendedores(){
+  const cont=document.getElementById('vendedoresContent'); if(!cont) return;
+  const vendedores=listaVendedores();
+  if(vendedorSel!=='todos'&&!vendedores.some(n=>normPersona(n)===normPersona(vendedorSel))) vendedorSel='todos';
+  const vs=DB.ventas.filter(v=>coincideVendedor(v,vendedorSel));
+  const ventasMes=vs.filter(v=>mesClaveFecha(v.fecha)===vendedorMes);
+  const comisiones=comisionesCobradasVendedor(vendedorSel,vendedorMes);
+  const totalComisiones=comisiones.reduce((s,x)=>s+x.monto,0);
+  const facturado=ventasMes.reduce((s,v)=>s+totalPagadoVenta(v),0);
+  const clientes=new Set(vs.map(v=>v.clienteId));
+  const filas=[];
+  vs.forEach(v=>{
+    const cli=DB.clientes.find(c=>c.id===v.clienteId)||{nombre:'—'};
+    const px=proxVencimiento(v); if(!px) return;
+    const dias=Math.ceil((parseD(px.vence)-today())/86400000);
+    filas.push({v,cli,px,dias,vendedor:vendedorDeVenta(v)});
+  });
+  filas.sort((a,b)=>parseD(a.px.vence)-parseD(b.px.vence));
+  const opciones=`<option value="todos" ${vendedorSel==='todos'?'selected':''}>Todos los vendedores</option>`+vendedores.map(n=>`<option value="${escHtml(n)}" ${normPersona(vendedorSel)===normPersona(n)?'selected':''}>${escHtml(n)}</option>`).join('');
+  cont.innerHTML=`
+    <div class="field-row"><div class="field"><label>Vendedor</label><select id="vendFiltro" onchange="cambiarFiltroVendedor()">${opciones}</select></div><div class="field"><label>Mes del cierre</label><input id="vendMes" type="month" value="${vendedorMes}" onchange="cambiarFiltroVendedor()"></div></div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;">
+      <div class="card" style="padding:12px;"><div class="info-lbl">Ventas del mes</div><div style="font-size:24px;font-weight:900;color:var(--blue);">${ventasMes.length}</div></div>
+      <div class="card" style="padding:12px;"><div class="info-lbl">Total vendido</div><div style="font-size:20px;font-weight:900;color:var(--blue);">$${fmt(facturado)}</div></div>
+      <div class="card" style="padding:12px;"><div class="info-lbl">Comisiones cobradas</div><div style="font-size:20px;font-weight:900;color:var(--green);">$${fmt(totalComisiones)}</div></div>
+      <div class="card" style="padding:12px;"><div class="info-lbl">Clientes asignados</div><div style="font-size:24px;font-weight:900;color:var(--orange);">${clientes.size}</div></div>
+    </div>
+    ${vendedorSel!=='todos'?`<button class="btn btn-orange" style="margin-bottom:8px;" onclick="verCierreVendedorPDF()">📄 Ver y descargar cierre mensual PDF</button>`:''}
+    <button class="btn btn-blue" style="margin-bottom:12px;" onclick="abrirExportarExcel()">📊 Descargar Excel interno por período</button>
+    <div class="sec-title">Seguimiento de clientes</div>
+    ${filas.length?`<div class="planilla-hint">← deslizá para ver todo →</div><div class="planilla-wrap cob-planilla-wrap"><table class="planilla cob-planilla"><thead><tr><th>Estado</th><th>Vendedor</th><th>Cliente</th><th>Producto</th><th>Plan</th><th>Pagado</th><th>Saldo</th><th>Próximo venc.</th></tr></thead><tbody>${filas.map(x=>{
+      const est=x.dias<0?`🔴 ${Math.abs(x.dias)} días de atraso`:x.dias<=7?`🟠 En ${x.dias} días`:`🟢 En ${x.dias} días`;
+      const cuotas=ventaCuotas(x.v), pagado=cuotas.reduce((s,c)=>s+(c.pagada?c.monto:(c.abono||0)),0), saldo=cuotas.reduce((s,c)=>s+(c.resta||0),0);
+      return `<tr onclick="detalleVenta('${x.v.id}')" style="cursor:pointer"><td>${est}</td><td>${escHtml(x.vendedor)}</td><td><b>${escHtml(x.cli.nombre)}</b></td><td>${escHtml(x.v.producto||'—')}</td><td>${x.v.quincenal?'Quincenal · '+cantidadPagosVenta(x.v):((x.v.cuotas||1)+' pagos')}</td><td class="col-monto">$${fmt(pagado)}</td><td class="col-monto">$${fmt(saldo)}</td><td>${dispDate(x.px.vence)}</td></tr>`;
+    }).join('')}</tbody></table></div>`:emptyState('🤝','Sin créditos activos','No hay cuotas pendientes para este filtro')}`;
+}
+function verCierreVendedorPDF(){
+  if(vendedorSel==='todos'){ toast('Elegí un vendedor'); return; }
+  const ventasMes=DB.ventas.filter(v=>coincideVendedor(v,vendedorSel)&&mesClaveFecha(v.fecha)===vendedorMes);
+  const comisiones=comisionesCobradasVendedor(vendedorSel,vendedorMes);
+  const total=comisiones.reduce((s,x)=>s+x.monto,0);
+  const filas=comisiones.length?comisiones.map(x=>`<tr><td style="padding:7px;border:1px solid #d9e1ee;">${dispDate(x.fecha)}</td><td style="padding:7px;border:1px solid #d9e1ee;">${escHtml(x.cli.nombre)}</td><td style="padding:7px;border:1px solid #d9e1ee;">${escHtml(x.v.producto||'—')}</td><td style="padding:7px;border:1px solid #d9e1ee;text-align:center;">Pago ${x.c.num} de ${partesComision(x.v)}</td><td style="padding:7px;border:1px solid #d9e1ee;text-align:right;font-weight:800;">$${fmt(x.monto)}</td></tr>`).join(''):`<tr><td colspan="5" style="padding:16px;text-align:center;border:1px solid #d9e1ee;">Sin comisiones cobradas en este mes</td></tr>`;
+  openModal(`<div id="cierreVendedorPrint" style="background:#fff;color:#1a1a2e;max-width:620px;margin:auto;padding:22px;font-family:'Plus Jakarta Sans',Arial,sans-serif;"><div style="border-bottom:5px solid #FF7A00;padding-bottom:12px;margin-bottom:16px;"><div style="font-size:12px;color:#FF7A00;font-weight:800;">AMARANGOELECTRO</div><div style="font-size:24px;font-weight:900;color:#0B2D6B;">Cierre mensual de vendedor</div><div style="font-size:14px;margin-top:5px;"><b>${escHtml(vendedorSel)}</b> · ${nombreMesClave(vendedorMes)}</div></div><div style="display:flex;gap:12px;margin-bottom:16px;"><div style="flex:1;background:#f4f7ff;padding:12px;border-radius:10px;"><div style="font-size:11px;color:#68758f;">Ventas realizadas</div><div style="font-size:23px;font-weight:900;color:#0B2D6B;">${ventasMes.length}</div></div><div style="flex:1;background:#effbf3;padding:12px;border-radius:10px;"><div style="font-size:11px;color:#68758f;">Comisiones cobradas</div><div style="font-size:23px;font-weight:900;color:#14833b;">$${fmt(total)}</div></div></div><table style="width:100%;border-collapse:collapse;font-size:11px;"><thead><tr style="background:#0B2D6B;color:#fff;"><th style="padding:7px;">Fecha</th><th>Cliente</th><th>Producto</th><th>Parte</th><th>Monto</th></tr></thead><tbody>${filas}</tbody></table><div style="font-size:10px;color:#68758f;margin-top:14px;">Incluye las comisiones efectivamente cobradas durante el mes, aunque correspondan a ventas anteriores.</div></div><button class="btn btn-blue" style="margin-top:14px;" onclick="descargarCierreVendedorPDF()">📥 Descargar PDF</button>`);
+}
+async function descargarCierreVendedorPDF(){
+  const el=document.getElementById('cierreVendedorPrint'); if(!el) return;
+  try{ await prepararLibreriasPDF(); const pdf=await generarPDF(el); pdf.save('cierre_'+vendedorSel.replace(/[^a-z0-9]+/gi,'_')+'_'+vendedorMes+'.pdf'); toastOK('PDF descargado'); }
+  catch(e){ console.warn(e); toast('No se pudo generar el PDF'); }
+}
+function abrirExportarExcel(){
+  const desde=new Date(today().getFullYear(),today().getMonth()-2,1), hasta=new Date(today().getFullYear(),today().getMonth()+1,0);
+  openModal(`<div class="modal-title">📊 Excel interno</div><div class="modal-sub">Una solapa por mes, con ventas nuevas y créditos activos.</div><div class="field-row"><div class="field"><label>Desde</label><input id="xlsDesde" type="month" value="${isoDate(desde).slice(0,7)}"></div><div class="field"><label>Hasta</label><input id="xlsHasta" type="month" value="${isoDate(hasta).slice(0,7)}"></div></div><div class="field"><label>Vendedor</label><select id="xlsVend"><option value="todos">Todos los vendedores</option>${listaVendedores().map(n=>`<option value="${escHtml(n)}" ${normPersona(vendedorSel)===normPersona(n)?'selected':''}>${escHtml(n)}</option>`).join('')}</select></div><button class="btn btn-green" onclick="descargarExcelInterno()">📥 Descargar Excel</button>`);
+}
+function clavesMeses(desde,hasta){
+  const a=String(desde).split('-'), b=String(hasta).split('-'), out=[];
+  let y=Number(a[0]),m=Number(a[1])-1, fin=Number(b[0])*12+Number(b[1])-1;
+  while(y*12+m<=fin&&out.length<60){ out.push(y+'-'+String(m+1).padStart(2,'0')); m++; if(m>11){m=0;y++;} }
+  return out;
+}
+function descargarExcelInterno(){
+  if(typeof XLSX==='undefined'){ toast('El lector de Excel todavía no cargó'); return; }
+  const desde=(document.getElementById('xlsDesde')||{}).value, hasta=(document.getElementById('xlsHasta')||{}).value, vend=(document.getElementById('xlsVend')||{}).value||'todos';
+  if(!desde||!hasta||desde>hasta){ toast('Revisá el período'); return; }
+  const wb=XLSX.utils.book_new();
+  clavesMeses(desde,hasta).forEach(mes=>{
+    const rows=[];
+    DB.ventas.filter(v=>coincideVendedor(v,vend)&&mesClaveFecha(v.fecha)===mes).forEach(v=>{
+      const cli=DB.clientes.find(c=>c.id===v.clienteId)||{};
+      const pc=reparteComisionEnCuotas(v), cobCom=ventaCuotas(v).reduce((s,c)=>s+((c.pagada&&mesClaveFecha(fechaPagoCuota(v,c))===mes)?Number(pc[c.num-1]||0):0),0);
+      rows.push({'Tipo de registro':'VENTA NUEVA','Fecha':dispDate(v.fecha),'Vendedor':vendedorDeVenta(v),'Cliente':cli.nombre||'','DNI':cli.dni||'','Teléfono':cli.telefono||'','Producto':v.producto||'','Plan':v.quincenal?'Quincenal '+cantidadPagosVenta(v):(esTresSinInteres(v)?'3 cuotas sin interés':(v.cuotas||1)+' pagos'),'Total venta':totalPagadoVenta(v),'Total cobrado':'','Saldo':'','Próximo vencimiento':'','Comisión total':comisionRevendedor(v),'Comisión cobrada en el mes':cobCom});
+    });
+    DB.ventas.filter(v=>coincideVendedor(v,vend)).forEach(v=>{
+      const cs=ventaCuotas(v), delMes=cs.filter(c=>mesClaveFecha(c.vence)===mes); if(!delMes.length) return;
+      const cli=DB.clientes.find(c=>c.id===v.clienteId)||{}, cob=delMes.reduce((s,c)=>s+(c.pagada?c.monto:(c.abono||0)),0), saldo=delMes.reduce((s,c)=>s+(c.resta||0),0), px=cs.find(c=>!c.pagada);
+      const pc=reparteComisionEnCuotas(v), cobCom=cs.reduce((s,c)=>s+((c.pagada&&mesClaveFecha(fechaPagoCuota(v,c))===mes)?Number(pc[c.num-1]||0):0),0);
+      rows.push({'Tipo de registro':'CRÉDITO ACTIVO','Fecha':dispDate(v.fecha),'Vendedor':vendedorDeVenta(v),'Cliente':cli.nombre||'','DNI':cli.dni||'','Teléfono':cli.telefono||'','Producto':v.producto||'','Plan':v.quincenal?'Quincenal '+cantidadPagosVenta(v):(esTresSinInteres(v)?'3 cuotas sin interés':(v.cuotas||1)+' pagos'),'Total venta':totalPagadoVenta(v),'Total cobrado':cob,'Saldo':saldo,'Próximo vencimiento':px?dispDate(px.vence):'Saldado','Comisión total':comisionRevendedor(v),'Comisión cobrada en el mes':cobCom});
+    });
+    const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'Tipo de registro':'Sin movimientos'}]);
+    ws['!cols']=[{wch:18},{wch:13},{wch:20},{wch:25},{wch:14},{wch:16},{wch:35},{wch:22},{wch:15},{wch:15},{wch:15},{wch:20},{wch:16},{wch:24}];
+    XLSX.utils.book_append_sheet(wb,ws,nombreMesClave(mes).slice(0,31));
+  });
+  XLSX.writeFile(wb,'Amarango_ventas_y_creditos_'+desde+'_a_'+hasta+'.xlsx');
+  toastOK('Excel descargado');
+}
 function emptyState(i,t,x){ return `<div class="empty"><div class="empty-ico">${i}</div><div class="empty-t">${t}</div><div class="empty-x">${x}</div></div>`; }
 
 /* ============================================================
@@ -5624,7 +5778,7 @@ function volverMenuFin(){
   const volver=document.getElementById('finVolver'); if(volver) volver.style.display='none';
   const desc=document.querySelector('#view-finanzas .view-desc'); if(desc) desc.textContent='Elegí qué querés hacer';
   // ocultar todos los bloques
-  ['bloqueFinanzas','bloqueCalc','bloqueInv','bloquePers','bloqueCatalogo','bloquePanel','bloquePlacas','bloqueRespuestas'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
+  ['bloqueFinanzas','bloqueCalc','bloqueInv','bloquePers','bloqueCatalogo','bloquePanel','bloquePlacas','bloqueRespuestas','bloquePlanilla','bloqueVendedores'].forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display='none'; });
 }
 // Abre una sección concreta desde el menú (oculta el menú, muestra la sección + botón volver)
 function abrirSeccionFin(m){
@@ -5648,6 +5802,7 @@ function setModoFin(m){
   const plb=document.getElementById('modoPlacaBtn'); if(plb) plb.classList.toggle('active', m==='placas');
   const pllb=document.getElementById('modoPlanillaBtn'); if(pllb) pllb.classList.toggle('active', m==='planilla');
   const rsb=document.getElementById('modoRespBtn'); if(rsb) rsb.classList.toggle('active', m==='respuestas');
+  const vdb=document.getElementById('modoVendBtn'); if(vdb) vdb.classList.toggle('active', m==='vendedores');
   document.getElementById('bloqueFinanzas').style.display = m==='finanzas'?'block':'none';
   document.getElementById('bloqueCalc').style.display = m==='calc'?'block':'none';
   document.getElementById('bloqueInv').style.display = m==='inv'?'block':'none';
@@ -5657,6 +5812,7 @@ function setModoFin(m){
   const bpl=document.getElementById('bloquePlacas'); if(bpl) bpl.style.display = m==='placas'?'block':'none';
   const bpll=document.getElementById('bloquePlanilla'); if(bpll) bpll.style.display = m==='planilla'?'block':'none';
   const brs=document.getElementById('bloqueRespuestas'); if(brs) brs.style.display = m==='respuestas'?'block':'none';
+  const bvd=document.getElementById('bloqueVendedores'); if(bvd) bvd.style.display = m==='vendedores'?'block':'none';
   if(m==='calc') renderCalc();
   if(m==='inv') renderInversores();
   if(m==='persona') renderPorPersona();
@@ -5665,6 +5821,7 @@ function setModoFin(m){
   if(m==='placas') renderPlacas();
   if(m==='planilla') renderPlanillaMes();
   if(m==='respuestas') renderRespuestas();
+  if(m==='vendedores') renderVendedores();
 }
 let persSel=null;
 // Devuelve la participación REAL de una persona en una venta. Usa el reparto
@@ -6619,6 +6776,10 @@ function renderPlacas(){
         ${[2,3,4,6,12].map(n=>`<label style="display:flex;align-items:center;gap:5px;font-size:14px;background:#f0f6ff;padding:6px 12px;border-radius:20px;cursor:pointer;"><input type="checkbox" class="plCuota" value="${n}" ${(n===2||n===4||n===6)?'checked':''} onchange="armarTextoPlaca()" style="width:18px;height:18px;"> ${n}c</label>`).join('')}
       </div>
     </div>
+    <div class="card" style="padding:10px 14px;margin-bottom:12px;background:#f0f6ff;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;"><input type="checkbox" id="plQuincenal" style="width:auto;" onchange="armarTextoPlaca()"><span style="font-weight:800;color:var(--blue);">🗓️ Mostrar los planes como pagos quincenales</span></label>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px;">Mantiene el total: cada cuota mensual se divide en dos pagos cada 15 días.</div>
+    </div>
     <div id="placaTextoOut"></div>
     </div>
     <div id="placaVarios" style="display:none;">
@@ -6832,7 +6993,11 @@ function armarTextoPlaca(){
     detalleCuenta = `Costo $${fmt(costoBase)} → precio de venta`;
   }
   const cuotasSel=[...document.querySelectorAll('.plCuota:checked')].map(c=>+c.value).sort((a,b)=>a-b);
-  const lineasCuotas = cuotasSel.map(n=>`💳 ${n} cuotas de $${fmt(planCuotas(precioVenta,n)[0]||0)}`).join('\n');
+  const mostrarQuincenal=!!(document.getElementById('plQuincenal')&&document.getElementById('plQuincenal').checked);
+  const lineasCuotas = cuotasSel.map(n=>{
+    const mensual=planCuotas(precioVenta,n)[0]||0;
+    return mostrarQuincenal?`🗓️ ${n*2} pagos quincenales de $${fmt(Math.round(mensual/2/100)*100)}`:`💳 ${n} cuotas de $${fmt(mensual)}`;
+  }).join('\n');
   const cierre=`✨ _RETIRALA CON TU PRIMER CUOTA_ 🔥💣\n\n😃 Conocé nuestros planes de hasta 6 cuotas fijas\n\n📢 _Seguinos en nuestro canal de AMARANGO ELECTRO_`;
   // QUITAR el precio viejo del texto pegado (el que se reemplazó) para que solo quede el nuevo
   const valStr=String(precioDetectado); // ej "620" o "250000"
@@ -6859,7 +7024,7 @@ function armarTextoPlaca(){
     <div class="card" style="background:linear-gradient(135deg,#0B2D6B,#1a4a9f);border:none;margin-bottom:12px;">
       <div style="color:rgba(255,255,255,.75);font-size:11px;">${detalleCuenta}</div>
       <div style="color:#fff;font-size:26px;font-weight:900;">$${fmt(precioVenta)}</div>
-      <div style="color:rgba(255,255,255,.9);font-size:12px;margin-top:4px;">${cuotasSel.map(n=>n+'c × $'+fmt(planCuotas(precioVenta,n)[0]||0)).join('  ·  ')}</div>
+      <div style="color:rgba(255,255,255,.9);font-size:12px;margin-top:4px;">${cuotasSel.map(n=>mostrarQuincenal?(n*2)+' pagos × $'+fmt(Math.round((planCuotas(precioVenta,n)[0]||0)/2/100)*100):n+'c × $'+fmt(planCuotas(precioVenta,n)[0]||0)).join('  ·  ')}</div>
     </div>
     <div class="card" style="margin-bottom:10px;padding:12px 14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
@@ -7698,6 +7863,7 @@ function invitarInversor(pone, gana, extra){
 /* ============ FORM CLIENTE ============ */
 function formCliente(edit){
   const c=edit||{};
+  const responsableInicial=c.responsable||usuarioActual()||'Maxi';
   openModal(`<div class="modal-title">${edit?'Editar':'Nuevo'} cliente</div><div class="modal-sub">Datos para la libreta</div>
     <div class="field"><label>Nombre completo *</label><input id="f_nombre" value="${c.nombre||''}" placeholder="Nombre y apellido"></div>
     <div class="field-row"><div class="field"><label>DNI</label><input id="f_dni" value="${c.dni||''}" placeholder="Documento" inputmode="numeric"></div>
@@ -7705,7 +7871,7 @@ function formCliente(edit){
     <div class="field"><label>Celular 2 <span style="color:var(--muted);font-weight:400;">(opcional)</span></label><input id="f_tel2" value="${c.telefono2||''}" placeholder="Otro teléfono" inputmode="tel"></div>
     <div class="field"><label>Localidad</label><input id="f_loc" value="${c.localidad||''}" placeholder="Localidad"></div>
     <div class="field"><label>Dirección</label><input id="f_dir" value="${c.direccion||''}" placeholder="Calle y número"></div>
-    <div class="field"><label>👤 Responsable</label><select id="f_resp">${['Maxi','Angela','Sabry','Guido','Selene'].map(r=>`<option ${(c.responsable||'Maxi')===r?'selected':''}>${r}</option>`).join('')}</select></div>
+    <div class="field"><label>👤 Responsable</label><select id="f_resp">${['Maxi','Angela','Sabry','Guido','Selene'].map(r=>`<option ${normPersona(responsableInicial)===normPersona(r)?'selected':''}>${r}</option>`).join('')}</select><div style="font-size:11px;color:var(--muted);margin-top:4px;">Se completa con la sesión actual, pero podés cambiarlo.</div></div>
     <div class="field-row"><div class="field"><label>Cliente de revendedor <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="f_revend" value="${c.revendedor||''}" placeholder="Nombre revendedor"></div>
     <div class="field"><label>Inversionista <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="f_inver" value="${c.inversionista||''}" placeholder="Nombre"></div></div>
     <div class="field"><label>Observaciones</label><textarea id="f_obs" placeholder="Notas...">${c.observaciones||''}</textarea></div>
@@ -7724,7 +7890,7 @@ function formCliente(edit){
 async function saveCliente(id){
   const nombre=document.getElementById('f_nombre').value.trim();
   if(!nombre){ toast('Poné un nombre'); return; }
-  const data={ nombre, dni:document.getElementById('f_dni').value.trim(), telefono:document.getElementById('f_tel').value.trim(), telefono2:document.getElementById('f_tel2').value.trim(), localidad:document.getElementById('f_loc').value.trim(), direccion:document.getElementById('f_dir').value.trim(), responsable:(document.getElementById('f_resp')?document.getElementById('f_resp').value:'Maxi'), revendedor:document.getElementById('f_revend').value.trim(), inversionista:document.getElementById('f_inver').value.trim(), observaciones:document.getElementById('f_obs').value.trim(), pagoAuto:(document.getElementById('f_pagoauto')?document.getElementById('f_pagoauto').value:'') };
+  const data={ nombre, dni:document.getElementById('f_dni').value.trim(), telefono:document.getElementById('f_tel').value.trim(), telefono2:document.getElementById('f_tel2').value.trim(), localidad:document.getElementById('f_loc').value.trim(), direccion:document.getElementById('f_dir').value.trim(), responsable:(document.getElementById('f_resp')?document.getElementById('f_resp').value:(usuarioActual()||'Maxi')), revendedor:document.getElementById('f_revend').value.trim(), inversionista:document.getElementById('f_inver').value.trim(), observaciones:document.getElementById('f_obs').value.trim(), pagoAuto:(document.getElementById('f_pagoauto')?document.getElementById('f_pagoauto').value:'') };
   let rec;
   let nombreProductoVenta='';
   if(id){ rec=DB.clientes.find(x=>x.id===id); Object.assign(rec,data); AUDIT.registrar('editó', 'cliente', `el cliente "${nombre}"`); }
@@ -7742,12 +7908,13 @@ async function saveCliente(id){
 /* ============ FORM VENTA ============ */
 let ventaCuotasSel=1;
 let ventaMontoCuotaManual=0; // 0 = usar fórmula; >0 = monto editado a mano
+let ventaTresSinInteres=false;
 function setMontoCuotaManual(v){ ventaMontoCuotaManual=+v||0; renderPlan(); }
 let itemsVenta=[]; // productos de la venta en curso
 let ventaTipo='producto'; // 'producto' o 'prestamo'
 function formVenta(preCliente){
   if(!DB.clientes.length){ toast('Primero cargá un cliente'); formCliente(); return; }
-  ventaCuotasSel=1; ventaMontoCuotaManual=0;
+  ventaCuotasSel=1; ventaMontoCuotaManual=0; ventaTresSinInteres=false;
   ventaInversores=[];
   itemsVenta=[{producto:'',costo:0,venta:0,cantidad:1}]; // arranca con 1 producto vacío
   const opts=DB.clientes.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(c=>`<option value="${c.id}" ${preCliente===c.id?'selected':''}>${c.nombre}</option>`).join('');
@@ -7776,7 +7943,7 @@ function formVenta(preCliente){
     </div>
     <div class="field-row"><div class="field"><label>Envío</label><input id="v_envio" type="number" inputmode="numeric" placeholder="0" oninput="recalcItems()"></div>
     <div id="planEdicionBox"></div>
-    <div class="field"><label>Responsable</label><select id="v_resp"><option>Maxi</option><option>Angela</option><option>Sabry</option><option>Guido</option></select></div></div>
+    <div class="field"><label>Responsable</label><select id="v_resp">${['Maxi','Angela','Sabry','Guido'].map(r=>`<option ${normPersona(usuarioActual()||'Maxi')===normPersona(r)?'selected':''}>${r}</option>`).join('')}</select><div style="font-size:11px;color:var(--muted);margin-top:4px;">Asignado según la sesión actual.</div></div></div>
     <div class="field"><label>Fecha</label><input id="v_fecha" type="date" value="${isoDate(today())}"></div>
     <div class="sec-title" style="margin-top:4px;">Inversores <span style="font-weight:400;text-transform:none;color:var(--muted);font-size:11px;">(opcional)</span></div>
     <div id="invContainer"></div>
@@ -7786,15 +7953,16 @@ function formVenta(preCliente){
     <div class="field"><label>Revendedor <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="v_revend" placeholder="Nombre"></div>
     <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="v_desc" style="width:auto;" onchange="recalcItems()"> Aplicar descuento 10% al total</label><div id="descPreview"></div></div>
     <div class="field"><label>Plan de pago</label><div id="cuotasChips">${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<span class="chip ${n===1?'sel':''}" data-c="${n}" onclick="selCuota(${n})">${n===1?'Contado':n+' cuotas'}</span>`).join('')}</div></div>
+    <div class="card" style="padding:10px 14px;margin-bottom:12px;border:1.5px solid var(--orange);background:#fff8f0;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;"><input type="checkbox" id="v_tres_sin_interes" style="width:auto;" onchange="toggleTresSinInteres(this.checked)"><span style="font-weight:800;color:var(--orange);">3 cuotas sin interés</span></label>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px;">Usa el total del plan de 2 cuotas y lo divide automáticamente en 3 pagos.</div>
+    </div>
     <div class="card" id="cajonQuincVentaBox" style="padding:10px 14px;margin-bottom:12px;display:none;">
-      ${cajonHeader('cajonQuincVenta','🗓️ ¿Pago quincenal? (cada 15 días)', false)}
-      <div id="cajonQuincVenta" style="display:none;margin-top:10px;">
-        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
-          <input type="checkbox" id="v_quincenal" style="width:auto;" onchange="recalcItems()">
-          <span style="font-weight:700;color:var(--blue);">Activar plan quincenal</span>
-        </label>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px;">Mismo precio, pero las cuotas vencen cada 15 días en vez de cada mes. Las cobranzas se ajustan solas.</div>
-      </div>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
+        <input type="checkbox" id="v_quincenal" style="width:auto;" onchange="recalcItems()">
+        <span style="font-weight:800;color:var(--blue);">🗓️ Activar pagos quincenales</span>
+      </label>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Mantiene el mismo total y plazo, pero divide cada cuota mensual en dos pagos cada 15 días.</div>
     </div>
     <div id="planPreview"></div>
     <div id="planEnviar"></div>
@@ -8135,7 +8303,7 @@ function recalcItems(){
   let totalPagado = tv;
   if(ventaCuotasSel>1 && ventaTipo!=='prestamo'){
     const venta=precioFinal();
-    const cuotaVal = (ventaMontoCuotaManual>0) ? ventaMontoCuotaManual : planCuotas(venta,ventaCuotasSel)[0];
+    const cuotaVal = (ventaMontoCuotaManual>0) ? ventaMontoCuotaManual : planVentaFormulario(venta,ventaCuotasSel)[0];
     const esQuincenal=!!(document.getElementById('v_quincenal')&&document.getElementById('v_quincenal').checked);
     totalPagado = esQuincenal ? Math.round(cuotaVal/2/100)*100*(ventaCuotasSel*2) : cuotaVal*ventaCuotasSel;
   }
@@ -8149,7 +8317,26 @@ function recalcItems(){
   renderPlan();
   if(typeof recalcInv==='function') recalcInv();
 }
-function selCuota(n){ ventaCuotasSel=n; ventaMontoCuotaManual=0; document.querySelectorAll('#cuotasChips .chip').forEach(x=>x.classList.toggle('sel',+x.dataset.c===n)); const qb=document.getElementById('cajonQuincVentaBox'); if(qb) qb.style.display = n>1 ? 'block' : 'none'; renderPlan(); recalcItems(); }
+function selCuota(n){
+  ventaCuotasSel=n; ventaMontoCuotaManual=0;
+  if(n!==3) ventaTresSinInteres=false;
+  const tsi=document.getElementById('v_tres_sin_interes'); if(tsi) tsi.checked=ventaTresSinInteres;
+  document.querySelectorAll('#cuotasChips .chip').forEach(x=>x.classList.toggle('sel',+x.dataset.c===n));
+  const qb=document.getElementById('cajonQuincVentaBox'); if(qb) qb.style.display = n>1 ? 'block' : 'none';
+  renderPlan(); recalcItems();
+}
+function toggleTresSinInteres(activo){
+  ventaTresSinInteres=!!activo;
+  if(activo){
+    ventaCuotasSel=3; ventaMontoCuotaManual=0;
+    document.querySelectorAll('#cuotasChips .chip').forEach(x=>x.classList.toggle('sel',+x.dataset.c===3));
+    const qb=document.getElementById('cajonQuincVentaBox'); if(qb) qb.style.display='block';
+  }
+  renderPlan(); recalcItems();
+}
+function planVentaFormulario(precio,n){
+  return (ventaTresSinInteres&&Number(n)===3) ? planTresSinInteres(precio) : planCuotas(precio,n);
+}
 function selTipo(t){
   ventaTipo=t;
   document.querySelectorAll('#tipoChips .chip').forEach(x=>x.classList.toggle('sel',x.dataset.t===t));
@@ -8223,7 +8410,7 @@ function recalcInv(){
   // 1ra cuota del cliente (la entrega)
   let primeraCuota=0;
   if(ventaTipo!=='prestamo' && ventaCuotasSel>1){
-    const plan=planCuotas(tv, ventaCuotasSel);
+    const plan=planVentaFormulario(tv, ventaCuotasSel);
     primeraCuota=plan[0]||0;
   }
   if(ventaMontoCuotaManual>0) primeraCuota=ventaMontoCuotaManual;
@@ -8284,7 +8471,7 @@ function renderPlan(){
     if(ventaTipo==='prestamo'){ // préstamo: dividir el total en cuotas iguales
       const c=Math.round(venta/ventaCuotasSel/500)*500; m=Array(ventaCuotasSel).fill(c); total=c*ventaCuotasSel;
     } else {
-      m=planCuotas(venta,ventaCuotasSel); total=m.reduce((s,x)=>s+x,0);
+      m=planVentaFormulario(venta,ventaCuotasSel); total=m.reduce((s,x)=>s+x,0);
     }
     // si el usuario editó el monto a mano, usar ese
     const montoCuota = (ventaMontoCuotaManual>0) ? ventaMontoCuotaManual : m[0];
@@ -8295,7 +8482,7 @@ function renderPlan(){
     const montoMostrado=esQuincenal?pagoQuincenal:montoCuota;
     const totalMostrado=montoMostrado*cantidadMostrada;
     cont.innerHTML=`<div style="background:#fff8f0;border-radius:11px;padding:10px 12px;margin-bottom:12px;font-size:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;color:var(--blue);"><span>${esQuincenal?cantidadMostrada+' pagos quincenales':ventaCuotasSel+' cuotas'} de</span>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;color:var(--blue);"><span>${esQuincenal?cantidadMostrada+' pagos quincenales':ventaCuotasSel+' cuotas'}${ventaTresSinInteres?' · sin interés':''} de</span>
       <span style="display:flex;align-items:center;gap:4px;">$<input type="number" inputmode="numeric" value="${montoMostrado}" ${esQuincenal?'readonly title="Se calcula como la mitad de la cuota mensual"':`onchange="setMontoCuotaManual(this.value)"`} style="width:90px;text-align:right;border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-weight:800;color:var(--orange);font-size:13px;"></span></div>
       <div style="display:flex;justify-content:space-between;color:var(--muted);margin-top:6px;"><span>Total a pagar</span><span>$${fmt(totalMostrado)}</span></div>
       ${esQuincenal?`<div style="font-size:11px;color:var(--blue);margin-top:5px;">Equivale a ${ventaCuotasSel} cuotas mensuales, divididas en dos pagos cada 15 días.</div>`:''}
@@ -8378,7 +8565,7 @@ async function saveVenta(){
   const _tieneRevVenta = document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const _comisionVenta = _tieneRevVenta ? Math.round(_tvVenta*((ventaCuotasSel>1)?0.15:0.10)) : 0;
   let _primeraCuotaVenta = 0;
-  if(ventaTipo!=='prestamo' && ventaCuotasSel>1){ _primeraCuotaVenta = planCuotas(_tvVenta, ventaCuotasSel)[0]||0; }
+  if(ventaTipo!=='prestamo' && ventaCuotasSel>1){ _primeraCuotaVenta = planVentaFormulario(_tvVenta, ventaCuotasSel)[0]||0; }
   if(ventaMontoCuotaManual>0) _primeraCuotaVenta=ventaMontoCuotaManual;
   const _esQuincenalVenta=!!(document.getElementById('v_quincenal')&&document.getElementById('v_quincenal').checked);
   if(_esQuincenalVenta&&_primeraCuotaVenta>0) _primeraCuotaVenta=Math.round(_primeraCuotaVenta/2/100)*100;
@@ -8397,6 +8584,7 @@ async function saveVenta(){
     montoInvertido: _montoInvertidoVenta,
     revendedor:(document.getElementById('v_revend')?document.getElementById('v_revend').value.trim():''),
     fecha:document.getElementById('v_fecha').value, cuotas:ventaCuotasSel, pagadas:0,
+    abonos:ventaTresSinInteres===true?{__tresSinInteres:true}:{},
     quincenal:_esQuincenalVenta,
     quincenalDividido:_esQuincenalVenta,
     venceManual:(ventaTipo==='prestamo' && document.getElementById('p_vence')?document.getElementById('p_vence').value:''),
@@ -9112,12 +9300,19 @@ function reciboHTML(v, cli, tipo, cuotaNum){
   for(let i=0;i<nFilas;i++){
     const c=cuotas[i];
     if(c){
-      const est = c.pagada ? '<span style="color:#1DB954;font-weight:800;">pagado</span>' : '<span style="color:#FF7A00;font-weight:800;">pendiente</span>';
+      const est = c.pagada
+        ? '<span style="color:#1DB954;font-weight:800;">pagado</span>'
+        : c.parcial
+          ? '<span style="color:#b35c00;font-weight:800;">pago parcial</span>'
+          : '<span style="color:#FF7A00;font-weight:800;">pendiente</span>';
+      const hist=v.abonos&&v.abonos.__historial&&v.abonos.__historial[c.num];
+      const fechaParcial=Array.isArray(hist)&&hist.length?hist[hist.length-1].fecha:'';
+      const obs=c.parcial?`Abonó $${fmt(c.abono)} · resta $${fmt(c.resta)}${fechaParcial?' · '+dispDate(fechaParcial):''}`:'';
       filas+=`<tr><td style="text-align:center;color:#FF7A00;font-weight:800;border:1px solid #d9e1ee;padding:4px 4px;">${i+1}</td>
         <td style="text-align:center;font-weight:700;border:1px solid #d9e1ee;padding:4px 4px;">${dispDate(c.vence)}</td>
         <td style="text-align:center;font-weight:800;border:1px solid #d9e1ee;padding:4px 4px;">$${fmt(c.monto)}</td>
         <td style="text-align:center;border:1px solid #d9e1ee;padding:4px 4px;">${est}</td>
-        <td style="border:1px solid #d9e1ee;padding:4px 4px;"></td></tr>`;
+        <td style="border:1px solid #d9e1ee;padding:4px 4px;font-size:9px;">${obs}</td></tr>`;
     } else {
       filas+=`<tr><td style="text-align:center;color:#FF7A00;font-weight:800;border:1px solid #d9e1ee;padding:4px 4px;">${i+1}</td><td style="border:1px solid #d9e1ee;padding:4px;"></td><td style="border:1px solid #d9e1ee;padding:4px;"></td><td style="border:1px solid #d9e1ee;padding:4px;"></td><td style="border:1px solid #d9e1ee;padding:4px;"></td></tr>`;
     }
@@ -9872,6 +10067,7 @@ function formEditarVenta(id){
     return;
   }
   ventaCuotasSel=v.cuotas||1;
+  ventaTresSinInteres=esTresSinInteres(v);
   ventaMontoCuotaManual=v.montoCuota||0;
   ventaInversores=listaInversoresVenta(v).map(x=>({nombre:x.nombre, pct:x.pct, tipo:x.tipo||'amarango'}));
   // cargar items: si la venta ya tiene items, usarlos; si no, reconstruir desde los campos viejos
@@ -9901,6 +10097,10 @@ function formEditarVenta(id){
     <div class="field"><label>Revendedor <span style="color:var(--muted);font-weight:400;">(opc.)</span></label><input id="v_revend" value="${(v.revendedor||'').replace(/"/g,'&quot;')}" placeholder="Nombre"></div>
     <div class="field"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="v_desc" style="width:auto;" onchange="recalcItems()"> Aplicar descuento 10% al total</label><div id="descPreview"></div></div>
     <div class="field"><label>Plan de pago</label><div id="cuotasChips">${[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>`<span class="chip ${n===ventaCuotasSel?'sel':''}" data-c="${n}" onclick="selCuota(${n})">${n===1?'Contado':n+' cuotas'}</span>`).join('')}</div></div>
+    <div class="card" style="padding:10px 14px;margin-bottom:12px;border:1.5px solid var(--orange);background:#fff8f0;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;"><input type="checkbox" id="v_tres_sin_interes" ${ventaTresSinInteres?'checked':''} style="width:auto;" onchange="toggleTresSinInteres(this.checked)"><span style="font-weight:800;color:var(--orange);">3 cuotas sin interés</span></label>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px;">Usa el total del plan de 2 cuotas y lo divide en 3 pagos.</div>
+    </div>
     <div class="card" id="cajonQuincVentaBox" style="padding:10px 14px;margin-bottom:12px;display:${ventaCuotasSel>1?'block':'none'};">
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;">
         <input type="checkbox" id="v_quincenal" ${v.quincenal===true?'checked':''} style="width:auto;" onchange="recalcItems()">
@@ -9937,6 +10137,10 @@ function renderPlanEdicion(v){
 function setCuotasEdicion(n){
   ventaCuotasSel=n;
   ventaMontoCuotaManual=0;
+  if(n!==3) ventaTresSinInteres=false;
+  const tsi=document.getElementById('v_tres_sin_interes'); if(tsi) tsi.checked=ventaTresSinInteres;
+  document.querySelectorAll('#cuotasChips .chip').forEach(x=>x.classList.toggle('sel',+x.dataset.c===n));
+  const qb=document.getElementById('cajonQuincVentaBox'); if(qb) qb.style.display=n>1?'block':'none';
   try{ renderPlanEdicion(); }catch(e){}
   try{ recalcItems(); }catch(e){}
 }
@@ -9952,6 +10156,8 @@ async function guardarEdicionVenta(id){
   v.envio=+document.getElementById('v_envio').value||0;
   v.responsable=document.getElementById('v_resp').value;
   v.cuotas=ventaCuotasSel||1;   // 💳 guardar el plan elegido
+  v.abonos=v.abonos||{};
+  if(ventaTresSinInteres===true&&ventaCuotasSel===3) v.abonos.__tresSinInteres=true; else delete v.abonos.__tresSinInteres;
   v.quincenal=!!(document.getElementById('v_quincenal')&&document.getElementById('v_quincenal').checked&&ventaCuotasSel>1);
   v.quincenalDividido=v.quincenal;
   let invsValidos=ventaInversores.filter(x=>x.nombre.trim() && x.pct>0);
@@ -9973,7 +10179,7 @@ async function guardarEdicionVenta(id){
   const _tvE=totalVentaItems();
   const _tieneRevE=document.getElementById('v_revend') && document.getElementById('v_revend').value.trim();
   const _comE=_tieneRevE ? Math.round(_tvE*((ventaCuotasSel>1)?0.15:0.10)) : 0;
-  let _pcE=0; if(v.tipo!=='prestamo' && ventaCuotasSel>1){ _pcE=planCuotas(_tvE, ventaCuotasSel)[0]||0; }
+  let _pcE=0; if(v.tipo!=='prestamo' && ventaCuotasSel>1){ _pcE=planVentaFormulario(_tvE, ventaCuotasSel)[0]||0; }
   if(ventaMontoCuotaManual>0) _pcE=ventaMontoCuotaManual;
   if(v.quincenal&&_pcE>0) _pcE=Math.round(_pcE/2/100)*100;
   const _com1raE=primeraParteComisionParaInversion(_comE, ventaCuotasSel, _pcE);
