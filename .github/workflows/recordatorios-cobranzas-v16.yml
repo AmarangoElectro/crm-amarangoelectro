@@ -1,0 +1,44 @@
+name: Recordatorios de cobranzas V16
+
+# Mail de cobranzas de AmarangoElectro V16 (app nueva), con la misma configuración
+# que "Recordatorios de cobranzas": 9:07 de Argentina, a Angie y Maxi, mismo Gmail.
+# No reemplaza ni modifica el recordatorio del CRM: conviven hasta que se decida.
+on:
+  schedule:
+    - cron: "7 9 * * *"
+      timezone: "America/Argentina/Buenos_Aires"
+  workflow_dispatch:
+    inputs:
+      prueba:
+        description: "Sólo probar, sin enviar mails"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  enviar-recordatorio-v16:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Enviar recordatorio V16 a Angie y Maxi
+        env:
+          SMTP_APP_PASSWORD: ${{ secrets.SMTP_APP_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.V16_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.V16_SUPABASE_SECRET_KEY }}
+          V16_REMINDER_READER_EMAIL: ${{ vars.V16_REMINDER_READER_EMAIL }}
+          V16_REMINDER_DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.prueba && '1' || '0' }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SECRET_KEY" ]; then
+            echo "::notice::Faltan los secrets V16_SUPABASE_URL y V16_SUPABASE_SECRET_KEY (STAGING de V16). No se envía el mail V16 hasta cargarlos."
+            exit 0
+          fi
+          python scripts/enviar_recordatorios_v16.py
