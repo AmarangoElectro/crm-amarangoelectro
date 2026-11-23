@@ -5791,11 +5791,11 @@ function renderVendedores(){
     ${vendedorSel!=='todos'?`<button class="btn btn-orange" style="margin-bottom:8px;" onclick="verCierreVendedorPDF()">📄 Ver y descargar cierre mensual PDF</button>`:''}
     <button class="btn btn-blue" style="margin-bottom:12px;" onclick="abrirExportarExcel()">📊 Descargar Excel interno por período</button>
     <div class="sec-title">Seguimiento de clientes</div>
-    ${filas.length?`<div class="planilla-hint">← deslizá para ver todo →</div><div class="planilla-wrap cob-planilla-wrap"><table class="planilla cob-planilla"><thead><tr><th>Estado</th><th>Vendedor</th><th>Cliente</th><th>Producto</th><th>Cuota</th><th>Pagado</th><th>Saldo</th><th>Próximo venc.</th></tr></thead><tbody>${filas.map(x=>{
+    ${filas.length?`<div class="planilla-hint">← deslizá para ver todo →</div><div class="planilla-wrap cob-planilla-wrap"><table class="planilla cob-planilla"><thead><tr><th>Estado</th><th>Vendedor</th><th>Cliente</th><th>Producto</th><th>Cuota</th><th>Comisión</th><th>Próximo venc.</th></tr></thead><tbody>${filas.map(x=>{
       const est=x.dias<0?`🔴 ${Math.abs(x.dias)} días de atraso`:x.dias<=7?`🟠 En ${x.dias} días`:`🟢 En ${x.dias} días`;
-      const cuotas=ventaCuotas(x.v), pagado=cuotas.reduce((s,c)=>s+(c.pagada?c.monto:(c.abono||0)),0), saldo=cuotas.reduce((s,c)=>s+(c.resta||0),0);
+      const cuotas=ventaCuotas(x.v), comision=comisionRevendedor(x.v);
       const actual=Math.max(1,Number(x.px.num||1)), total=Math.max(actual,cuotas.length||cantidadPagosVenta(x.v));
-      return `<tr onclick="detalleVenta('${x.v.id}')" style="cursor:pointer"><td>${est}</td><td>${escHtml(x.vendedor)}</td><td><b>${escHtml(x.cli.nombre)}</b></td><td>${escHtml(x.v.producto||'—')}</td><td><b>Cuota ${actual} de ${total}</b>${x.v.quincenal?'<br><small>Quincenal</small>':''}</td><td class="col-monto">$${fmt(pagado)}</td><td class="col-monto">$${fmt(saldo)}</td><td>${dispDate(x.px.vence)}</td></tr>`;
+      return `<tr onclick="detalleVenta('${x.v.id}')" style="cursor:pointer"><td>${est}</td><td>${escHtml(x.vendedor)}</td><td><b>${escHtml(x.cli.nombre)}</b></td><td>${escHtml(x.v.producto||'—')}</td><td><b>${actual}/${total}</b>${x.v.quincenal?'<br><small>Quincenal</small>':''}</td><td class="col-monto" style="color:var(--green);font-weight:800;">$${fmt(comision)}</td><td>${dispDate(x.px.vence)}</td></tr>`;
     }).join('')}</tbody></table></div>`:emptyState('🤝','Sin créditos activos','No hay cuotas pendientes para este filtro')}`;
 }
 function verCierreVendedorPDF(){
@@ -5812,7 +5812,7 @@ async function descargarCierreVendedorPDF(){
 }
 function abrirExportarExcel(){
   const desde=new Date(today().getFullYear(),today().getMonth()-2,1), hasta=new Date(today().getFullYear(),today().getMonth()+1,0);
-  openModal(`<div class="modal-title">📊 Excel interno</div><div class="modal-sub">Una solapa por mes, con ventas nuevas y créditos activos.</div><div class="field-row"><div class="field"><label>Desde</label><input id="xlsDesde" type="month" value="${isoDate(desde).slice(0,7)}"></div><div class="field"><label>Hasta</label><input id="xlsHasta" type="month" value="${isoDate(hasta).slice(0,7)}"></div></div><div class="field"><label>Vendedor</label><select id="xlsVend"><option value="todos">Todos los vendedores</option>${listaVendedores().map(n=>`<option value="${escHtml(n)}" ${normPersona(vendedorSel)===normPersona(n)?'selected':''}>${escHtml(n)}</option>`).join('')}</select></div>`,{onGuardar:'descargarExcelInterno()',textoGuardar:'📥 Descargar Excel'});
+  openModal(`<div class="modal-title">📊 Excel interno</div><div class="modal-sub">Una solapa por mes, con cliente, vendedor, producto, cuota y comisión.</div><div class="field-row"><div class="field"><label>Desde</label><input id="xlsDesde" type="month" value="${isoDate(desde).slice(0,7)}"></div><div class="field"><label>Hasta</label><input id="xlsHasta" type="month" value="${isoDate(hasta).slice(0,7)}"></div></div><div class="field"><label>Vendedor</label><select id="xlsVend"><option value="todos">Todos los vendedores</option>${listaVendedores().map(n=>`<option value="${escHtml(n)}" ${normPersona(vendedorSel)===normPersona(n)?'selected':''}>${escHtml(n)}</option>`).join('')}</select></div>`,{onGuardar:'descargarExcelInterno()',textoGuardar:'📥 Descargar Excel'});
 }
 function clavesMeses(desde,hasta){
   const a=String(desde).split('-'), b=String(hasta).split('-'), out=[];
@@ -5827,19 +5827,27 @@ async function descargarExcelInterno(){
   const wb=XLSX.utils.book_new();
   clavesMeses(desde,hasta).forEach(mes=>{
     const rows=[];
-    DB.ventas.filter(v=>coincideVendedor(v,vend)&&mesClaveFecha(v.fecha)===mes).forEach(v=>{
-      const cli=DB.clientes.find(c=>c.id===v.clienteId)||{}, pc=reparteComisionEnCuotas(v);
-      const cobCom=ventaCuotas(v).reduce((s,c)=>s+((c.pagada&&mesClaveFecha(fechaPagoCuota(v,c))===mes)?Number(pc[c.num-1]||0):0),0);
-      rows.push({'Tipo de registro':'VENTA NUEVA','Fecha':dispDate(v.fecha),'Vendedor':vendedorDeVenta(v),'Cliente':cli.nombre||'','DNI':cli.dni||'','Teléfono':cli.telefono||'','Producto':v.producto||'','Plan':v.quincenal?'Quincenal '+cantidadPagosVenta(v):cantidadPagosVenta(v)+' pagos','Total venta':totalPagadoVenta(v),'Total cobrado':'','Saldo':'','Próximo vencimiento':'','Comisión total':comisionRevendedor(v),'Comisión cobrada en el mes':cobCom});
-    });
     DB.ventas.filter(v=>coincideVendedor(v,vend)).forEach(v=>{
       const cs=ventaCuotas(v), delMes=cs.filter(c=>mesClaveFecha(c.vence)===mes); if(!delMes.length) return;
-      const cli=DB.clientes.find(c=>c.id===v.clienteId)||{}, cob=delMes.reduce((s,c)=>s+(c.pagada?c.monto:(c.abono||0)),0), saldo=delMes.reduce((s,c)=>s+(c.resta||0),0), px=cs.find(c=>!c.pagada), pc=reparteComisionEnCuotas(v);
-      const cobCom=cs.reduce((s,c)=>s+((c.pagada&&mesClaveFecha(fechaPagoCuota(v,c))===mes)?Number(pc[c.num-1]||0):0),0);
-      rows.push({'Tipo de registro':'CRÉDITO ACTIVO','Fecha':dispDate(v.fecha),'Vendedor':vendedorDeVenta(v),'Cliente':cli.nombre||'','DNI':cli.dni||'','Teléfono':cli.telefono||'','Producto':v.producto||'','Plan':v.quincenal?'Quincenal '+cantidadPagosVenta(v):cantidadPagosVenta(v)+' pagos','Total venta':totalPagadoVenta(v),'Total cobrado':cob,'Saldo':saldo,'Próximo vencimiento':px?dispDate(px.vence):'Saldado','Comisión total':comisionRevendedor(v),'Comisión cobrada en el mes':cobCom});
+      const cli=DB.clientes.find(c=>c.id===v.clienteId)||{}, total=Math.max(1,cs.length||cantidadPagosVenta(v));
+      const cuotasMes=delMes.map(c=>c.num+'/'+total).join(' y ')+(v.quincenal?' (quincenal)':'');
+      const estado=delMes.every(c=>c.pagada)?'Cobrada':delMes.some(c=>c.pagada||c.parcial)?'Parcial':'Pendiente';
+      const partesCom=reparteComisionEnCuotas(v);
+      const comisionCuotas=delMes.reduce((s,c)=>s+Number(partesCom[c.num-1]||0),0);
+      rows.push({
+        'Tipo de registro':mesClaveFecha(v.fecha)===mes?'VENTA NUEVA':'CRÉDITO ACTIVO',
+        'Fecha de venta':dispDate(v.fecha),
+        'Vendedor':vendedorDeVenta(v),
+        'Cliente':cli.nombre||'',
+        'Producto':v.producto||'',
+        'Cuota':cuotasMes,
+        'Estado':estado,
+        'Comisión total':comisionRevendedor(v),
+        'Comisión de la cuota':comisionCuotas
+      });
     });
     const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{'Tipo de registro':'Sin movimientos'}]);
-    ws['!cols']=[{wch:18},{wch:13},{wch:20},{wch:25},{wch:14},{wch:16},{wch:35},{wch:22},{wch:15},{wch:15},{wch:15},{wch:20},{wch:16},{wch:24}];
+    ws['!cols']=[{wch:18},{wch:15},{wch:20},{wch:28},{wch:38},{wch:18},{wch:14},{wch:18},{wch:21}];
     XLSX.utils.book_append_sheet(wb,ws,nombreMesClave(mes).slice(0,31));
   });
   XLSX.writeFile(wb,'Amarango_ventas_y_creditos_'+desde+'_a_'+hasta+'.xlsx');
@@ -11621,7 +11629,7 @@ const APP_NOMBRE = "AmarangoElectro";
 /* ═══════ 🔄 AUTO-ACTUALIZADOR ═══════
    Revisa si hay una versión nueva del CRM y avisa para recargar.
    Así nadie tiene que borrar caché nunca más. */
-const CRM_VERSION = '2026-11-23-v18-movil-vendedores';   // ← cambiar en cada actualización
+const CRM_VERSION = '2026-11-23-v19-vendedores-cuotas';   // ← cambiar en cada actualización
 
 async function forzarActualizarCRM(){
   try{ toast('🔄 Actualizando…'); }catch(e){}
